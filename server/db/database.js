@@ -17,10 +17,12 @@ let db;
 /**
  * Initialize database connection
  */
-export async function initDatabase() {
-    if (db) return db;
+export async function initDatabase(forceReload = false) {
+    if (db && !forceReload) return db;
 
-    SQL = await initSqlJs();
+    if (!SQL) {
+        SQL = await initSqlJs();
+    }
 
     // Load existing database or create new one
     if (existsSync(DB_PATH)) {
@@ -246,25 +248,42 @@ function updateRanks(tournamentId) {
 }
 
 export function getLeaderboard(tournamentId, limit = 100) {
-    return all(`
+    const rows = all(`
         SELECT
             rank,
-            player_address as address,
-            total_score as score,
-            last_updated as lastUpdated
+            player_address,
+            total_score,
+            last_updated
         FROM leaderboard
         WHERE tournament_id = ?
         ORDER BY total_score DESC
         LIMIT ?
     `, [tournamentId, limit]);
+
+    // Map to expected format
+    return rows.map(row => ({
+        rank: row.rank,
+        address: row.player_address,
+        score: row.total_score,
+        lastUpdated: row.last_updated
+    }));
 }
 
 export function getPlayerRank(tournamentId, playerAddress) {
-    return get(`
-        SELECT rank, total_score as score, player_address as address
+    const row = get(`
+        SELECT rank, total_score, player_address
         FROM leaderboard
         WHERE tournament_id = ? AND player_address = ?
     `, [tournamentId, playerAddress]);
+
+    if (!row) return null;
+
+    // Map to expected format
+    return {
+        rank: row.rank,
+        score: row.total_score,
+        address: row.player_address
+    };
 }
 
 export function getTournamentStats(tournamentId) {

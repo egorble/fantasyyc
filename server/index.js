@@ -8,7 +8,7 @@ import cors from 'cors';
 import * as db from './db/database.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3003;
 
 // Middleware
 app.use(cors());
@@ -95,14 +95,10 @@ app.get('/api/leaderboard/:tournamentId', (req, res) => {
 
         const leaderboard = db.getLeaderboard(tournamentId, limit);
 
+        // getLeaderboard already returns mapped data
         return res.json({
             success: true,
-            data: leaderboard.map(entry => ({
-                rank: entry.rank,
-                address: entry.player_address,
-                score: entry.total_score,
-                lastUpdated: entry.last_updated
-            }))
+            data: leaderboard
         });
     } catch (error) {
         return res.status(500).json({
@@ -128,13 +124,10 @@ app.get('/api/player/:address/rank/:tournamentId', (req, res) => {
             });
         }
 
+        // getPlayerRank already returns mapped data
         return res.json({
             success: true,
-            data: {
-                rank: rank.rank,
-                score: rank.total_score,
-                address: rank.player_address
-            }
+            data: rank
         });
     } catch (error) {
         return res.status(500).json({
@@ -253,18 +246,71 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`🚀 FantasyYC API Server running on port ${PORT}`);
-    console.log(`📊 Endpoints:`);
-    console.log(`   GET /api/tournaments/active`);
-    console.log(`   GET /api/tournaments/:id`);
-    console.log(`   GET /api/leaderboard/:tournamentId`);
-    console.log(`   GET /api/player/:address/rank/:tournamentId`);
-    console.log(`   GET /api/player/:address/history/:tournamentId`);
-    console.log(`   GET /api/player/:address/cards/:tournamentId`);
-    console.log(`   GET /api/stats/:tournamentId`);
-    console.log(`   GET /api/daily-scores/:tournamentId/:date`);
+/**
+ * POST /api/test/seed
+ * Add demo data for testing
+ */
+app.post('/api/test/seed', (req, res) => {
+    try {
+        // Add tournament
+        db.saveTournament({
+            id: 1,
+            startTime: Math.floor(Date.now() / 1000) - 86400,
+            endTime: Math.floor(Date.now() / 1000) + 518400,
+            prizePool: '1000',
+            entryCount: 1,
+            status: 'active'
+        });
+
+        // Add player
+        const testPlayer = '0x233c8c54f25734b744e522bdc1eed9cbc8c97d0c';
+        db.savePlayer(testPlayer);
+        db.saveTournamentEntry(1, testPlayer);
+
+        // Add leaderboard score
+        db.updateLeaderboard(1, testPlayer, 1250.5);
+
+        res.json({
+            success: true,
+            message: 'Demo data added',
+            data: {
+                leaderboard: db.getLeaderboard(1)
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
+
+// Start server with database initialization
+async function startServer() {
+    try {
+        // Initialize database
+        await db.initDatabase();
+        console.log('✅ Database initialized');
+
+        // Start Express server
+        app.listen(PORT, () => {
+            console.log(`🚀 FantasyYC API Server running on port ${PORT}`);
+            console.log(`📊 Endpoints:`);
+            console.log(`   GET /api/tournaments/active`);
+            console.log(`   GET /api/tournaments/:id`);
+            console.log(`   GET /api/leaderboard/:tournamentId`);
+            console.log(`   GET /api/player/:address/rank/:tournamentId`);
+            console.log(`   GET /api/player/:address/history/:tournamentId`);
+            console.log(`   GET /api/player/:address/cards/:tournamentId`);
+            console.log(`   GET /api/stats/:tournamentId`);
+            console.log(`   GET /api/daily-scores/:tournamentId/:date`);
+        });
+    } catch (error) {
+        console.error('❌ Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+startServer();
 
 export default app;

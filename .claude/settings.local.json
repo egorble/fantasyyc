@@ -3,7 +3,20 @@
     "allow": [
       "WebFetch(domain:docs.twitterapi.io)",
       "Bash(node:*)",
-      "Bash(npm config set:*)"
+      "Bash(npm config set:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run init-db:*)",
+      "Bash(timeout 5 npm start:*)",
+      "Bash(timeout 3 npm start:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm start)",
+      "Bash(curl:*)",
+      "Bash(timeout 30 npm run score:*)",
+      "Bash(timeout 45 npm run score:*)",
+      "Bash(npm run score:*)",
+      "Bash(start /B npm start)"
     ]
   }
 }

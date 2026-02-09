@@ -17,18 +17,27 @@ const twitterScorerPath = join(__dirname, '../../scripts/twitter-league-scorer.j
 const { processStartup } = await import(`file:///${twitterScorerPath.replace(/\\/g, '/')}`);
 
 // Blockchain configuration
-const RPC_URL = 'http://127.0.0.1:8545'; // Local Hardhat node
-const TOURNAMENT_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-const NFT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+const RPC_URL = 'https://node.shadownet.etherlink.com'; // Etherlink Shadownet Testnet
+const PACK_OPENER_ADDRESS = '0x61DB1b7c89F2e5a7DAD55d5e108974d7174A4648';
+const TOURNAMENT_ADDRESS = '0xbB93dd51cF212D439638DB91A51BB54a550a50e8';
+const NFT_ADDRESS = '0x4032B143CEF318ED8bED214cAA2218C95BD462bC';
 
-// Load ABIs
-const tournamentABI = JSON.parse(
-    readFileSync(join(__dirname, '../../contracts/artifacts/contracts/TournamentManager.sol/TournamentManager.json'), 'utf-8')
-).abi;
+// ABIs (minimal needed for scoring)
+const packOpenerABI = [
+    'function activeTournamentId() view returns (uint256)'
+];
 
-const nftABI = JSON.parse(
-    readFileSync(join(__dirname, '../../contracts/artifacts/contracts/StartupNFT.sol/StartupNFT.json'), 'utf-8')
-).abi;
+const tournamentABI = [
+    'function getTournament(uint256 tournamentId) view returns (tuple(uint256 id, uint256 registrationStart, uint256 startTime, uint256 endTime, uint256 prizePool, uint256 entryCount, uint8 status))',
+    'function getTournamentParticipants(uint256 tournamentId) view returns (address[])',
+    'function getUserLineup(uint256 tournamentId, address user) view returns (tuple(uint256[5] cardIds, address owner, uint256 timestamp, bool cancelled, bool claimed))',
+    'function nextTournamentId() view returns (uint256)'
+];
+
+const nftABI = [
+    'function getCardInfo(uint256 tokenId) view returns (tuple(uint256 startupId, uint256 edition, uint8 rarity, uint256 multiplier, bool isLocked, string name))',
+    'function startups(uint256 id) view returns (tuple(string name, uint8 rarity, uint256 multiplier))'
+];
 
 // Rarity multipliers
 const RARITY_MULTIPLIERS = {
@@ -67,19 +76,29 @@ const STARTUP_MAPPING = {
  */
 async function getActiveTournamentFromBlockchain() {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const packOpener = new ethers.Contract(PACK_OPENER_ADDRESS, packOpenerABI, provider);
     const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
 
     try {
-        const tournamentId = await tournament.getCurrentTournament();
-        const tournamentData = await tournament.tournaments(tournamentId);
+        // Get active tournament ID from PackOpener
+        const tournamentId = await packOpener.activeTournamentId();
+
+        if (tournamentId == 0) {
+            console.log('No active tournament set');
+            return null;
+        }
+
+        // Get tournament details
+        const tournamentData = await tournament.getTournament(tournamentId);
 
         const currentTime = Math.floor(Date.now() / 1000);
         const startTime = Number(tournamentData.startTime);
         const endTime = Number(tournamentData.endTime);
-        const registrationEnd = Number(tournamentData.registrationEndTime);
+        const registrationStart = Number(tournamentData.registrationStart);
 
         let status = 'upcoming';
-        if (currentTime < registrationEnd) status = 'registration';
+        if (currentTime < registrationStart) status = 'upcoming';
+        else if (currentTime >= registrationStart && currentTime < startTime) status = 'registration';
         else if (currentTime >= startTime && currentTime < endTime) status = 'active';
         else if (currentTime >= endTime) status = 'ended';
 
@@ -87,8 +106,8 @@ async function getActiveTournamentFromBlockchain() {
             id: Number(tournamentId),
             startTime,
             endTime,
-            registrationEndTime: registrationEnd,
-            prizePool: tournamentData.prizePool,
+            registrationStart,
+            prizePool: ethers.formatEther(tournamentData.prizePool),
             entryCount: Number(tournamentData.entryCount),
             status
         };
@@ -106,8 +125,8 @@ async function getTournamentEntriesFromBlockchain(tournamentId) {
     const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
 
     try {
-        const entries = await tournament.getTournamentEntries(tournamentId);
-        return entries.map(entry => entry.toLowerCase());
+        const participants = await tournament.getTournamentParticipants(tournamentId);
+        return participants.map(addr => addr.toLowerCase());
     } catch (error) {
         console.error('Error fetching entries:', error);
         return [];
@@ -123,16 +142,19 @@ async function getPlayerCards(tournamentId, playerAddress) {
     const nft = new ethers.Contract(NFT_ADDRESS, nftABI, provider);
 
     try {
-        const lockedTokens = await tournament.getPlayerCards(tournamentId, playerAddress);
+        const lineup = await tournament.getUserLineup(tournamentId, playerAddress);
+        const cardIds = lineup.cardIds;
 
         const cards = [];
-        for (const tokenId of lockedTokens) {
-            const cardData = await nft.getCard(tokenId);
+        for (const tokenId of cardIds) {
+            if (tokenId == 0) continue; // Skip empty slots
+
+            const cardInfo = await nft.getCardInfo(tokenId);
             cards.push({
                 tokenId: Number(tokenId),
-                name: cardData.name,
-                rarity: cardData.rarity,
-                multiplier: Number(cardData.multiplier)
+                name: cardInfo.name,
+                rarity: getRarityName(cardInfo.rarity),
+                multiplier: Number(cardInfo.multiplier)
             });
         }
 
@@ -141,6 +163,12 @@ async function getPlayerCards(tournamentId, playerAddress) {
         console.error(`Error fetching cards for ${playerAddress}:`, error);
         return [];
     }
+}
+
+// Helper function to convert rarity number to name
+function getRarityName(rarityNum) {
+    const rarities = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
+    return rarities[rarityNum] || 'Common';
 }
 
 /**
@@ -174,6 +202,9 @@ async function runDailyScoring() {
     console.log('🚀 Daily Tournament Scorer Started');
     console.log('━'.repeat(60));
     console.log(`📅 Date: ${new Date().toISOString().split('T')[0]}`);
+
+    // Initialize database
+    await db.initDatabase();
 
     // 1. Get active tournament
     console.log('\n📊 Step 1: Fetching active tournament...');
