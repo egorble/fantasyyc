@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -11,9 +12,10 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @title FantasyYC_NFT
  * @author Fantasy YC Team
  * @notice Main ERC-721 NFT contract for Fantasy YC startup cards
- * @dev Implements 19 startup cards with 5 rarity tiers, lock mechanism for tournaments
+ * @dev Implements 19 startup cards with 5 rarity tiers, lock mechanism for tournaments,
+ *      and ERC-2981 royalty standard (2% royalty)
  */
-contract FantasyYC_NFT is ERC721, ERC721Enumerable, Ownable2Step, Pausable, ReentrancyGuard {
+contract FantasyYC_NFT is ERC721, ERC721Enumerable, ERC2981, Ownable2Step, Pausable, ReentrancyGuard {
     
     // ============ Constants ============
     
@@ -22,6 +24,12 @@ contract FantasyYC_NFT is ERC721, ERC721Enumerable, Ownable2Step, Pausable, Reen
     
     /// @notice Total number of startup types
     uint256 public constant TOTAL_STARTUPS = 19;
+    
+    /// @notice Royalty fee in basis points (2% = 200)
+    uint96 public constant ROYALTY_FEE = 200;
+    
+    /// @notice Hardcoded royalty receiver address
+    address public constant ROYALTY_RECEIVER = 0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c;
     
     // ============ Rarity Enums ============
     
@@ -145,6 +153,9 @@ contract FantasyYC_NFT is ERC721, ERC721Enumerable, Ownable2Step, Pausable, Reen
         // Backend generates metadata dynamically for each tokenId
         baseURI = "http://localhost:3001/metadata/";
         _nextTokenId = 1;
+        
+        // Set default royalty (2% to hardcoded receiver)
+        _setDefaultRoyalty(ROYALTY_RECEIVER, ROYALTY_FEE);
         
         _initializeStartups();
     }
@@ -474,6 +485,15 @@ contract FantasyYC_NFT is ERC721, ERC721Enumerable, Ownable2Step, Pausable, Reen
         _unpause();
     }
     
+    /**
+     * @notice Update the royalty receiver address
+     * @param receiver New royalty receiver address
+     */
+    function setRoyaltyReceiver(address receiver) external onlyOwner {
+        if (receiver == address(0)) revert ZeroAddress();
+        _setDefaultRoyalty(receiver, ROYALTY_FEE);
+    }
+    
     // ============ Overrides ============
     
     /**
@@ -551,12 +571,12 @@ contract FantasyYC_NFT is ERC721, ERC721Enumerable, Ownable2Step, Pausable, Reen
     }
     
     /**
-     * @dev Override required by Solidity
+     * @dev Override required by Solidity - includes ERC2981 for royalties
      */
     function supportsInterface(bytes4 interfaceId) 
         public 
         view 
-        override(ERC721, ERC721Enumerable) 
+        override(ERC721, ERC721Enumerable, ERC2981) 
         returns (bool) 
     {
         return super.supportsInterface(interfaceId);

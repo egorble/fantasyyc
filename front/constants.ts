@@ -1,116 +1,180 @@
-import { Startup, CardData, Rarity } from './types';
+import { Startup, Rarity } from './types';
 
+// Real YC Startups from the Fantasy YC game
+// Data matches backend server.js STARTUPS
 export const MOCK_STARTUPS: Startup[] = [
   {
     id: '1',
-    name: 'Nexus AI',
+    name: 'Manus',
     batch: 'W24',
-    description: 'Generative infrastructure for enterprise scale.',
-    value: 124.50,
-    change: 2.4,
+    description: 'AI-powered humanoid robots for manufacturing.',
+    value: 2500.00,
+    change: 12.4,
     logo: 'https://picsum.photos/40/40?random=1',
-    coverImage: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=500&fit=crop',
+    coverImage: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&h=500&fit=crop',
     stage: 'Series B',
-    score: 92,
-    trend: [110, 115, 112, 118, 120, 124]
+    score: 98,
+    trend: [2000, 2200, 2100, 2300, 2400, 2500]
   },
   {
     id: '2',
-    name: 'Stellar Health',
-    batch: 'S23',
-    description: 'Personalized longevity tracking and DNA analysis.',
-    value: 95.20,
-    change: -0.5,
+    name: 'Lovable',
+    batch: 'W24',
+    description: 'AI software engineer that builds production apps.',
+    value: 1200.00,
+    change: 8.5,
     logo: 'https://picsum.photos/40/40?random=2',
-    coverImage: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&h=500&fit=crop',
-    stage: 'Seed',
-    score: 88,
-    trend: [98, 97, 96, 95, 96, 95]
+    coverImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=500&fit=crop',
+    stage: 'Series A',
+    score: 96,
+    trend: [900, 950, 1000, 1050, 1100, 1200]
   },
   {
     id: '3',
-    name: 'Orbit Space',
-    batch: 'W23',
-    description: 'Low latency satellite internet for rural areas.',
-    value: 210.00,
-    change: 5.8,
+    name: 'Cursor',
+    batch: 'S23',
+    description: 'AI-first code editor built for pair programming.',
+    value: 2600.00,
+    change: 15.2,
     logo: 'https://picsum.photos/40/40?random=3',
-    coverImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=500&fit=crop',
-    stage: 'Series A',
-    score: 95,
-    trend: [180, 190, 185, 200, 205, 210]
+    coverImage: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=500&fit=crop',
+    stage: 'Series B',
+    score: 97,
+    trend: [2000, 2100, 2200, 2400, 2500, 2600]
   },
   {
     id: '4',
-    name: 'Volt Motors',
-    batch: 'S22',
-    description: 'Solid state EV batteries with 1000 mile range.',
-    value: 88.40,
-    change: 1.2,
+    name: 'Anthropic',
+    batch: 'S21',
+    description: 'AI safety company - creators of Claude.',
+    value: 18000.00,
+    change: 25.0,
     logo: 'https://picsum.photos/40/40?random=4',
-    coverImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=500&fit=crop',
-    stage: 'IPO',
-    score: 76,
-    trend: [80, 82, 85, 84, 86, 88]
+    coverImage: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=500&fit=crop',
+    stage: 'Series D',
+    score: 99,
+    trend: [14000, 15000, 16000, 17000, 17500, 18000]
   },
   {
     id: '5',
-    name: 'GitLab',
-    batch: 'W15',
-    description: 'DevOps platform delivered as a single application.',
-    value: 45.30,
-    change: 3.1,
+    name: 'OpenAI',
+    batch: 'S15',
+    description: 'Leading AI research lab - creators of GPT.',
+    value: 157000.00,
+    change: 45.0,
     logo: 'https://picsum.photos/40/40?random=5',
-    coverImage: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=500&fit=crop',
-    stage: 'Public',
-    score: 82,
-    trend: [40, 41, 42, 43, 44, 45]
+    coverImage: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=500&fit=crop',
+    stage: 'Series E+',
+    score: 100,
+    trend: [100000, 120000, 130000, 140000, 150000, 157000]
   },
   {
     id: '6',
-    name: 'Reddit',
-    batch: 'S05',
-    description: 'The front page of the internet.',
-    value: 34.10,
-    change: -1.2,
+    name: 'Browser Use',
+    batch: 'W24',
+    description: 'AI browser automation for web agents.',
+    value: 50.00,
+    change: 5.2,
     logo: 'https://picsum.photos/40/40?random=6',
-    coverImage: 'https://images.unsplash.com/photo-1557862921-37829c790f19?w=400&h=500&fit=crop',
-    stage: 'Public',
-    score: 89,
-    trend: [36, 35, 35, 34, 34, 34]
+    coverImage: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=500&fit=crop',
+    stage: 'Seed',
+    score: 85,
+    trend: [40, 42, 45, 47, 48, 50]
   },
   {
     id: '7',
-    name: 'Brex',
-    batch: 'W17',
-    description: 'The financial OS for the next generation of business.',
-    value: 12.10,
-    change: 4.5,
+    name: 'Dedalus Labs',
+    batch: 'W23',
+    description: 'Decentralized infrastructure for Web3.',
+    value: 80.00,
+    change: 3.8,
     logo: 'https://picsum.photos/40/40?random=7',
-    coverImage: 'https://images.unsplash.com/photo-1573496359-0933ca23594b?w=400&h=500&fit=crop',
-    stage: 'Series C',
-    score: 91,
-    trend: [10, 11, 11, 12, 12, 12]
+    coverImage: 'https://images.unsplash.com/photo-1639322537228-f710d846310a?w=400&h=500&fit=crop',
+    stage: 'Series A',
+    score: 82,
+    trend: [60, 65, 70, 72, 75, 80]
   },
   {
     id: '8',
-    name: 'Deel',
-    batch: 'W19',
-    description: 'Payroll and compliance for international teams.',
-    value: 156.00,
-    change: 1.8,
+    name: 'Autumn',
+    batch: 'S23',
+    description: 'Insurance automation platform.',
+    value: 120.00,
+    change: 4.5,
     logo: 'https://picsum.photos/40/40?random=8',
-    coverImage: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&h=500&fit=crop',
-    stage: 'Series D',
-    score: 94,
-    trend: [150, 152, 153, 155, 154, 156]
+    coverImage: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400&h=500&fit=crop',
+    stage: 'Series A',
+    score: 80,
+    trend: [100, 105, 108, 110, 115, 120]
+  },
+  {
+    id: '9',
+    name: 'Axiom',
+    batch: 'W22',
+    description: 'ZK coprocessor for Ethereum smart contracts.',
+    value: 200.00,
+    change: 8.0,
+    logo: 'https://picsum.photos/40/40?random=9',
+    coverImage: 'https://images.unsplash.com/photo-1516245834210-c4c142787335?w=400&h=500&fit=crop',
+    stage: 'Series B',
+    score: 88,
+    trend: [150, 160, 170, 180, 190, 200]
+  },
+  {
+    id: '10',
+    name: 'Multifactor',
+    batch: 'W24',
+    description: 'Authentication platform for enterprises.',
+    value: 30.00,
+    change: 2.1,
+    logo: 'https://picsum.photos/40/40?random=10',
+    coverImage: 'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=400&h=500&fit=crop',
+    stage: 'Seed',
+    score: 72,
+    trend: [25, 26, 27, 28, 29, 30]
+  },
+  {
+    id: '11',
+    name: 'Dome',
+    batch: 'S23',
+    description: 'Smart home security and automation.',
+    value: 25.00,
+    change: 1.5,
+    logo: 'https://picsum.photos/40/40?random=11',
+    coverImage: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=400&h=500&fit=crop',
+    stage: 'Seed',
+    score: 68,
+    trend: [20, 21, 22, 23, 24, 25]
+  },
+  {
+    id: '12',
+    name: 'GrazeMate',
+    batch: 'W23',
+    description: 'AgTech for livestock management.',
+    value: 15.00,
+    change: 0.8,
+    logo: 'https://picsum.photos/40/40?random=12',
+    coverImage: 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=400&h=500&fit=crop',
+    stage: 'Seed',
+    score: 65,
+    trend: [12, 13, 13, 14, 14, 15]
   }
 ];
 
-export const MOCK_PACK_CARDS: CardData[] = [
-  { id: 'c1', startupName: 'Vercel', rarity: Rarity.COMMON, value: '10.5', multiplier: '1.2x', image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop' },
-  { id: 'c2', startupName: 'Supabase', rarity: Rarity.COMMON, value: '15.2', multiplier: '1.1x', image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=500&fit=crop' },
-  { id: 'c3', startupName: 'OpenAI', rarity: Rarity.LEGENDARY, value: '500.0', multiplier: '5.0x', image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=500&fit=crop' },
-  { id: 'c4', startupName: 'Brex', rarity: Rarity.RARE, value: '45.0', multiplier: '2.5x', image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=500&fit=crop' },
-  { id: 'c5', startupName: 'Rippling', rarity: Rarity.COMMON, value: '12.8', multiplier: '1.3x', image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=500&fit=crop' },
-];
+// Rarity colors for display
+export const RARITY_COLORS: Record<Rarity, { bg: string; text: string; border: string }> = {
+  [Rarity.COMMON]: { bg: 'bg-gray-800', text: 'text-gray-300', border: 'border-gray-600' },
+  [Rarity.RARE]: { bg: 'bg-green-600', text: 'text-white', border: 'border-green-500' },
+  [Rarity.EPIC]: { bg: 'bg-violet-600', text: 'text-white', border: 'border-violet-500' },
+  [Rarity.EPIC_RARE]: { bg: 'bg-purple-600', text: 'text-white', border: 'border-purple-500' },
+  [Rarity.LEGENDARY]: { bg: 'bg-orange-500', text: 'text-white', border: 'border-orange-400' },
+};
+
+// Rarity multipliers
+export const RARITY_MULTIPLIERS: Record<Rarity, number> = {
+  [Rarity.COMMON]: 1,
+  [Rarity.RARE]: 3,
+  [Rarity.EPIC]: 5,
+  [Rarity.EPIC_RARE]: 8,
+  [Rarity.LEGENDARY]: 10,
+};

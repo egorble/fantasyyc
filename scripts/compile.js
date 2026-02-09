@@ -21,7 +21,8 @@ console.log("🔨 Compiling Fantasy YC Smart Contracts with solc...\n");
 const contractFiles = [
     "FantasyYC_NFT.sol",
     "PackOpener.sol",
-    "TournamentManager.sol"
+    "TournamentManager.sol",
+    "Marketplace.sol"
 ];
 
 // Read contract sources
@@ -144,5 +145,6 @@ console.log("\nFiles generated:");
 console.log("   - FantasyYC_NFT.json");
 console.log("   - PackOpener.json");
 console.log("   - TournamentManager.json");
+console.log("   - Marketplace.json");
 console.log("   - contracts.json (combined)");
 console.log("");

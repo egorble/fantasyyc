@@ -1,9 +1,15 @@
+// Types for Fantasy YC application
+
+// ============ Rarity (matches contract enum) ============
 export enum Rarity {
-  COMMON = 'Common',
-  RARE = 'Rare',
-  LEGENDARY = 'Legendary'
+  COMMON = 'Common',      // 0
+  RARE = 'Rare',          // 1
+  EPIC = 'Epic',          // 2
+  EPIC_RARE = 'EpicRare', // 3
+  LEGENDARY = 'Legendary' // 4
 }
 
+// ============ Startup Display Data ============
 export interface Startup {
   id: string;
   name: string;
@@ -18,7 +24,20 @@ export interface Startup {
   trend: number[]; // For sparkline
 }
 
+// ============ NFT Card Data (from contract) ============
 export interface CardData {
+  tokenId: number;
+  startupId: number;
+  name: string;
+  rarity: Rarity;
+  multiplier: number;
+  isLocked: boolean;
+  image: string;
+  edition: number;
+}
+
+// Legacy CardData for mock (deprecated)
+export interface LegacyCardData {
   id: string;
   startupName: string;
   rarity: Rarity;
@@ -27,17 +46,65 @@ export interface CardData {
   image: string;
 }
 
+// ============ Navigation ============
 export enum NavSection {
   HOME = 'Home',
   MARKETPLACE = 'Marketplace',
   PORTFOLIO = 'My Portfolio',
   LEAGUES = 'Leagues',
-  ANALYTICS = 'Analytics'
+  ANALYTICS = 'Analytics',
+  ADMIN = 'Admin'
 }
 
+// ============ User Profile ============
 export interface UserProfile {
   name: string;
   handle: string;
   balanceXTZ: number;
   avatar: string;
+  address?: string;
+}
+
+// ============ Tournament ============
+export interface Tournament {
+  id: number;
+  name: string;
+  registrationStart: number;
+  startTime: number;
+  endTime: number;
+  prizePool: bigint;
+  entryCount: number;
+  status: 'Created' | 'Active' | 'Finalized' | 'Cancelled';
+}
+
+// ============ Lineup ============
+export interface Lineup {
+  cardIds: number[];
+  owner: string;
+  timestamp: number;
+  cancelled: boolean;
+  claimed: boolean;
+}
+
+// ============ Pack ============
+export interface Pack {
+  id: number;
+  buyer: string;
+  purchaseTime: number;
+  opened: boolean;
+  cardIds: number[];
+}
+
+// Helper to convert legacy to new CardData
+export function legacyToCardData(legacy: LegacyCardData, index: number): CardData {
+  return {
+    tokenId: index,
+    startupId: index,
+    name: legacy.startupName,
+    rarity: legacy.rarity,
+    multiplier: parseFloat(legacy.multiplier) || 1,
+    isLocked: false,
+    image: legacy.image,
+    edition: 1,
+  };
 }

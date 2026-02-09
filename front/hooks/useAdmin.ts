@@ -1,0 +1,396 @@
+// Admin contract operations hook
+import { useState, useCallback } from 'react';
+import { ethers } from 'ethers';
+import {
+    getNFTContract,
+    getPackOpenerContract,
+    getTournamentContract,
+    formatXTZ,
+    CONTRACTS,
+    RPC_URL
+} from '../lib/contracts';
+
+// Admin address (owner)
+export const ADMIN_ADDRESS = '0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c'.toLowerCase();
+
+export function isAdmin(address: string | null): boolean {
+    if (!address) return false;
+    return address.toLowerCase() === ADMIN_ADDRESS;
+}
+
+export interface ContractBalances {
+    nft: bigint;
+    packOpener: bigint;
+    tournament: bigint;
+}
+
+export interface AdminStats {
+    packsSold: number;
+    packPrice: bigint;
+    totalNFTs: number;
+    activeTournamentId: number;
+    nextTournamentId: number;
+}
+
+export interface TournamentData {
+    id: number;
+    registrationStart: number;
+    startTime: number;
+    endTime: number;
+    prizePool: bigint;
+    entryCount: number;
+    status: number; // 0=Created, 1=Active, 2=Finalized, 3=Cancelled
+}
+
+export function useAdmin() {
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // ============ READ FUNCTIONS ============
+
+    // Get contract balances using CONTRACTS addresses directly
+    const getContractBalances = useCallback(async (): Promise<ContractBalances> => {
+        try {
+            const provider = new ethers.JsonRpcProvider(RPC_URL);
+
+            console.log('📊 Fetching contract balances...');
+            console.log('   NFT:', CONTRACTS.NFT);
+            console.log('   PackOpener:', CONTRACTS.PackOpener);
+            console.log('   Tournament:', CONTRACTS.TournamentManager);
+
+            const [nft, packOpener, tournament] = await Promise.all([
+                provider.getBalance(CONTRACTS.NFT),
+                provider.getBalance(CONTRACTS.PackOpener),
+                provider.getBalance(CONTRACTS.TournamentManager),
+            ]);
+
+            console.log('   Balances:', formatXTZ(nft), formatXTZ(packOpener), formatXTZ(tournament));
+            return { nft, packOpener, tournament };
+        } catch (e) {
+            console.error('Error getting balances:', e);
+            return { nft: BigInt(0), packOpener: BigInt(0), tournament: BigInt(0) };
+        }
+    }, []);
+
+    // Get admin stats
+    const getAdminStats = useCallback(async (): Promise<AdminStats> => {
+        try {
+            const packContract = getPackOpenerContract();
+            const nftContract = getNFTContract();
+            const tournamentContract = getTournamentContract();
+
+            const [packsSold, packPrice, totalNFTs, activeTournamentId, nextTournamentId] = await Promise.all([
+                packContract.packsSold(),
+                packContract.currentPackPrice(),
+                nftContract.totalSupply(),
+                packContract.activeTournamentId(),
+                tournamentContract.nextTournamentId(),
+            ]);
+
+            return {
+                packsSold: Number(packsSold),
+                packPrice,
+                totalNFTs: Number(totalNFTs),
+                activeTournamentId: Number(activeTournamentId),
+                nextTournamentId: Number(nextTournamentId),
+            };
+        } catch (e) {
+            console.error('Error getting admin stats:', e);
+            return { packsSold: 0, packPrice: BigInt(5e18), totalNFTs: 0, activeTournamentId: 0, nextTournamentId: 0 };
+        }
+    }, []);
+
+    // Get all tournaments
+    const getTournaments = useCallback(async (): Promise<TournamentData[]> => {
+        try {
+            const contract = getTournamentContract();
+            const nextId = await contract.nextTournamentId();
+            const count = Number(nextId);
+
+            console.log('🏆 Fetching', count, 'tournaments...');
+
+            const tournaments: TournamentData[] = [];
+            for (let i = 0; i < count; i++) {
+                try {
+                    const t = await contract.getTournament(i);
+                    tournaments.push({
+                        id: Number(t.id),
+                        registrationStart: Number(t.registrationStart),
+                        startTime: Number(t.startTime),
+                        endTime: Number(t.endTime),
+                        prizePool: t.prizePool,
+                        entryCount: Number(t.entryCount),
+                        status: Number(t.status),
+                    });
+                } catch (e) {
+                    console.error('Error fetching tournament', i, e);
+                }
+            }
+
+            return tournaments;
+        } catch (e) {
+            console.error('Error getting tournaments:', e);
+            return [];
+        }
+    }, []);
+
+    // ============ PACK OPENER ADMIN ============
+
+    // Withdraw funds from PackOpener
+    const withdrawPackOpener = useCallback(async (signer: ethers.Signer): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getPackOpenerContract(signer);
+            console.log('💰 Withdrawing from PackOpener...');
+
+            const tx = await contract.withdraw({ gasLimit: 100000 });
+            await tx.wait();
+
+            console.log('✅ Withdrawal successful');
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Withdrawal failed';
+            console.error('❌ Withdrawal error:', msg);
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Set pack price
+    const setPackPrice = useCallback(async (
+        signer: ethers.Signer,
+        priceInXTZ: number
+    ): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getPackOpenerContract(signer);
+            const priceWei = ethers.parseEther(priceInXTZ.toString());
+
+            console.log('💰 Setting pack price to', priceInXTZ, 'XTZ');
+            const tx = await contract.setPackPrice(priceWei, { gasLimit: 100000 });
+            await tx.wait();
+
+            console.log('✅ Pack price updated');
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Failed to set price';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Set active tournament
+    const setActiveTournament = useCallback(async (
+        signer: ethers.Signer,
+        tournamentId: number
+    ): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getPackOpenerContract(signer);
+            console.log('🏆 Setting active tournament to', tournamentId);
+
+            const tx = await contract.setActiveTournament(tournamentId, { gasLimit: 100000 });
+            await tx.wait();
+
+            console.log('✅ Active tournament updated');
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Failed to set tournament';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // ============ TOURNAMENT ADMIN ============
+
+    // Create tournament
+    const createTournament = useCallback(async (
+        signer: ethers.Signer,
+        registrationStart: number, // Unix timestamp
+        startTime: number,
+        endTime: number
+    ): Promise<{ success: boolean; tournamentId?: number; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getTournamentContract(signer);
+            console.log('🏆 Creating tournament...');
+
+            const tx = await contract.createTournament(
+                registrationStart,
+                startTime,
+                endTime,
+                { gasLimit: 300000 }
+            );
+            const receipt = await tx.wait();
+
+            // Parse event to get tournament ID
+            let tournamentId: number | undefined;
+            for (const log of receipt.logs) {
+                try {
+                    const parsed = contract.interface.parseLog(log);
+                    if (parsed?.name === 'TournamentCreated') {
+                        tournamentId = Number(parsed.args.tournamentId);
+                        break;
+                    }
+                } catch { }
+            }
+
+            console.log('✅ Tournament created:', tournamentId);
+            return { success: true, tournamentId };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Failed to create tournament';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Finalize tournament with winners
+    const finalizeTournament = useCallback(async (
+        signer: ethers.Signer,
+        tournamentId: number,
+        winners: string[],
+        amounts: bigint[]
+    ): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getTournamentContract(signer);
+            console.log('🏆 Finalizing tournament', tournamentId);
+
+            const tx = await contract.finalizeTournament(
+                tournamentId,
+                winners,
+                amounts,
+                { gasLimit: 500000 }
+            );
+            await tx.wait();
+
+            console.log('✅ Tournament finalized');
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Failed to finalize';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Cancel tournament
+    const cancelTournament = useCallback(async (
+        signer: ethers.Signer,
+        tournamentId: number
+    ): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getTournamentContract(signer);
+            console.log('❌ Cancelling tournament', tournamentId);
+
+            const tx = await contract.cancelTournament(tournamentId, { gasLimit: 300000 });
+            await tx.wait();
+
+            console.log('✅ Tournament cancelled');
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Failed to cancel';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Emergency withdraw from TournamentManager
+    const emergencyWithdrawTournament = useCallback(async (
+        signer: ethers.Signer,
+        amount: bigint,
+        to: string
+    ): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getTournamentContract(signer);
+            console.log('💰 Emergency withdraw', formatXTZ(amount), 'XTZ to', to);
+
+            const tx = await contract.emergencyWithdraw(amount, to, { gasLimit: 100000 });
+            await tx.wait();
+
+            console.log('✅ Emergency withdrawal successful');
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Withdrawal failed';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // ============ PAUSE/UNPAUSE ============
+
+    const pausePackOpener = useCallback(async (signer: ethers.Signer) => {
+        const contract = getPackOpenerContract(signer);
+        const tx = await contract.pause({ gasLimit: 100000 });
+        await tx.wait();
+    }, []);
+
+    const unpausePackOpener = useCallback(async (signer: ethers.Signer) => {
+        const contract = getPackOpenerContract(signer);
+        const tx = await contract.unpause({ gasLimit: 100000 });
+        await tx.wait();
+    }, []);
+
+    const pauseTournament = useCallback(async (signer: ethers.Signer) => {
+        const contract = getTournamentContract(signer);
+        const tx = await contract.pause({ gasLimit: 100000 });
+        await tx.wait();
+    }, []);
+
+    const unpauseTournament = useCallback(async (signer: ethers.Signer) => {
+        const contract = getTournamentContract(signer);
+        const tx = await contract.unpause({ gasLimit: 100000 });
+        await tx.wait();
+    }, []);
+
+    return {
+        isLoading,
+        error,
+        // Read
+        getContractBalances,
+        getAdminStats,
+        getTournaments,
+        // PackOpener
+        withdrawPackOpener,
+        setPackPrice,
+        setActiveTournament,
+        pausePackOpener,
+        unpausePackOpener,
+        // Tournament
+        createTournament,
+        finalizeTournament,
+        cancelTournament,
+        emergencyWithdrawTournament,
+        pauseTournament,
+        unpauseTournament,
+    };
+}

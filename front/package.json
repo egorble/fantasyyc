@@ -13,7 +13,8 @@
     "react-dom": "^19.2.4",
     "lucide-react": "^0.563.0",
     "recharts": "^3.7.0",
-    "gsap": "3.12.5"
+    "gsap": "3.12.5",
+    "ethers": "^6.13.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

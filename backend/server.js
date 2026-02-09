@@ -149,6 +149,27 @@ function generateMockToken(tokenId) {
     };
 }
 
+// ============ Token Cache ============
+
+// In-memory cache for token data (avoids repeated blockchain queries)
+const tokenCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedToken(tokenId) {
+    const cached = tokenCache.get(tokenId);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data;
+    }
+    return null;
+}
+
+function setCachedToken(tokenId, data) {
+    tokenCache.set(tokenId, {
+        data,
+        timestamp: Date.now()
+    });
+}
+
 // ============ API Routes ============
 
 /**
@@ -160,7 +181,8 @@ app.get("/", (req, res) => {
         version: "1.0.0",
         status: "running",
         contract: NFT_CONTRACT_ADDRESS,
-        network: RPC_URL.includes("shadownet") ? "Etherlink Shadownet" : "Unknown"
+        network: RPC_URL.includes("shadownet") ? "Etherlink Shadownet" : "Unknown",
+        cacheSize: tokenCache.size
     });
 });
 
@@ -178,28 +200,43 @@ app.get("/metadata/:tokenId", async (req, res) => {
 
         let startupId, edition, isLocked, totalMinted;
 
-        // Try to get data from contract, fallback to mock
-        if (nftContract) {
-            try {
-                startupId = Number(await nftContract.tokenToStartup(tokenId));
-                edition = Number(await nftContract.tokenToEdition(tokenId));
-                isLocked = await nftContract.isLocked(tokenId);
-                totalMinted = Number(await nftContract.startupMintCount(startupId));
-            } catch (contractError) {
-                console.log(`⚠️  Token ${tokenId} not found on chain, using mock data`);
+        // Check cache first
+        const cached = getCachedToken(tokenId);
+        if (cached) {
+            startupId = cached.startupId;
+            edition = cached.edition;
+            isLocked = cached.isLocked;
+            totalMinted = cached.totalMinted;
+        } else {
+            // Try to get data from contract, fallback to mock
+            if (nftContract) {
+                try {
+                    startupId = Number(await nftContract.tokenToStartup(tokenId));
+                    edition = Number(await nftContract.tokenToEdition(tokenId));
+                    isLocked = await nftContract.isLocked(tokenId);
+                    totalMinted = Number(await nftContract.startupMintCount(startupId));
+
+                    // Cache successful blockchain data
+                    setCachedToken(tokenId, { startupId, edition, isLocked, totalMinted });
+                } catch (contractError) {
+                    console.log(`⚠️  Token ${tokenId} not found on chain, using mock data`);
+                    const mock = generateMockToken(tokenId);
+                    startupId = mock.startupId;
+                    edition = mock.edition;
+                    isLocked = mock.isLocked;
+                    totalMinted = mock.totalMinted;
+
+                    // Cache mock data too (with shorter TTL - handled by fallback logic)
+                    setCachedToken(tokenId, { startupId, edition, isLocked, totalMinted, isMock: true });
+                }
+            } else {
+                // Use mock data for testing
                 const mock = generateMockToken(tokenId);
                 startupId = mock.startupId;
                 edition = mock.edition;
                 isLocked = mock.isLocked;
                 totalMinted = mock.totalMinted;
             }
-        } else {
-            // Use mock data for testing
-            const mock = generateMockToken(tokenId);
-            startupId = mock.startupId;
-            edition = mock.edition;
-            isLocked = mock.isLocked;
-            totalMinted = mock.totalMinted;
         }
 
         // Get startup info
