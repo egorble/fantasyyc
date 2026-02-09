@@ -30,8 +30,12 @@ const Analytics: React.FC = () => {
                             </defs>
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#888', fontSize: 12}} />
                             <YAxis axisLine={false} tickLine={false} tick={{fill: '#888', fontSize: 12}} />
-                            <Tooltip 
-                                contentStyle={{backgroundColor: '#121212', border: '1px solid #333', borderRadius: '8px'}}
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: '#1A1A1A',
+                                    border: '1px solid #333',
+                                    borderRadius: '8px'
+                                }}
                                 itemStyle={{color: '#fff'}}
                             />
                             <Area type="monotone" dataKey="value" stroke="#F26522" fillOpacity={1} fill="url(#colorValue)" />

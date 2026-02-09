@@ -1,7 +1,7 @@
 // Universal hook for cache-first data with auto-polling
 // Shows cached data immediately, refreshes in background
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { blockchainCache, POLLING_INTERVALS } from '../lib/cache';
 
 type UsePollingDataOptions = {
@@ -29,6 +29,12 @@ export function usePollingData<T>(
         cacheKey
     } = options;
 
+    // Use ref to store fetcher to avoid infinite loops from dependency changes
+    const fetcherRef = useRef(fetcher);
+    useEffect(() => {
+        fetcherRef.current = fetcher;
+    }, [fetcher]);
+
     const [data, setData] = useState<T | undefined>(() => blockchainCache.get<T>(cacheKey));
     const [isLoading, setIsLoading] = useState(false);
     const [isStale, setIsStale] = useState(blockchainCache.isStale(cacheKey));
@@ -40,7 +46,7 @@ export function usePollingData<T>(
         setIsLoading(true);
         setError(null);
         try {
-            const freshData = await fetcher();
+            const freshData = await fetcherRef.current();
             blockchainCache.set(cacheKey, freshData);
             setData(freshData);
             setIsStale(false);
@@ -51,7 +57,7 @@ export function usePollingData<T>(
         } finally {
             setIsLoading(false);
         }
-    }, [fetcher, cacheKey]);
+    }, [cacheKey]);
 
     useEffect(() => {
         if (!enabled) return;
@@ -59,7 +65,7 @@ export function usePollingData<T>(
         // Subscribe to cache updates
         const unsubscribe = blockchainCache.subscribe<T>(
             cacheKey,
-            fetcher,
+            () => fetcherRef.current(),
             (newData) => {
                 setData(newData);
                 setIsStale(false);
@@ -72,7 +78,7 @@ export function usePollingData<T>(
         const cached = blockchainCache.get<T>(cacheKey);
         if (cached === undefined) {
             setIsLoading(true);
-            fetcher()
+            fetcherRef.current()
                 .then(freshData => {
                     blockchainCache.set(cacheKey, freshData);
                     setData(freshData);
@@ -89,7 +95,7 @@ export function usePollingData<T>(
         return () => {
             unsubscribe();
         };
-    }, [cacheKey, fetcher, interval, enabled]);
+    }, [cacheKey, interval, enabled]);
 
     return {
         data,

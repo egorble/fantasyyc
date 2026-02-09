@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Share2, Calendar, DollarSign, MessageCircle, BarChart3, Activity, PieChart, ExternalLink, TrendingUp, Users, Building2 } from 'lucide-react';
-import { Rarity } from '../types';
+import { CardData, Rarity } from '../types';
 
 export interface CardDetailData {
     id: string;
@@ -15,23 +15,41 @@ export interface CardDetailData {
 
 interface CardDetailModalProps {
     data: CardDetailData | null;
+    cardData?: CardData | null; // Add real CardData prop
     onClose: () => void;
 }
 
-const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
-    if (!data) return null;
+const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, cardData, onClose }) => {
+    if (!data && !cardData) return null;
 
-    // Mock specific details
+    // Use real data from cardData if available, otherwise fall back to legacy data
+    const displayData = cardData || data;
+    if (!displayData) return null;
+
+    // Extract fundraising data from cardData
+    const fundraising = cardData?.fundraising;
+    const description = cardData?.description || 'YC startup - building innovative solutions for the future.';
+
+    // Build funding history from fundraising data or use mock
+    const fundingHistory = fundraising ? [
+        {
+            round: fundraising.round,
+            date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+            amount: fundraising.amount,
+            valuation: fundraising.valuation || 'N/A',
+            investor: 'Undisclosed'
+        }
+    ] : [];
+
+    // Mock data for fields not in metadata yet
     const details = {
         sentiment: 87,
         socialMentions: '14.2k',
         sector: 'Artificial Intelligence',
         founded: '2023',
-        description: 'Building the next generation of generative infrastructure for enterprise scale. Focusing on data privacy and on-premise deployment.',
-        fundingHistory: [
-            { round: 'Series B', date: 'Mar 2024', amount: '$120M', valuation: '$1.5B', investor: 'Sequoia' },
-            { round: 'Series A', date: 'Aug 2023', amount: '$45M', valuation: '$400M', investor: 'a16z' },
-            { round: 'Seed', date: 'Jan 2023', amount: '$4.5M', valuation: '$25M', investor: 'YC' },
+        description: description,
+        fundingHistory: fundingHistory.length > 0 ? fundingHistory : [
+            { round: 'Stealth', date: 'TBD', amount: 'N/A', valuation: 'N/A', investor: 'N/A' }
         ],
         breakdown: [
             { label: 'Technology', value: 40, color: 'bg-zinc-800 dark:bg-zinc-200' },
@@ -51,13 +69,19 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
                 <div className="flex items-start justify-between p-6 border-b border-gray-200 dark:border-[#27272a]">
                     <div className="flex gap-5">
                         <div className="w-20 h-20 rounded-lg bg-gray-100 dark:bg-[#18181b] border border-gray-200 dark:border-[#27272a] overflow-hidden shrink-0">
-                            <img src={data.image} alt={data.name} className="w-full h-full object-contain" />
+                            <img
+                                src={cardData?.image || data?.image}
+                                alt={cardData?.name || data?.name}
+                                className="w-full h-full object-contain"
+                            />
                         </div>
                         <div>
                             <div className="flex items-center gap-3 mb-1">
-                                <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{data.name}</h2>
+                                <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                                    {cardData?.name || data?.name}
+                                </h2>
                                 <span className="px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-[#27272a] text-xs font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-[#18181b]">
-                                    {data.stage || 'Series A'}
+                                    {fundraising?.round || data?.stage || 'Available'}
                                 </span>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
@@ -67,7 +91,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <Calendar className="w-4 h-4" />
-                                    <span>{data.batch ? `Batch ${data.batch}` : 'W24'}</span>
+                                    <span>{data?.batch ? `Batch ${data.batch}` : 'W24'}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <Users className="w-4 h-4" />
@@ -110,9 +134,11 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
                                     <DollarSign className="w-4 h-4" />
                                     <span className="text-xs font-semibold uppercase">Valuation</span>
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">${data.value}B</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">
+                                    {fundraising?.valuation || `${cardData?.multiplier || data?.value}x`}
+                                </p>
                                 <div className="mt-2 text-xs font-medium text-yc-green flex items-center">
-                                    <TrendingUp className="w-3 h-3 mr-1" /> +12.5% vs last round
+                                    <TrendingUp className="w-3 h-3 mr-1" /> {fundraising ? 'Latest Round' : 'Multiplier'}
                                 </div>
                             </div>
 

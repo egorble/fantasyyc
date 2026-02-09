@@ -121,11 +121,15 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         }
     };
 
+    // Store full card data for detail modal
+    const [viewingCardData, setViewingCardData] = useState<CardData | null>(null);
+
     // Handle Card Click
     const handleCardClick = (card: CardData) => {
         if (isMergeMode) {
             toggleCardSelection(card.tokenId);
         } else {
+            setViewingCardData(card); // Store full card data
             setViewingCard({
                 id: card.tokenId.toString(),
                 name: card.name,
@@ -470,6 +474,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                 setIsMergeMode(!isMergeMode);
                                 setSelectedCardIds([]);
                                 setViewingCard(null);
+                                setViewingCardData(null);
                             }}
                             className={`
                         flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all border
@@ -601,10 +606,10 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                     {/* Floating Action Bar for Merge */}
                     {isMergeMode && (
                         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 animate-[slideUp_0.3s_cubic-bezier(0.2,0.8,0.2,1)]">
-                            <div className="bg-[#1A1A1A] border border-[#333] p-2 pl-6 pr-2 rounded-2xl shadow-2xl flex items-center gap-6">
+                            <div className="bg-white dark:bg-[#1A1A1A] border border-gray-300 dark:border-[#333] p-2 pl-6 pr-2 rounded-2xl shadow-2xl flex items-center gap-6">
                                 <div className="flex flex-col">
                                     <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Fusion Chamber</span>
-                                    <span className="text-white font-mono font-bold">{selectedCardIds.length} / 3 Selected</span>
+                                    <span className="text-gray-900 dark:text-white font-mono font-bold">{selectedCardIds.length} / 3 Selected</span>
                                 </div>
                                 <button
                                     disabled={selectedCardIds.length !== 3}
@@ -628,7 +633,11 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             {/* --- DETAILED CARD VIEW MODAL --- */}
             <CardDetailModal
                 data={viewingCard}
-                onClose={() => setViewingCard(null)}
+                cardData={viewingCardData}
+                onClose={() => {
+                    setViewingCard(null);
+                    setViewingCardData(null);
+                }}
             />
 
             {/* Forge Processing / Success Overlay */}
@@ -747,10 +756,10 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             {/* Sell Modal */}
             {sellModalOpen && cardToSell && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl animate-[scaleIn_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
+                    <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl animate-[scaleIn_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
                         {/* Header */}
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold text-white">Sell Card</h3>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Sell Card</h3>
                             <button
                                 onClick={() => {
                                     setSellModalOpen(false);
@@ -763,15 +772,15 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         </div>
 
                         {/* Card Preview */}
-                        <div className="flex items-center gap-4 mb-4 p-3 bg-black/50 rounded-xl">
+                        <div className="flex items-center gap-4 mb-4 p-3 bg-gray-100 dark:bg-black/50 rounded-xl">
                             <img
                                 src={cardToSell.image}
                                 alt={cardToSell.name}
                                 className="w-16 h-16 rounded-lg object-cover"
                             />
                             <div>
-                                <h4 className="text-white font-bold">{cardToSell.name}</h4>
-                                <p className="text-gray-400 text-sm">
+                                <h4 className="text-gray-900 dark:text-white font-bold">{cardToSell.name}</h4>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">
                                     {cardToSell.rarity} · {cardToSell.multiplier}x
                                 </p>
                             </div>
@@ -783,7 +792,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                 onClick={() => setSellMode('fixed')}
                                 className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${sellMode === 'fixed'
                                     ? 'bg-yc-orange text-white'
-                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#222]'
                                     }`}
                             >
                                 <Tag className="w-4 h-4" />
@@ -793,7 +802,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                 onClick={() => setSellMode('auction')}
                                 className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${sellMode === 'auction'
                                     ? 'bg-purple-500 text-white'
-                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#222]'
                                     }`}
                             >
                                 <Gavel className="w-4 h-4" />
@@ -815,7 +824,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                         placeholder="0.00"
                                         value={sellPrice}
                                         onChange={(e) => setSellPrice(e.target.value)}
-                                        className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-yc-orange transition-colors"
+                                        className="w-full bg-gray-50 dark:bg-black border border-gray-300 dark:border-[#2A2A2A] rounded-xl px-4 py-3 text-gray-900 dark:text-white text-lg font-mono focus:outline-none focus:border-yc-orange transition-colors"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
                                         XTZ
@@ -842,7 +851,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                             placeholder="0.00"
                                             value={auctionStartPrice}
                                             onChange={(e) => setAuctionStartPrice(e.target.value)}
-                                            className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                                            className="w-full bg-gray-50 dark:bg-black border border-gray-300 dark:border-[#2A2A2A] rounded-xl px-4 py-3 text-gray-900 dark:text-white text-lg font-mono focus:outline-none focus:border-purple-500 transition-colors"
                                         />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
                                             XTZ
@@ -861,7 +870,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                             placeholder="Same as start price"
                                             value={auctionReservePrice}
                                             onChange={(e) => setAuctionReservePrice(e.target.value)}
-                                            className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                                            className="w-full bg-gray-50 dark:bg-black border border-gray-300 dark:border-[#2A2A2A] rounded-xl px-4 py-3 text-gray-900 dark:text-white text-lg font-mono focus:outline-none focus:border-purple-500 transition-colors"
                                         />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
                                             XTZ
@@ -879,7 +888,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                     <select
                                         value={auctionDuration}
                                         onChange={(e) => setAuctionDuration(e.target.value)}
-                                        className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                        className="w-full bg-gray-50 dark:bg-black border border-gray-300 dark:border-[#2A2A2A] rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors"
                                     >
                                         <option value="1">1 Hour</option>
                                         <option value="6">6 Hours</option>
@@ -903,7 +912,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                     setSellModalOpen(false);
                                     setCardToSell(null);
                                 }}
-                                className="flex-1 py-3 rounded-xl font-bold text-gray-400 bg-[#1A1A1A] hover:bg-[#222] transition-colors"
+                                className="flex-1 py-3 rounded-xl font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#1A1A1A] hover:bg-gray-200 dark:hover:bg-[#222] transition-colors"
                             >
                                 Cancel
                             </button>
@@ -958,10 +967,10 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             {/* NFT Stats Modal */}
             {statsModalOpen && statsCard && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl animate-[scaleIn_0.3s_cubic-bezier(0.34,1.56,0.64,1)] max-h-[85vh] flex flex-col">
+                    <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl animate-[scaleIn_0.3s_cubic-bezier(0.34,1.56,0.64,1)] max-h-[85vh] flex flex-col">
                         {/* Header */}
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold text-white">Card Details</h3>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Card Details</h3>
                             <button
                                 onClick={() => {
                                     setStatsModalOpen(false);
@@ -974,15 +983,15 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         </div>
 
                         {/* Card Preview */}
-                        <div className="flex items-center gap-4 mb-4 p-3 bg-black/50 rounded-xl">
+                        <div className="flex items-center gap-4 mb-4 p-3 bg-gray-100 dark:bg-black/50 rounded-xl">
                             <img
                                 src={statsCard.image}
                                 alt={statsCard.name}
                                 className="w-16 h-16 rounded-lg object-cover"
                             />
                             <div>
-                                <h4 className="text-white font-bold">{statsCard.name}</h4>
-                                <p className="text-gray-400 text-sm">
+                                <h4 className="text-gray-900 dark:text-white font-bold">{statsCard.name}</h4>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">
                                     {statsCard.rarity} · {statsCard.multiplier}x · #{statsCard.tokenId}
                                 </p>
                             </div>
@@ -994,7 +1003,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                 onClick={() => setStatsTab('bids')}
                                 className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${statsTab === 'bids'
                                     ? 'bg-yc-orange text-white'
-                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#222]'
                                     }`}
                             >
                                 <Gavel className="w-4 h-4" />
@@ -1004,7 +1013,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                 onClick={() => setStatsTab('sales')}
                                 className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${statsTab === 'sales'
                                     ? 'bg-blue-500 text-white'
-                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#222]'
                                     }`}
                             >
                                 <History className="w-4 h-4" />
@@ -1014,7 +1023,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                 onClick={() => setStatsTab('stats')}
                                 className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${statsTab === 'stats'
                                     ? 'bg-green-500 text-white'
-                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#222]'
                                     }`}
                             >
                                 <Activity className="w-4 h-4" />
@@ -1040,10 +1049,10 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                                 </div>
                                             ) : (
                                                 cardBids.map((bid, idx) => (
-                                                    <div key={idx} className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                    <div key={idx} className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                         <div className="flex justify-between items-center">
                                                             <div>
-                                                                <p className="text-white font-bold">{formatXTZ(bid.amount)} XTZ</p>
+                                                                <p className="text-gray-900 dark:text-white font-bold">{formatXTZ(bid.amount)} XTZ</p>
                                                                 <p className="text-gray-500 text-xs font-mono">
                                                                     {bid.bidder.slice(0, 6)}...{bid.bidder.slice(-4)}
                                                                 </p>
@@ -1074,10 +1083,10 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                                 </div>
                                             ) : (
                                                 cardSales.map((sale, idx) => (
-                                                    <div key={idx} className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                    <div key={idx} className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                         <div className="flex justify-between items-center">
                                                             <div>
-                                                                <p className="text-white font-bold">{formatXTZ(sale.price)} XTZ</p>
+                                                                <p className="text-gray-900 dark:text-white font-bold">{formatXTZ(sale.price)} XTZ</p>
                                                                 <p className="text-gray-500 text-xs">
                                                                     {sale.saleType === 0 ? 'Listing' : sale.saleType === 1 ? 'Bid Accepted' : 'Auction'}
                                                                 </p>
@@ -1106,30 +1115,30 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                             {cardStats ? (
                                                 <>
                                                     <div className="grid grid-cols-2 gap-3">
-                                                        <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                        <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                             <p className="text-gray-500 text-xs uppercase mb-1">Total Sales</p>
-                                                            <p className="text-white text-xl font-bold">{cardStats.salesCount?.toString() || '0'}</p>
+                                                            <p className="text-gray-900 dark:text-white text-xl font-bold">{cardStats.salesCount?.toString() || '0'}</p>
                                                         </div>
-                                                        <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                        <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                             <p className="text-gray-500 text-xs uppercase mb-1">Total Volume</p>
-                                                            <p className="text-white text-xl font-bold">
+                                                            <p className="text-gray-900 dark:text-white text-xl font-bold">
                                                                 {cardStats.totalVolume ? formatXTZ(cardStats.totalVolume) : '0'} XTZ
                                                             </p>
                                                         </div>
-                                                        <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                        <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                             <p className="text-gray-500 text-xs uppercase mb-1">Highest Sale</p>
-                                                            <p className="text-green-400 text-xl font-bold">
+                                                            <p className="text-green-600 dark:text-green-400 text-xl font-bold">
                                                                 {cardStats.highestSale ? formatXTZ(cardStats.highestSale) : '0'} XTZ
                                                             </p>
                                                         </div>
-                                                        <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                        <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                             <p className="text-gray-500 text-xs uppercase mb-1">Lowest Sale</p>
-                                                            <p className="text-blue-400 text-xl font-bold">
+                                                            <p className="text-blue-600 dark:text-blue-400 text-xl font-bold">
                                                                 {cardStats.lowestSale && cardStats.lowestSale > 0n ? formatXTZ(cardStats.lowestSale) : '-'} XTZ
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                    <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                         <p className="text-gray-500 text-xs uppercase mb-1">Last Sale Price</p>
                                                         <p className="text-yc-orange text-2xl font-bold">
                                                             {cardStats.lastSalePrice && cardStats.lastSalePrice > 0n ? formatXTZ(cardStats.lastSalePrice) : '-'} XTZ

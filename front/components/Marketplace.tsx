@@ -60,6 +60,7 @@ const Marketplace: React.FC = () => {
         bidOnAuction,
         finalizeAuction,
         placeBid,
+        acceptBid,
         getBidsForToken,
         listCard,
         createAuction,
@@ -256,6 +257,37 @@ const Marketplace: React.FC = () => {
         setBuyingId(null);
     };
 
+    // Handle listing bid (for offers on Buy Now listings)
+    const handleListingBid = async () => {
+        if (!bidModal?.listing || !bidAmount) return;
+
+        setBiddingId(Number(bidModal.listing.listingId));
+        try {
+            await placeBid(bidModal.listing.tokenId, bidAmount);
+            await refreshListings();
+            setBidModal(null);
+            setBidAmount('');
+            alert('Bid placed successfully!');
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
+        setBiddingId(null);
+    };
+
+    // Handle accept bid
+    const handleAcceptBid = async (bidId: bigint) => {
+        setLoadingStats(true);
+        try {
+            await acceptBid(bidId);
+            await refreshListings();
+            setStatsModalOpen(false);
+            alert('Bid accepted successfully!');
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
+        setLoadingStats(false);
+    };
+
     // Handle cancel listing
     const handleCancelListing = async (listing: ListingWithMeta) => {
         setCancellingId(Number(listing.listingId));
@@ -427,34 +459,34 @@ const Marketplace: React.FC = () => {
                 </div>
 
                 {/* Tab navigation */}
-                <div className="flex items-center space-x-1 bg-[#1a1a1a] p-1 rounded-lg w-fit">
+                <div className="flex items-center space-x-1 bg-gray-100 dark:bg-[#1a1a1a] p-1 rounded-lg w-fit">
                     <button
                         onClick={() => setActiveTab('listings')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'listings'
                             ? 'bg-yc-orange text-white'
-                            : 'text-gray-400 hover:text-white'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
                             }`}
                     >
                         <Tag className="w-4 h-4" />
                         Buy Now
-                        {listings.length > 0 && <span className="bg-black/30 px-1.5 py-0.5 rounded text-xs">{listings.length}</span>}
+                        {listings.length > 0 && <span className="bg-black/30 dark:bg-black/30 px-1.5 py-0.5 rounded text-xs">{listings.length}</span>}
                     </button>
                     <button
                         onClick={() => setActiveTab('auctions')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'auctions'
                             ? 'bg-yc-orange text-white'
-                            : 'text-gray-400 hover:text-white'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
                             }`}
                     >
                         <Gavel className="w-4 h-4" />
                         Auctions
-                        {auctions.length > 0 && <span className="bg-black/30 px-1.5 py-0.5 rounded text-xs">{auctions.length}</span>}
+                        {auctions.length > 0 && <span className="bg-black/30 dark:bg-black/30 px-1.5 py-0.5 rounded text-xs">{auctions.length}</span>}
                     </button>
                     <button
                         onClick={() => setActiveTab('activity')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'activity'
                             ? 'bg-yc-orange text-white'
-                            : 'text-gray-400 hover:text-white'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
                             }`}
                     >
                         <User className="w-4 h-4" />
@@ -473,8 +505,8 @@ const Marketplace: React.FC = () => {
                                 className={`
                                     whitespace-nowrap px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 transform active:scale-95
                                     ${rarityFilter === tab
-                                        ? 'bg-black dark:bg-white text-yc-orange shadow-lg shadow-yc-orange/10 scale-105'
-                                        : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'}
+                                        ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30 scale-105'
+                                        : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'}
                                 `}
                             >
                                 {tab}
@@ -518,10 +550,10 @@ const Marketplace: React.FC = () => {
                     )}
 
                     {!loadingListings && filteredListings.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-20 bg-[#121212] rounded-xl border border-[#2A2A2A]">
-                            <ShoppingCart className="w-16 h-16 text-gray-600 mb-4" />
-                            <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
-                            <p className="text-gray-400 text-center max-w-md">
+                        <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
+                            <ShoppingCart className="w-16 h-16 text-gray-400 dark:text-gray-600 mb-4" />
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No listings found</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">
                                 {listings.length === 0
                                     ? "There are no cards listed for sale yet. Be the first to list!"
                                     : "No cards match your current filters."}
@@ -534,7 +566,7 @@ const Marketplace: React.FC = () => {
                             {filteredListings.map((listing) => (
                                 <div
                                     key={listing.listingId}
-                                    className="bg-[#121212] border border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
+                                    className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
                                 >
                                     <div
                                         className="relative h-56 overflow-hidden cursor-pointer"
@@ -548,7 +580,7 @@ const Marketplace: React.FC = () => {
                                         <div className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md ${RARITY_COLORS[listing.rarity || 'Common']}`}>
                                             {listing.rarity}
                                         </div>
-                                        <div className="absolute top-2 right-2 bg-black/80 text-yc-green px-2 py-0.5 text-xs font-bold rounded">
+                                        <div className="absolute top-2 right-2 bg-black/80 dark:bg-black/80 text-yc-green px-2 py-0.5 text-xs font-bold rounded">
                                             {listing.multiplier}x
                                         </div>
                                         {/* Stats hint overlay */}
@@ -557,38 +589,38 @@ const Marketplace: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="p-4">
-                                        <h3 className="text-white font-bold text-lg mb-1 truncate">{listing.cardName}</h3>
-                                        <p className="text-gray-500 text-xs mb-3">
+                                        <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-1 truncate">{listing.cardName}</h3>
+                                        <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">
                                             Token #{String(listing.tokenId)} · Seller: {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
                                         </p>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-gray-400 text-xs">Price</p>
-                                                <p className="text-white font-bold text-lg">{listing.priceFormatted} XTZ</p>
-                                            </div>
-                                            {listing.seller.toLowerCase() === address?.toLowerCase() ? (
-                                                <button
-                                                    onClick={() => handleCancelListing(listing)}
-                                                    disabled={cancellingId === Number(listing.listingId)}
-                                                    className={`
-                                                        px-4 py-2 rounded-lg font-bold text-sm transition-all
-                                                        ${cancellingId === Number(listing.listingId)
-                                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                                            : 'bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white active:scale-95'}
-                                                    `}
-                                                >
-                                                    {cancellingId === Number(listing.listingId) ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : (
-                                                        'Cancel'
-                                                    )}
-                                                </button>
-                                            ) : (
+                                        <div className="mb-3">
+                                            <p className="text-gray-400 dark:text-gray-400 text-xs">Price</p>
+                                            <p className="text-gray-900 dark:text-white font-bold text-lg">{listing.priceFormatted} XTZ</p>
+                                        </div>
+                                        {listing.seller.toLowerCase() === address?.toLowerCase() ? (
+                                            <button
+                                                onClick={() => handleCancelListing(listing)}
+                                                disabled={cancellingId === Number(listing.listingId)}
+                                                className={`
+                                                    w-full px-4 py-2 rounded-lg font-bold text-sm transition-all
+                                                    ${cancellingId === Number(listing.listingId)
+                                                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                                        : 'bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white active:scale-95'}
+                                                `}
+                                            >
+                                                {cancellingId === Number(listing.listingId) ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    'Cancel'
+                                                )}
+                                            </button>
+                                        ) : (
+                                            <div className="flex gap-2">
                                                 <button
                                                     onClick={() => handleBuy(listing)}
                                                     disabled={buyingId === Number(listing.listingId) || !isConnected}
                                                     className={`
-                                                        px-4 py-2 rounded-lg font-bold text-sm transition-all
+                                                        flex-1 px-4 py-2 rounded-lg font-bold text-sm transition-all
                                                         ${buyingId === Number(listing.listingId)
                                                             ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                                             : 'bg-yc-orange text-white hover:bg-yc-orange/80 active:scale-95'}
@@ -600,8 +632,15 @@ const Marketplace: React.FC = () => {
                                                         'Buy Now'
                                                     )}
                                                 </button>
-                                            )}
-                                        </div>
+                                                <button
+                                                    onClick={() => { setBidModal({ listing }); setBidAmount(''); }}
+                                                    disabled={!isConnected}
+                                                    className="flex-1 px-4 py-2 rounded-lg font-bold text-sm bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-400 transition-all active:scale-95"
+                                                >
+                                                    Make Offer
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -621,10 +660,10 @@ const Marketplace: React.FC = () => {
                     )}
 
                     {!loadingAuctions && filteredAuctions.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-20 bg-[#121212] rounded-xl border border-[#2A2A2A]">
-                            <Gavel className="w-16 h-16 text-gray-600 mb-4" />
-                            <h3 className="text-xl font-bold text-white mb-2">No auctions found</h3>
-                            <p className="text-gray-400 text-center max-w-md">
+                        <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
+                            <Gavel className="w-16 h-16 text-gray-400 dark:text-gray-600 mb-4" />
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No auctions found</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">
                                 There are no active auctions. Create one from your Portfolio!
                             </p>
                         </div>
@@ -635,7 +674,7 @@ const Marketplace: React.FC = () => {
                             {filteredAuctions.map((auction) => (
                                 <div
                                     key={auction.auctionId}
-                                    className="bg-[#121212] border border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
+                                    className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
                                 >
                                     <div
                                         className="relative h-56 overflow-hidden cursor-pointer"
@@ -650,7 +689,7 @@ const Marketplace: React.FC = () => {
                                             {auction.rarity}
                                         </div>
                                         {/* Timer */}
-                                        <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 text-yc-orange'}`}>
+                                        <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 dark:bg-black/80 text-yc-orange'}`}>
                                             <Clock className="w-3 h-3" />
                                             {auction.timeLeft}
                                         </div>
@@ -660,19 +699,19 @@ const Marketplace: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="p-4">
-                                        <h3 className="text-white font-bold text-lg mb-1 truncate">{auction.cardName}</h3>
-                                        <p className="text-gray-500 text-xs mb-3">
+                                        <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-1 truncate">{auction.cardName}</h3>
+                                        <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">
                                             Token #{String(auction.tokenId)}
                                         </p>
 
                                         <div className="grid grid-cols-2 gap-2 mb-3">
                                             <div>
-                                                <p className="text-gray-400 text-xs">Current Bid</p>
-                                                <p className="text-white font-bold">{formatXTZ(auction.highestBid)} XTZ</p>
+                                                <p className="text-gray-400 dark:text-gray-400 text-xs">Current Bid</p>
+                                                <p className="text-gray-900 dark:text-white font-bold">{formatXTZ(auction.highestBid)} XTZ</p>
                                             </div>
                                             <div>
-                                                <p className="text-gray-400 text-xs">Reserve</p>
-                                                <p className="text-gray-300 font-medium">{formatXTZ(auction.reservePrice)} XTZ</p>
+                                                <p className="text-gray-400 dark:text-gray-400 text-xs">Reserve</p>
+                                                <p className="text-gray-600 dark:text-gray-300 font-medium">{formatXTZ(auction.reservePrice)} XTZ</p>
                                             </div>
                                         </div>
 
@@ -708,10 +747,10 @@ const Marketplace: React.FC = () => {
 
             {/* ACTIVITY TAB */}
             {activeTab === 'activity' && (
-                <div className="flex flex-col items-center justify-center py-20 bg-[#121212] rounded-xl border border-[#2A2A2A]">
-                    <User className="w-16 h-16 text-gray-600 mb-4" />
-                    <h3 className="text-xl font-bold text-white mb-2">My Activity</h3>
-                    <p className="text-gray-400 text-center max-w-md">
+                <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
+                    <User className="w-16 h-16 text-gray-400 dark:text-gray-600 mb-4" />
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">My Activity</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">
                         {isConnected
                             ? "View your bids, listings, and auction history. Coming soon!"
                             : "Connect your wallet to see your marketplace activity."}
@@ -722,33 +761,33 @@ const Marketplace: React.FC = () => {
             {/* BID MODAL */}
             {bidModal && (
                 <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setBidModal(null)}>
-                    <div className="bg-[#1a1a1a] rounded-2xl border border-[#2A2A2A] w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-200 dark:border-[#2A2A2A] w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-white">Place Bid</h3>
-                            <button onClick={() => setBidModal(null)} className="text-gray-400 hover:text-white">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{bidModal.auction ? 'Place Bid' : 'Make Offer'}</h3>
+                            <button onClick={() => setBidModal(null)} className="text-gray-400 hover:text-gray-900 dark:hover:text-white">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        {bidModal.auction && (
+                        {bidModal.auction ? (
                             <>
                                 <div className="flex items-center gap-4 mb-6">
                                     <img src={bidModal.auction.cardImage} alt="" className="w-20 h-20 rounded-lg object-cover" />
                                     <div>
-                                        <h4 className="text-white font-bold">{bidModal.auction.cardName}</h4>
-                                        <p className="text-gray-400 text-sm">Current: {formatXTZ(bidModal.auction.highestBid)} XTZ</p>
+                                        <h4 className="text-gray-900 dark:text-white font-bold">{bidModal.auction.cardName}</h4>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Current: {formatXTZ(bidModal.auction.highestBid)} XTZ</p>
                                     </div>
                                 </div>
 
                                 <div className="mb-6">
-                                    <label className="text-gray-400 text-sm mb-2 block">Your Bid (XTZ)</label>
+                                    <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Your Bid (XTZ)</label>
                                     <input
                                         type="number"
                                         step="0.01"
                                         value={bidAmount}
                                         onChange={(e) => setBidAmount(e.target.value)}
                                         placeholder="0.00"
-                                        className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold text-lg focus:border-yc-orange focus:outline-none"
+                                        className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold text-lg focus:border-yc-orange focus:outline-none"
                                     />
                                 </div>
 
@@ -762,6 +801,45 @@ const Marketplace: React.FC = () => {
                                     ) : 'Confirm Bid'}
                                 </button>
                             </>
+                        ) : bidModal.listing && (
+                            <>
+                                <div className="flex items-center gap-4 mb-4">
+                                    <img src={bidModal.listing.cardImage} alt="" className="w-20 h-20 rounded-lg object-cover" />
+                                    <div>
+                                        <h4 className="text-gray-900 dark:text-white font-bold">{bidModal.listing.cardName}</h4>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Listed: {bidModal.listing.priceFormatted} XTZ</p>
+                                    </div>
+                                </div>
+
+                                <div className="mb-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                                    <p className="text-purple-600 dark:text-purple-300 text-xs">
+                                        💡 Make an offer below the listing price. The seller can accept your offer at any time.
+                                    </p>
+                                </div>
+
+                                <div className="mb-6">
+                                    <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Your Offer (XTZ)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={bidAmount}
+                                        onChange={(e) => setBidAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold text-lg focus:border-yc-orange focus:outline-none"
+                                    />
+                                    <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">Offer valid for 7 days</p>
+                                </div>
+
+                                <button
+                                    onClick={handleListingBid}
+                                    disabled={!bidAmount || biddingId !== null}
+                                    className="w-full bg-purple-600 text-white font-bold py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {biddingId !== null ? (
+                                        <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                                    ) : 'Submit Offer'}
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -770,31 +848,31 @@ const Marketplace: React.FC = () => {
             {/* Stats Modal */}
             {statsModalOpen && statsItem && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-[#1A1A1A] rounded-2xl border border-[#2A2A2A] max-w-lg w-full max-h-[80vh] overflow-hidden">
-                        <div className="p-4 border-b border-[#2A2A2A] flex justify-between items-center">
-                            <h3 className="text-white font-bold text-lg">NFT Statistics</h3>
-                            <button onClick={() => setStatsModalOpen(false)} className="text-gray-400 hover:text-white">
+                    <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl border border-gray-200 dark:border-[#2A2A2A] max-w-lg w-full max-h-[80vh] overflow-hidden">
+                        <div className="p-4 border-b border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center">
+                            <h3 className="text-gray-900 dark:text-white font-bold text-lg">NFT Statistics</h3>
+                            <button onClick={() => setStatsModalOpen(false)} className="text-gray-400 hover:text-gray-900 dark:hover:text-white">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         {/* Card preview */}
-                        <div className="p-4 flex gap-4 border-b border-[#2A2A2A]">
+                        <div className="p-4 flex gap-4 border-b border-gray-200 dark:border-[#2A2A2A]">
                             <img src={statsItem.cardImage} alt={statsItem.cardName} className="w-20 h-20 rounded-lg object-cover" />
                             <div>
-                                <h4 className="text-white font-bold">{statsItem.cardName}</h4>
-                                <p className="text-gray-400 text-sm">Token #{String(statsItem.tokenId)}</p>
+                                <h4 className="text-gray-900 dark:text-white font-bold">{statsItem.cardName}</h4>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">Token #{String(statsItem.tokenId)}</p>
                                 <span className={`text-xs px-2 py-0.5 rounded ${RARITY_COLORS[statsItem.rarity || 'Common']}`}>{statsItem.rarity}</span>
                             </div>
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex border-b border-[#2A2A2A]">
+                        <div className="flex border-b border-gray-200 dark:border-[#2A2A2A]">
                             {['bids', 'sales', 'stats'].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setStatsTab(tab as any)}
-                                    className={`flex-1 py-3 text-sm font-bold transition-colors ${statsTab === tab ? 'text-yc-orange border-b-2 border-yc-orange' : 'text-gray-400 hover:text-white'}`}
+                                    className={`flex-1 py-3 text-sm font-bold transition-colors ${statsTab === tab ? 'text-yc-orange border-b-2 border-yc-orange' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
                                 >
                                     {tab === 'bids' && <><Activity className="w-4 h-4 inline mr-1" />Bids</>}
                                     {tab === 'sales' && <><History className="w-4 h-4 inline mr-1" />Sales</>}
@@ -810,32 +888,53 @@ const Marketplace: React.FC = () => {
                             ) : (
                                 <>
                                     {statsTab === 'bids' && (
-                                        cardBids.length === 0 ? <p className="text-gray-500 text-center py-4">No active bids</p> :
-                                            cardBids.map((bid, i) => (
-                                                <div key={i} className="flex justify-between py-2 border-b border-[#2A2A2A] last:border-0">
-                                                    <span className="text-gray-400 text-sm">{bid.bidder?.slice(0, 6)}...{bid.bidder?.slice(-4)}</span>
-                                                    <span className="text-white font-bold">{formatXTZ(bid.amount)} XTZ</span>
-                                                </div>
-                                            ))
+                                        cardBids.length === 0 ? (
+                                            <p className="text-gray-500 dark:text-gray-500 text-center py-4">No active offers</p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {cardBids.map((bid: any, i: number) => (
+                                                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-[#2A2A2A]">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-gray-900 dark:text-white font-bold">{formatXTZ(bid.amount)} XTZ</span>
+                                                                <span className="text-gray-500 dark:text-gray-500 text-xs">from</span>
+                                                                <span className="text-gray-500 dark:text-gray-400 text-xs">{bid.bidder?.slice(0, 6)}...{bid.bidder?.slice(-4)}</span>
+                                                            </div>
+                                                            <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                                                                Expires: {new Date(Number(bid.expiration) * 1000).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                        {statsItem && 'seller' in statsItem && statsItem.seller?.toLowerCase() === address?.toLowerCase() && (
+                                                            <button
+                                                                onClick={() => handleAcceptBid(bid.bidId)}
+                                                                className="ml-3 px-3 py-1.5 bg-yc-orange text-white rounded-lg text-xs font-bold hover:bg-yc-orange/80 transition-all"
+                                                            >
+                                                                Accept
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )
                                     )}
                                     {statsTab === 'sales' && (
-                                        cardSales.length === 0 ? <p className="text-gray-500 text-center py-4">No sales history</p> :
+                                        cardSales.length === 0 ? <p className="text-gray-500 dark:text-gray-500 text-center py-4">No sales history</p> :
                                             cardSales.map((sale, i) => (
-                                                <div key={i} className="py-2 border-b border-[#2A2A2A] last:border-0">
+                                                <div key={i} className="py-2 border-b border-gray-200 dark:border-[#2A2A2A] last:border-0">
                                                     <div className="flex justify-between">
-                                                        <span className="text-white font-bold">{formatXTZ(sale.price)} XTZ</span>
-                                                        <span className="text-gray-400 text-xs">{new Date(Number(sale.timestamp) * 1000).toLocaleDateString()}</span>
+                                                        <span className="text-gray-900 dark:text-white font-bold">{formatXTZ(sale.price)} XTZ</span>
+                                                        <span className="text-gray-500 dark:text-gray-400 text-xs">{new Date(Number(sale.timestamp) * 1000).toLocaleDateString()}</span>
                                                     </div>
-                                                    <p className="text-gray-500 text-xs">{sale.seller?.slice(0, 6)}... → {sale.buyer?.slice(0, 6)}...</p>
+                                                    <p className="text-gray-500 dark:text-gray-500 text-xs">{sale.seller?.slice(0, 6)}... → {sale.buyer?.slice(0, 6)}...</p>
                                                 </div>
                                             ))
                                     )}
                                     {statsTab === 'stats' && cardStats && (
                                         <div className="space-y-3">
-                                            <div className="flex justify-between"><span className="text-gray-400">Total Sales</span><span className="text-white font-bold">{String(cardStats.totalSales || 0)}</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-400">Total Volume</span><span className="text-white font-bold">{formatXTZ(cardStats.totalVolume || 0n)} XTZ</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-400">Highest Sale</span><span className="text-yc-green font-bold">{formatXTZ(cardStats.highestSale || 0n)} XTZ</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-400">Lowest Sale</span><span className="text-red-400 font-bold">{formatXTZ(cardStats.lowestSale || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Total Sales</span><span className="text-gray-900 dark:text-white font-bold">{String(cardStats.totalSales || 0)}</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Total Volume</span><span className="text-gray-900 dark:text-white font-bold">{formatXTZ(cardStats.totalVolume || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Highest Sale</span><span className="text-yc-green font-bold">{formatXTZ(cardStats.highestSale || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Lowest Sale</span><span className="text-red-400 font-bold">{formatXTZ(cardStats.lowestSale || 0n)} XTZ</span></div>
                                         </div>
                                     )}
                                 </>
@@ -848,10 +947,10 @@ const Marketplace: React.FC = () => {
             {/* List NFT Modal */}
             {listModalOpen && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-[#1A1A1A] rounded-2xl border border-[#2A2A2A] max-w-lg w-full max-h-[85vh] overflow-hidden">
-                        <div className="p-4 border-b border-[#2A2A2A] flex justify-between items-center">
-                            <h3 className="text-white font-bold text-lg">List NFT for Sale</h3>
-                            <button onClick={() => setListModalOpen(false)} className="text-gray-400 hover:text-white">
+                    <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl border border-gray-200 dark:border-[#2A2A2A] max-w-lg w-full max-h-[85vh] overflow-hidden">
+                        <div className="p-4 border-b border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center">
+                            <h3 className="text-gray-900 dark:text-white font-bold text-lg">List NFT for Sale</h3>
+                            <button onClick={() => setListModalOpen(false)} className="text-gray-400 hover:text-gray-900 dark:hover:text-white">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -861,18 +960,18 @@ const Marketplace: React.FC = () => {
                                 <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-yc-orange animate-spin" /></div>
                             ) : !selectedNFT ? (
                                 <>
-                                    <p className="text-gray-400 text-sm mb-4">Select an NFT to list:</p>
-                                    {myNFTs.length === 0 ? <p className="text-gray-500 text-center py-4">No NFTs available to list</p> : (
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Select an NFT to list:</p>
+                                    {myNFTs.length === 0 ? <p className="text-gray-500 dark:text-gray-500 text-center py-4">No NFTs available to list</p> : (
                                         <div className="grid grid-cols-2 gap-3">
                                             {myNFTs.map(nft => (
                                                 <div
                                                     key={nft.tokenId}
                                                     onClick={() => setSelectedNFT(nft)}
-                                                    className="cursor-pointer rounded-xl border border-[#2A2A2A] overflow-hidden hover:border-yc-orange transition-colors"
+                                                    className="cursor-pointer rounded-xl border border-gray-200 dark:border-[#2A2A2A] overflow-hidden hover:border-yc-orange transition-colors bg-white dark:bg-[#121212]"
                                                 >
                                                     <img src={nft.image} alt={nft.name} className="w-full h-24 object-contain" />
                                                     <div className="p-2">
-                                                        <p className="text-white font-bold text-sm truncate">{nft.name}</p>
+                                                        <p className="text-gray-900 dark:text-white font-bold text-sm truncate">{nft.name}</p>
                                                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${RARITY_COLORS[nft.rarity] || RARITY_COLORS['Common']}`}>{nft.rarity}</span>
                                                     </div>
                                                 </div>
@@ -885,36 +984,36 @@ const Marketplace: React.FC = () => {
                                     <div className="flex gap-4 mb-4">
                                         <img src={selectedNFT.image} alt={selectedNFT.name} className="w-20 h-20 rounded-lg object-contain" />
                                         <div>
-                                            <h4 className="text-white font-bold">{selectedNFT.name}</h4>
-                                            <p className="text-gray-400 text-sm">#{selectedNFT.tokenId}</p>
+                                            <h4 className="text-gray-900 dark:text-white font-bold">{selectedNFT.name}</h4>
+                                            <p className="text-gray-500 dark:text-gray-400 text-sm">#{selectedNFT.tokenId}</p>
                                             <button onClick={() => setSelectedNFT(null)} className="text-yc-orange text-xs hover:underline">Change</button>
                                         </div>
                                     </div>
 
                                     {/* Sale Mode Tabs */}
-                                    <div className="flex bg-[#121212] rounded-lg p-1 mb-4">
-                                        <button onClick={() => setSellMode('fixed')} className={`flex-1 py-2 rounded text-sm font-bold ${sellMode === 'fixed' ? 'bg-yc-orange text-white' : 'text-gray-400'}`}>
+                                    <div className="flex bg-gray-100 dark:bg-[#121212] rounded-lg p-1 mb-4">
+                                        <button onClick={() => setSellMode('fixed')} className={`flex-1 py-2 rounded text-sm font-bold ${sellMode === 'fixed' ? 'bg-yc-orange text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                             <Tag className="w-4 h-4 inline mr-1" />Fixed Price
                                         </button>
-                                        <button onClick={() => setSellMode('auction')} className={`flex-1 py-2 rounded text-sm font-bold ${sellMode === 'auction' ? 'bg-yc-orange text-white' : 'text-gray-400'}`}>
+                                        <button onClick={() => setSellMode('auction')} className={`flex-1 py-2 rounded text-sm font-bold ${sellMode === 'auction' ? 'bg-yc-orange text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                             <Gavel className="w-4 h-4 inline mr-1" />Auction
                                         </button>
                                     </div>
 
                                     {sellMode === 'fixed' ? (
                                         <div>
-                                            <label className="text-gray-400 text-sm mb-2 block">Price (XTZ)</label>
-                                            <input type="number" step="0.01" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder="0.00" className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold focus:border-yc-orange focus:outline-none" />
+                                            <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Price (XTZ)</label>
+                                            <input type="number" step="0.01" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder="0.00" className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold focus:border-yc-orange focus:outline-none" />
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
                                             <div>
-                                                <label className="text-gray-400 text-sm mb-1 block">Start Price (XTZ)</label>
-                                                <input type="number" step="0.01" value={auctionStartPrice} onChange={e => setAuctionStartPrice(e.target.value)} placeholder="0.00" className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold focus:border-yc-orange focus:outline-none" />
+                                                <label className="text-gray-500 dark:text-gray-400 text-sm mb-1 block">Start Price (XTZ)</label>
+                                                <input type="number" step="0.01" value={auctionStartPrice} onChange={e => setAuctionStartPrice(e.target.value)} placeholder="0.00" className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold focus:border-yc-orange focus:outline-none" />
                                             </div>
                                             <div>
-                                                <label className="text-gray-400 text-sm mb-1 block">Reserve Price (XTZ, optional)</label>
-                                                <input type="number" step="0.01" value={auctionReservePrice} onChange={e => setAuctionReservePrice(e.target.value)} placeholder="0.00" className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold focus:border-yc-orange focus:outline-none" />
+                                                <label className="text-gray-500 dark:text-gray-400 text-sm mb-1 block">Reserve Price (XTZ, optional)</label>
+                                                <input type="number" step="0.01" value={auctionReservePrice} onChange={e => setAuctionReservePrice(e.target.value)} placeholder="0.00" className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold focus:border-yc-orange focus:outline-none" />
                                             </div>
                                             <div>
                                                 <label className="text-gray-400 text-sm mb-1 block">Duration (days)</label>

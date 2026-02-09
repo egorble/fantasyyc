@@ -60,6 +60,10 @@ export function useNFT() {
                 isLocked,
                 image: data.image || '',
                 edition,
+                // Add fundraising data from metadata
+                fundraising: data.fundraising || null,
+                // Add description from metadata
+                description: data.description || null,
             };
 
             // Cache the result (long TTL - metadata is stable)

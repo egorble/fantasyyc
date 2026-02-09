@@ -397,6 +397,8 @@ app.get("/metadata/:tokenId", async (req, res) => {
             description: `${startup.rarity} YC startup card - ${startup.description}. Edition ${edition} of ${totalMinted} minted.`,
             image: imageUrl,
             external_url: `https://unicornx.app/card/${tokenId}`,
+            // Include fundraising details for frontend use
+            fundraising: startup.fundraising || null,
             attributes: [
                 {
                     trait_type: "Startup",

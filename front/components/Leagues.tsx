@@ -4,6 +4,7 @@ import { CardData, Rarity } from '../types';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
 import { useTournament, Tournament } from '../hooks/useTournament';
+import { useLeaderboard, usePlayerRank } from '../hooks/useLeaderboard';
 import { formatXTZ } from '../lib/contracts';
 import gsap from 'gsap';
 
@@ -64,6 +65,10 @@ const Leagues: React.FC = () => {
             }
         }
     };
+
+    // Leaderboard data from backend
+    const { leaderboard: leaderboardData, loading: leaderboardLoading, error: leaderboardError } = useLeaderboard(activeTournamentId > 0 ? activeTournamentId : null, 100);
+    const { rank: playerRank, loading: rankLoading } = usePlayerRank(activeTournamentId > 0 ? activeTournamentId : null, address || null);
 
     const loadUserCards = async () => {
         if (!address) return;
@@ -166,13 +171,11 @@ const Leagues: React.FC = () => {
         }
     };
 
-    const leaderboard = [
-        { rank: 1, user: 'CryptoKing.eth', points: 12450, change: '+120' },
-        { rank: 2, user: 'SaaS_Master', points: 11200, change: '+45' },
-        { rank: 3, user: 'VC_Intern', points: 10850, change: '+210' },
-        { rank: 4, user: 'PaulG_Fan', points: 9500, change: '-20' },
-        { rank: 5, user: 'UnicornHunter', points: 9200, change: '+5' },
-    ];
+    // Format address for display
+    const formatAddress = (addr: string) => {
+        if (addr.length <= 12) return addr;
+        return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    };
 
     // Calculate time remaining based on phase
     const getTimeInfo = () => {
@@ -401,8 +404,8 @@ const Leagues: React.FC = () => {
 
     return (
         <div className="animate-[fadeInUp_0.5s_ease-out]">
-            <div className="bg-gradient-to-br from-black to-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-2xl p-8 mb-8 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-black dark:to-[#121212] border border-gray-300 dark:border-[#2A2A2A] rounded-2xl p-8 mb-8 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none text-gray-900 dark:text-white">
                     <Trophy size={200} />
                 </div>
 
@@ -414,7 +417,7 @@ const Leagues: React.FC = () => {
                         <span className={`px-2 py-0.5 text-white text-[10px] font-bold uppercase rounded ${getPhaseColor()}`}>
                             {getPhaseLabel()}
                         </span>
-                        <span className="px-2 py-0.5 bg-gray-800 text-gray-300 text-[10px] font-bold uppercase rounded flex items-center">
+                        <span className="px-2 py-0.5 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[10px] font-bold uppercase rounded flex items-center">
                             <Clock size={10} className="mr-1" /> {timeInfo.value} {phase !== 'ended' ? 'left' : ''}
                         </span>
                         {hasUserEntered && (
@@ -423,24 +426,24 @@ const Leagues: React.FC = () => {
                             </span>
                         )}
                     </div>
-                    <h2 className="text-4xl font-black text-white mb-4 uppercase tracking-tighter">Global UnicornX League</h2>
-                    <p className="text-gray-400 mb-6 leading-relaxed">
+                    <h2 className="text-4xl font-black text-gray-900 dark:text-white mb-4 uppercase tracking-tighter">Global UnicornX League</h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
                         Compete against other investors. Build a portfolio of 5 NFT startup cards.
                         Cards are locked during the tournament. Top players win from the prize pool!
                     </p>
 
                     <div className="flex items-center gap-6 mb-8">
                         <div>
-                            <p className="text-gray-500 text-xs uppercase font-bold">Prize Pool</p>
+                            <p className="text-gray-500 dark:text-gray-500 text-xs uppercase font-bold">Prize Pool</p>
                             <p className="text-2xl font-black text-yc-orange font-mono">
                                 {activeTournament ? formatXTZ(activeTournament.prizePool) : '0'} XTZ
                             </p>
                         </div>
-                        <div className="w-px h-10 bg-gray-800"></div>
+                        <div className="w-px h-10 bg-gray-300 dark:bg-gray-800"></div>
                         <div>
-                            <p className="text-gray-500 text-xs uppercase font-bold">Participants</p>
-                            <p className="text-2xl font-black text-white font-mono flex items-center">
-                                <Users className="w-5 h-5 mr-2 text-gray-600" />
+                            <p className="text-gray-500 dark:text-gray-500 text-xs uppercase font-bold">Participants</p>
+                            <p className="text-2xl font-black text-gray-900 dark:text-white font-mono flex items-center">
+                                <Users className="w-5 h-5 mr-2 text-gray-400 dark:text-gray-600" />
                                 {activeTournament?.entryCount || 0}
                             </p>
                         </div>
@@ -462,65 +465,100 @@ const Leagues: React.FC = () => {
                     ) : phase === 'registration' ? (
                         <button
                             onClick={() => setIsJoining(true)}
-                            className="bg-white text-black hover:bg-yc-orange hover:text-white px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wide transition-all flex items-center shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(242,101,34,0.4)]"
+                            className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-yc-orange hover:text-white px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wide transition-all flex items-center shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(242,101,34,0.4)]"
                         >
                             Enter League <ArrowRight className="w-4 h-4 ml-2" />
                         </button>
                     ) : phase === 'upcoming' ? (
-                        <span className="text-purple-400 font-bold">Registration opens soon</span>
+                        <span className="text-purple-500 dark:text-purple-400 font-bold">Registration opens soon</span>
                     ) : phase === 'active' ? (
-                        <span className="text-gray-400 font-bold">Registration closed - Tournament in progress</span>
+                        <span className="text-gray-500 dark:text-gray-400 font-bold">Registration closed - Tournament in progress</span>
                     ) : (
-                        <span className="text-gray-500 font-bold">Tournament ended</span>
+                        <span className="text-gray-500 dark:text-gray-500 font-bold">Tournament ended</span>
                     )}
                 </div>
             </div>
 
             <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-xl text-yc-text-primary dark:text-white">Live Leaderboard</h3>
+                <h3 className="font-bold text-xl text-yc-text-primary dark:text-white flex items-center">
+                    Live Leaderboard
+                    {leaderboardLoading && <RefreshCw className="w-4 h-4 ml-2 animate-spin text-gray-400" />}
+                </h3>
+                {playerRank && (
+                    <div className="text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Your Rank: </span>
+                        <span className="font-bold text-yc-orange">#{playerRank.rank}</span>
+                        <span className="text-gray-500 dark:text-gray-400 ml-2">Score: </span>
+                        <span className="font-mono font-bold text-yc-text-primary dark:text-white">{playerRank.score.toFixed(2)}</span>
+                    </div>
+                )}
             </div>
 
             <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl overflow-hidden shadow-sm dark:shadow-none">
-                <div className="p-0">
-                    <table className="w-full text-left">
-                        <thead className="bg-gray-100 dark:bg-[#0F0F0F] text-xs uppercase text-gray-500 font-bold border-b border-yc-light-border dark:border-[#2A2A2A]">
-                            <tr>
-                                <th className="px-6 py-4">Rank</th>
-                                <th className="px-6 py-4">Player</th>
-                                <th className="px-6 py-4 text-right">Points</th>
-                                <th className="px-6 py-4 text-right">24h</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-[#2A2A2A]">
-                            {leaderboard.map((player) => (
-                                <tr key={player.rank} className="hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors group">
-                                    <td className="px-6 py-4">
-                                        <div className={`
-                                        w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm
-                                        ${player.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
-                                                player.rank === 2 ? 'bg-gray-400/20 text-gray-400' :
-                                                    player.rank === 3 ? 'bg-orange-700/20 text-orange-700' : 'text-gray-500'}
-                                    `}>
-                                            {player.rank}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center">
-                                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-[#333] mr-3 border border-gray-300 dark:border-gray-700"></div>
-                                            <span className="font-bold text-yc-text-primary dark:text-white group-hover:text-yc-orange transition-colors">{player.user}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-mono font-bold text-yc-text-primary dark:text-white">
-                                        {player.points.toLocaleString()}
-                                    </td>
-                                    <td className={`px-6 py-4 text-right font-mono text-xs font-bold ${player.change.includes('+') ? 'text-yc-green' : 'text-yc-red'}`}>
-                                        {player.change}
-                                    </td>
+                {leaderboardError ? (
+                    <div className="p-8 text-center">
+                        <p className="text-red-500">Error loading leaderboard: {leaderboardError}</p>
+                    </div>
+                ) : leaderboardData.length === 0 && !leaderboardLoading ? (
+                    <div className="p-8 text-center">
+                        <Trophy className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
+                        <p className="text-gray-500 dark:text-gray-400">No players yet. Be the first to enter!</p>
+                    </div>
+                ) : (
+                    <div className="p-0">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-100 dark:bg-[#0F0F0F] text-xs uppercase text-gray-500 font-bold border-b border-yc-light-border dark:border-[#2A2A2A]">
+                                <tr>
+                                    <th className="px-6 py-4">Rank</th>
+                                    <th className="px-6 py-4">Player</th>
+                                    <th className="px-6 py-4 text-right">Score</th>
+                                    <th className="px-6 py-4 text-right">Last Updated</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-[#2A2A2A]">
+                                {leaderboardData.map((player) => {
+                                    const isCurrentUser = address && player.address.toLowerCase() === address.toLowerCase();
+                                    return (
+                                        <tr
+                                            key={player.address}
+                                            className={`hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors group ${isCurrentUser ? 'bg-yc-orange/5 dark:bg-yc-orange/5' : ''}`}
+                                        >
+                                            <td className="px-6 py-4">
+                                                <div className={`
+                                                    w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm
+                                                    ${player.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
+                                                        player.rank === 2 ? 'bg-gray-400/20 text-gray-400' :
+                                                        player.rank === 3 ? 'bg-orange-700/20 text-orange-700' : 'text-gray-500 dark:text-gray-400'}
+                                                `}>
+                                                    {player.rank}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-[#333] mr-3 border border-gray-300 dark:border-gray-700"></div>
+                                                    <div className="flex flex-col">
+                                                        <span className={`font-bold group-hover:text-yc-orange transition-colors ${isCurrentUser ? 'text-yc-orange' : 'text-yc-text-primary dark:text-white'}`}>
+                                                            {formatAddress(player.address)}
+                                                        </span>
+                                                        {isCurrentUser && (
+                                                            <span className="text-[10px] text-yc-orange font-bold uppercase">You</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-mono font-bold text-yc-text-primary dark:text-white">
+                                                {player.score.toFixed(2)}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-mono text-xs text-gray-500 dark:text-gray-400">
+                                                {new Date(player.lastUpdated).toLocaleDateString()}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );

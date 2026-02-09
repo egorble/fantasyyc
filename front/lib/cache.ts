@@ -15,6 +15,34 @@ type Subscription = {
     callbacks: Set<(data: any) => void>;
 };
 
+// Safe comparison that handles BigInt values
+function deepEqual(a: any, b: any): boolean {
+    if (a === b) return true;
+    if (a == null || b == null) return false;
+    if (typeof a !== typeof b) return false;
+
+    // Handle BigInt
+    if (typeof a === 'bigint' && typeof b === 'bigint') {
+        return a === b;
+    }
+
+    // Handle arrays
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) return false;
+        return a.every((item, index) => deepEqual(item, b[index]));
+    }
+
+    // Handle objects
+    if (typeof a === 'object' && typeof b === 'object') {
+        const keysA = Object.keys(a);
+        const keysB = Object.keys(b);
+        if (keysA.length !== keysB.length) return false;
+        return keysA.every(key => deepEqual(a[key], b[key]));
+    }
+
+    return false;
+}
+
 // Default TTL: 30 seconds for frequently changing data
 const DEFAULT_TTL = 30 * 1000;
 // Long TTL: 5 minutes for rarely changing data
@@ -200,9 +228,9 @@ class BlockchainCache {
                                 this.set(key, data);
                                 this.pendingRequests.delete(key);
 
-                                // Notify subscribers only if data changed
-                                const hasChanged = JSON.stringify(oldData) !== JSON.stringify(data);
-                                if (hasChanged) {
+                                // Notify subscribers only if data changed (using safe comparison)
+                                const hasChanged = !deepEqual(oldData, data);
+                                if (hasChanged || oldData === undefined) {
                                     sub.callbacks.forEach(cb => cb(data));
                                 }
                             })

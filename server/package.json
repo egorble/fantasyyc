@@ -1,0 +1,27 @@
+{
+  "name": "fantasyyc-server",
+  "version": "1.0.0",
+  "description": "Backend server for FantasyYC - Tournament scoring & leaderboard",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "score": "node jobs/daily-scorer.js",
+    "init-db": "node db/init.js",
+    "dev": "node --watch index.js",
+    "test": "node test-integration.js"
+  },
+  "keywords": [
+    "tournament",
+    "leaderboard",
+    "blockchain"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "sql.js": "^1.12.0",
+    "ethers": "^6.13.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}

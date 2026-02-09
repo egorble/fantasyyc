@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import RightPanel from './components/RightPanel';
 import HeroBanner from './components/HeroBanner';
@@ -11,14 +11,15 @@ import Leagues from './components/Leagues';
 import Analytics from './components/Analytics';
 import AdminPanel from './components/AdminPanel';
 import CardDetailModal, { CardDetailData } from './components/CardDetailModal';
-import { NavSection, UserProfile } from './types';
-import { MOCK_STARTUPS } from './constants';
-import { Filter, Search, Wallet, Menu } from 'lucide-react';
+import { NavSection, UserProfile, Startup, Rarity, CardData } from './types';
+import { Filter, Search, Wallet, Menu, Loader2 } from 'lucide-react';
 import { ThemeProvider } from './context/ThemeContext';
 import { WalletProvider, useWalletContext } from './context/WalletContext';
 import { formatXTZ, CHAIN_NAME } from './lib/contracts';
 import { isAdmin } from './hooks/useAdmin';
 import { ethers } from 'ethers';
+import { useMarketplaceV2, Listing } from './hooks/useMarketplaceV2';
+import { useNFT } from './hooks/useNFT';
 
 // Inner component that uses wallet context
 const AppContent: React.FC = () => {
@@ -27,6 +28,15 @@ const AppContent: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [dashboardSelectedStartup, setDashboardSelectedStartup] = useState<CardDetailData | null>(null);
+    const [dashboardSelectedCard, setDashboardSelectedCard] = useState<CardData | null>(null);
+
+    // Dashboard filters and sort
+    const [activeFilter, setActiveFilter] = useState<string>('all');
+    const [sortBy, setSortBy] = useState<'price' | 'rarity' | 'recent'>('recent');
+
+    // Marketplace & NFT listings for dashboard
+    const [dashboardListings, setDashboardListings] = useState<Array<{ listing: Listing; card: CardData }>>([]);
+    const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
 
     // Wallet hook
     const {
@@ -40,6 +50,12 @@ const AppContent: React.FC = () => {
         isConnecting
     } = useWalletContext();
 
+    // Marketplace hook
+    const { getActiveListings } = useMarketplaceV2();
+
+    // NFT hook
+    const { getCardMetadata } = useNFT();
+
     // Dynamic user from wallet
     const user: UserProfile = {
         name: isConnected ? formatAddress(address!) : 'Not Connected',
@@ -49,12 +65,86 @@ const AppContent: React.FC = () => {
         address: address || undefined,
     };
 
-    const filteredStartups = useMemo(() => {
-        return MOCK_STARTUPS.filter(s =>
-            s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            s.batch.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [searchQuery]);
+    // Load dashboard listings with NFT metadata
+    useEffect(() => {
+        const loadDashboardData = async () => {
+            setIsLoadingDashboard(true);
+            try {
+                const listings = await getActiveListings();
+
+                // Fetch metadata for each listing
+                const listingsWithCards = await Promise.all(
+                    listings.map(async (listing) => {
+                        const card = await getCardMetadata(Number(listing.tokenId));
+                        return card ? { listing, card } : null;
+                    })
+                );
+
+                // Filter out null values (failed metadata fetches)
+                const validListings = listingsWithCards.filter((item): item is { listing: Listing; card: CardData } => item !== null);
+                setDashboardListings(validListings);
+            } catch (err) {
+                console.error('Failed to load dashboard data:', err);
+            } finally {
+                setIsLoadingDashboard(false);
+            }
+        };
+
+        loadDashboardData();
+    }, [getActiveListings, getCardMetadata]);
+
+    // Filter and sort dashboard listings
+    const filteredAndSortedListings = useMemo(() => {
+        let filtered = dashboardListings;
+
+        // Apply search filter
+        if (searchQuery) {
+            filtered = filtered.filter(({ card }) =>
+                card.name.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        // Apply category filter
+        if (activeFilter !== 'all') {
+            filtered = filtered.filter(({ card }) => {
+                switch (activeFilter) {
+                    case 'legendary':
+                        return card.rarity === Rarity.LEGENDARY;
+                    case 'epic':
+                        return card.rarity === Rarity.EPIC || card.rarity === Rarity.EPIC_RARE;
+                    case 'rare':
+                        return card.rarity === Rarity.RARE;
+                    case 'common':
+                        return card.rarity === Rarity.COMMON;
+                    default:
+                        return true;
+                }
+            });
+        }
+
+        // Apply sorting
+        const sorted = [...filtered].sort((a, b) => {
+            switch (sortBy) {
+                case 'price':
+                    return Number(b.listing.price - a.listing.price);
+                case 'rarity': {
+                    const rarityOrder = {
+                        [Rarity.LEGENDARY]: 5,
+                        [Rarity.EPIC_RARE]: 4,
+                        [Rarity.EPIC]: 3,
+                        [Rarity.RARE]: 2,
+                        [Rarity.COMMON]: 1,
+                    };
+                    return rarityOrder[b.card.rarity] - rarityOrder[a.card.rarity];
+                }
+                case 'recent':
+                default:
+                    return Number(b.listing.listedAt - a.listing.listedAt);
+            }
+        });
+
+        return sorted;
+    }, [dashboardListings, searchQuery, activeFilter, sortBy]);
 
     const handleSectionChange = (section: NavSection) => {
         setActiveSection(section);
@@ -94,54 +184,138 @@ const AppContent: React.FC = () => {
                         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 md:gap-6">
                             <div className="w-full md:w-auto overflow-x-auto pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
                                 <div className="flex items-center space-x-2 min-w-max">
-                                    <button className="px-6 py-2 bg-black dark:bg-white text-yc-orange rounded-full text-sm font-black shadow-lg shadow-yc-orange/10 transform transition-all hover:scale-105 active:scale-95">
-                                        Trending
+                                    <button
+                                        onClick={() => setActiveFilter('all')}
+                                        className={`px-6 py-2 rounded-full text-sm font-black shadow-lg transform transition-all hover:scale-105 active:scale-95 ${activeFilter === 'all'
+                                            ? 'bg-black dark:bg-white text-yc-orange shadow-yc-orange/10'
+                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                                            }`}
+                                    >
+                                        All
                                     </button>
-                                    <button className="px-5 py-2 text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white text-sm font-bold transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/5">
-                                        New IPOs
+                                    <button
+                                        onClick={() => setActiveFilter('legendary')}
+                                        className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeFilter === 'legendary'
+                                            ? 'bg-black dark:bg-white text-yc-orange'
+                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                                            }`}
+                                    >
+                                        Legendary
                                     </button>
-                                    <button className="px-5 py-2 text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white text-sm font-bold transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/5">
-                                        AI Sector
+                                    <button
+                                        onClick={() => setActiveFilter('epic')}
+                                        className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeFilter === 'epic'
+                                            ? 'bg-black dark:bg-white text-yc-orange'
+                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                                            }`}
+                                    >
+                                        Epic
                                     </button>
-                                    <button className="px-5 py-2 text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white text-sm font-bold transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/5">
-                                        SaaS
+                                    <button
+                                        onClick={() => setActiveFilter('rare')}
+                                        className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeFilter === 'rare'
+                                            ? 'bg-black dark:bg-white text-yc-orange'
+                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                                            }`}
+                                    >
+                                        Rare
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveFilter('common')}
+                                        className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeFilter === 'common'
+                                            ? 'bg-black dark:bg-white text-yc-orange'
+                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                                            }`}
+                                    >
+                                        Common
                                     </button>
                                 </div>
                             </div>
 
                             <div className="flex items-center space-x-3 self-end md:self-auto">
                                 <span className="text-xs font-bold text-gray-400 uppercase">Sort by:</span>
-                                <button className="flex items-center text-sm font-bold text-yc-text-primary dark:text-white hover:text-yc-orange transition-colors group">
-                                    Market Cap
-                                    <Filter className="w-3 h-3 ml-1 text-gray-400 group-hover:text-yc-orange transition-colors" />
-                                </button>
+                                <div className="relative group">
+                                    <button className="flex items-center text-sm font-bold text-yc-text-primary dark:text-white hover:text-yc-orange transition-colors">
+                                        {sortBy === 'price' ? 'Price' : sortBy === 'rarity' ? 'Rarity' : 'Recent'}
+                                        <Filter className="w-3 h-3 ml-1 text-gray-400 group-hover:text-yc-orange transition-colors" />
+                                    </button>
+                                    <div className="absolute right-0 top-full mt-2 bg-white dark:bg-[#09090b] border border-gray-200 dark:border-[#27272a] rounded-lg shadow-lg py-2 min-w-[120px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                        <button
+                                            onClick={() => setSortBy('recent')}
+                                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
+                                        >
+                                            Recent
+                                        </button>
+                                        <button
+                                            onClick={() => setSortBy('price')}
+                                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
+                                        >
+                                            Price
+                                        </button>
+                                        <button
+                                            onClick={() => setSortBy('rarity')}
+                                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
+                                        >
+                                            Rarity
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-                            {filteredStartups.length > 0 ? (
-                                filteredStartups.map((startup) => (
-                                    <StartupCard
-                                        key={startup.id}
-                                        startup={startup}
-                                        onClick={() => setDashboardSelectedStartup({
-                                            id: startup.id,
-                                            image: startup.coverImage,
-                                            name: startup.name,
-                                            value: startup.value.toString(),
-                                            rarity: 'Common',
-                                            multiplier: '1.2x',
-                                            batch: startup.batch,
-                                            stage: startup.stage
-                                        })}
-                                    />
-                                ))
-                            ) : (
-                                <div className="col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-4 text-center py-20">
-                                    <p className="text-xl font-bold text-gray-400">No startups found matching "{searchQuery}"</p>
-                                </div>
-                            )}
-                        </div>
+                        {isLoadingDashboard ? (
+                            <div className="flex items-center justify-center py-20">
+                                <Loader2 className="w-8 h-8 animate-spin text-yc-orange" />
+                                <span className="ml-3 text-lg font-bold text-gray-400">Loading marketplace...</span>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                                {filteredAndSortedListings.length > 0 ? (
+                                    filteredAndSortedListings.map(({ listing, card }) => {
+                                        // Convert CardData to Startup format for StartupCard component
+                                        const startupData: Startup = {
+                                            id: card.tokenId.toString(),
+                                            name: card.name,
+                                            batch: `Edition ${card.edition}`,
+                                            description: card.description || `${card.rarity} rarity NFT card with ${card.multiplier}x multiplier`,
+                                            value: Number(ethers.formatEther(listing.price)),
+                                            change: card.multiplier * 10, // Use multiplier for change percentage
+                                            logo: card.image,
+                                            coverImage: card.image,
+                                            stage: card.rarity,
+                                            score: card.multiplier * 10,
+                                            trend: [0, 0, 0, 0, 0, Number(ethers.formatEther(listing.price))],
+                                        };
+
+                                        return (
+                                            <StartupCard
+                                                key={`${listing.listingId}-${card.tokenId}`}
+                                                startup={startupData}
+                                                onClick={() => {
+                                                    setDashboardSelectedCard(card);
+                                                    setDashboardSelectedStartup({
+                                                        id: card.tokenId.toString(),
+                                                        image: card.image,
+                                                        name: card.name,
+                                                        value: Number(ethers.formatEther(listing.price)),
+                                                        rarity: card.rarity,
+                                                        multiplier: `${card.multiplier}x`,
+                                                        batch: `Edition ${card.edition}`,
+                                                        stage: card.rarity
+                                                    });
+                                                }}
+                                            />
+                                        );
+                                    })
+                                ) : (
+                                    <div className="col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-4 text-center py-20">
+                                        <p className="text-xl font-bold text-gray-400">
+                                            {searchQuery ? `No NFTs found matching "${searchQuery}"` : 'No NFTs listed on marketplace'}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 );
         }
@@ -256,7 +430,11 @@ const AppContent: React.FC = () => {
             {/* Card Details Modal */}
             <CardDetailModal
                 data={dashboardSelectedStartup}
-                onClose={() => setDashboardSelectedStartup(null)}
+                cardData={dashboardSelectedCard}
+                onClose={() => {
+                    setDashboardSelectedStartup(null);
+                    setDashboardSelectedCard(null);
+                }}
             />
 
         </div>

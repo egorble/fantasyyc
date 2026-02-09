@@ -25,6 +25,12 @@ export interface Startup {
 }
 
 // ============ NFT Card Data (from contract) ============
+export interface FundraisingData {
+  round: string; // e.g. "Series B", "Seed"
+  amount: string; // e.g. "$330M"
+  valuation: string | null; // e.g. "$6.6B" or null
+}
+
 export interface CardData {
   tokenId: number;
   startupId: number;
@@ -34,6 +40,8 @@ export interface CardData {
   isLocked: boolean;
   image: string;
   edition: number;
+  fundraising?: FundraisingData | null; // Optional fundraising data from metadata
+  description?: string; // Optional description from metadata
 }
 
 // Legacy CardData for mock (deprecated)
