@@ -1,8 +1,9 @@
 import React from 'react';
 import { NavSection, UserProfile } from '../types';
-import { LayoutGrid, ShoppingBag, PieChart, Trophy, BarChart2, Settings, Sun, Moon, X, Shield } from 'lucide-react';
+import { LayoutGrid, ShoppingBag, PieChart, Trophy, BarChart2, Settings, Sun, Moon, X, Shield, LogOut } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { isAdmin } from '../hooks/useAdmin';
+import { useWalletContext } from '../context/WalletContext';
 
 interface SidebarProps {
   activeSection: NavSection;
@@ -14,6 +15,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user, isOpen = false, onClose }) => {
   const { theme, toggleTheme } = useTheme();
+  const { disconnect, isConnected } = useWalletContext();
   const userIsAdmin = isAdmin(user.address || null);
 
   const navItems = [
@@ -37,10 +39,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
       <div className="px-8 py-10 flex items-center justify-between">
         <div className="flex items-center gap-3 text-yc-text-primary dark:text-white">
           <div className="w-8 h-8 bg-yc-orange rounded flex items-center justify-center shadow-[0_0_10px_rgba(242,101,34,0.5)]">
-            <span className="text-white font-bold text-lg">Y</span>
+            <span className="text-white font-bold text-lg">U</span>
           </div>
           <h1 className="text-2xl font-black tracking-tighter">
-            FANTASY YC
+            UnicornX
           </h1>
         </div>
         {/* Mobile Close Button */}
@@ -107,6 +109,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
             </button>
           </div>
         </div>
+
+        {/* Disconnect Button */}
+        {isConnected && (
+          <button
+            onClick={disconnect}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-bold text-sm transition-all"
+          >
+            <LogOut size={16} />
+            Disconnect Wallet
+          </button>
+        )}
       </div>
     </aside>
   );

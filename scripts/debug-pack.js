@@ -14,11 +14,11 @@ async function debug() {
 
     // Load deployment
     const deployment = JSON.parse(fs.readFileSync(DEPLOYMENT_FILE, "utf8"));
-    const NFT_ADDRESS = deployment.contracts.FantasyYC_NFT;
+    const NFT_ADDRESS = deployment.contracts.UnicornX_NFT;
     const PACK_ADDRESS = deployment.contracts.PackOpener;
 
     // Load ABIs
-    const NFT_ABI = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, "FantasyYC_NFT.json"), "utf8")).abi;
+    const NFT_ABI = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, "UnicornX_NFT.json"), "utf8")).abi;
     const PACK_ABI = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, "PackOpener.json"), "utf8")).abi;
 
     // Setup

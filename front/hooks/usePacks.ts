@@ -119,8 +119,7 @@ export function usePacks() {
             // Single transaction: buy and open pack
             // Pass value explicitly to ensure wallet displays it
             const tx = await packContract.buyAndOpenPack({
-                value: BigInt(price.toString()),
-                gasLimit: 3000000n
+                value: BigInt(price.toString())
             });
             console.log('   TX sent:', tx.hash);
 

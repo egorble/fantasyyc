@@ -43,7 +43,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-[fadeIn_0.2s] overflow-y-auto">
-            <div 
+            <div
                 className="bg-white dark:bg-[#09090b] w-full max-w-5xl rounded-xl shadow-2xl border border-gray-200 dark:border-[#27272a] flex flex-col relative animate-[scaleIn_0.2s_ease-out]"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -51,7 +51,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
                 <div className="flex items-start justify-between p-6 border-b border-gray-200 dark:border-[#27272a]">
                     <div className="flex gap-5">
                         <div className="w-20 h-20 rounded-lg bg-gray-100 dark:bg-[#18181b] border border-gray-200 dark:border-[#27272a] overflow-hidden shrink-0">
-                            <img src={data.image} alt={data.name} className="w-full h-full object-cover" />
+                            <img src={data.image} alt={data.name} className="w-full h-full object-contain" />
                         </div>
                         <div>
                             <div className="flex items-center gap-3 mb-1">
@@ -77,10 +77,10 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
                         </div>
                     </div>
                     <div className="flex gap-2">
-                         <button className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <button className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                             <Share2 className="w-5 h-5" />
-                         </button>
-                         <button 
+                        </button>
+                        <button
                             onClick={onClose}
                             className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                         >
@@ -91,10 +91,10 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
 
                 {/* Main Content Grid */}
                 <div className="flex flex-col lg:flex-row h-full">
-                    
+
                     {/* Left Column: Key Stats & Breakdown */}
                     <div className="lg:w-2/3 p-6 border-r border-gray-200 dark:border-[#27272a]">
-                        
+
                         {/* Description */}
                         <div className="mb-8">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-3">About</h3>
@@ -115,7 +115,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
                                     <TrendingUp className="w-3 h-3 mr-1" /> +12.5% vs last round
                                 </div>
                             </div>
-                            
+
                             <div className="p-4 rounded-lg bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#27272a]">
                                 <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
                                     <Activity className="w-4 h-4" />
@@ -165,7 +165,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
 
                     {/* Right Column: Timeline & Actions */}
                     <div className="lg:w-1/3 bg-gray-50 dark:bg-[#0c0c0e]">
-                        
+
                         {/* Funding Timeline */}
                         <div className="p-6 border-b border-gray-200 dark:border-[#27272a]">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-6">Funding History</h3>
@@ -176,7 +176,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
                                         <div key={i} className="relative pl-8">
                                             <div className={`absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-[3px] border-white dark:border-[#0c0c0e] z-10 
                                                 ${i === 0 ? 'bg-yc-orange ring-1 ring-yc-orange' : 'bg-gray-300 dark:bg-gray-700'}`}></div>
-                                            
+
                                             <div className="flex justify-between items-start mb-1">
                                                 <span className="font-bold text-sm text-gray-900 dark:text-white">{round.round}</span>
                                                 <span className="font-mono text-xs font-semibold text-gray-900 dark:text-white">{round.amount}</span>
@@ -199,7 +199,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, onClose }) => {
                             <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#27272a] rounded-lg p-4 mb-4">
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="text-xs text-gray-500 font-medium uppercase">Current Price</span>
-                                    <span className="text-xs text-green-500 font-medium flex items-center"><TrendingUp className="w-3 h-3 mr-1"/> Low Volatility</span>
+                                    <span className="text-xs text-green-500 font-medium flex items-center"><TrendingUp className="w-3 h-3 mr-1" /> Low Volatility</span>
                                 </div>
                                 <div className="flex items-baseline gap-1">
                                     <span className="text-3xl font-bold text-gray-900 dark:text-white font-mono">142.50</span>

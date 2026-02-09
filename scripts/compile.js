@@ -15,14 +15,13 @@ if (!fs.existsSync(BUILD_DIR)) {
     fs.mkdirSync(BUILD_DIR, { recursive: true });
 }
 
-console.log("🔨 Compiling Fantasy YC Smart Contracts with solc...\n");
+console.log("🔨 Compiling UnicornX Smart Contracts with solc...\n");
 
 // Contract files to compile
 const contractFiles = [
-    "FantasyYC_NFT.sol",
+    "UnicornX_NFT.sol",
     "PackOpener.sol",
     "TournamentManager.sol",
-    "Marketplace.sol",
     "MarketplaceV2.sol"
 ];
 
@@ -63,6 +62,7 @@ const input = {
             enabled: true,
             runs: 200
         },
+        viaIR: true,
         evmVersion: "shanghai", // Osaka not yet in solc, use shanghai
         outputSelection: {
             "*": {
@@ -143,10 +143,9 @@ console.log("🎉 COMPILATION COMPLETE!");
 console.log("═══════════════════════════════════════════════════════════════");
 console.log(`\n📁 Build artifacts saved to: ${BUILD_DIR}`);
 console.log("\nFiles generated:");
-console.log("   - FantasyYC_NFT.json");
+console.log("   - UnicornX_NFT.json");
 console.log("   - PackOpener.json");
 console.log("   - TournamentManager.json");
-console.log("   - Marketplace.json");
 console.log("   - MarketplaceV2.json");
 console.log("   - contracts.json (combined)");
 console.log("");

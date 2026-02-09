@@ -1,4 +1,4 @@
-// Web3Modal configuration for Fantasy YC
+// Web3Modal configuration for UnicornX
 /// <reference types="vite/client" />
 import { createWeb3Modal, defaultConfig } from '@web3modal/ethers/react';
 
@@ -25,10 +25,10 @@ const etherlinkMainnet = {
 
 // Metadata for WalletConnect
 const metadata = {
-    name: 'Fantasy YC',
+    name: 'UnicornX',
     description: 'Fantasy trading card game with YC startups',
-    url: 'https://fantasyyc.xyz',
-    icons: ['https://fantasyyc.xyz/logo.png']
+    url: 'https://unicornx.xyz',
+    icons: ['https://unicornx.xyz/logo.png']
 };
 
 // Configure Web3Modal

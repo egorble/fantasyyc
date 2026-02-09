@@ -1,5 +1,5 @@
 // scripts/test-all.js
-// Comprehensive test script for Fantasy YC Smart Contracts
+// Comprehensive test script for UnicornX Smart Contracts
 // Tests: Pack purchase, card minting, tournaments, locking, metadata
 
 const { ethers } = require("ethers");
@@ -23,12 +23,12 @@ try {
 }
 
 // Contract addresses
-const NFT_ADDRESS = deployment.contracts.FantasyYC_NFT;
+const NFT_ADDRESS = deployment.contracts.UnicornX_NFT;
 const PACK_OPENER_ADDRESS = deployment.contracts.PackOpener;
 const TOURNAMENT_ADDRESS = deployment.contracts.TournamentManager;
 
 // Load ABIs
-const NFT_ABI = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, "FantasyYC_NFT.json"), "utf8")).abi;
+const NFT_ABI = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, "UnicornX_NFT.json"), "utf8")).abi;
 const PACK_ABI = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, "PackOpener.json"), "utf8")).abi;
 const TOURNAMENT_ABI = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, "TournamentManager.json"), "utf8")).abi;
 
@@ -72,7 +72,7 @@ function logTest(name, passed, details = "") {
 async function runTests() {
     console.log("");
     console.log("═══════════════════════════════════════════════════════════════");
-    console.log("🧪 FANTASY YC - COMPREHENSIVE TEST SUITE");
+    console.log("🧪 UNICORN X - COMPREHENSIVE TEST SUITE");
     console.log("═══════════════════════════════════════════════════════════════");
     console.log("");
     console.log("📍 Network: Etherlink Shadownet Testnet");
@@ -163,7 +163,7 @@ async function runTests() {
         logTest("TOTAL_STARTUPS = 19", totalStartups === 19n, `Value: ${totalStartups}`);
 
         const name = await nftContract.name();
-        logTest("Name = 'Fantasy YC'", name === "Fantasy YC", `Value: ${name}`);
+        logTest("Name = 'UnicornX Cards'", name === "UnicornX Cards", `Value: ${name}`);
 
         const symbol = await nftContract.symbol();
         logTest("Symbol = 'FYC'", symbol === "FYC", `Value: ${symbol}`);

@@ -1,6 +1,6 @@
 import { Startup, Rarity } from './types';
 
-// Real YC Startups from the Fantasy YC game
+// Real YC Startups from the UnicornX game
 // Data matches backend server.js STARTUPS
 export const MOCK_STARTUPS: Startup[] = [
   {

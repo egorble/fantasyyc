@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-interface IFantasyYC_NFT {
+interface IUnicornX_NFT {
     function ownerOf(uint256 tokenId) external view returns (address);
     function batchLock(uint256[] calldata tokenIds) external;
     function batchUnlock(uint256[] calldata tokenIds) external;
@@ -22,7 +22,7 @@ interface IFantasyYC_NFT {
 
 /**
  * @title TournamentManager
- * @author Fantasy YC Team
+ * @author UnicornX Team
  * @notice Manage weekly tournaments with registration period, NFT freeze, and prize distribution
  * @dev NFTs are frozen (locked) during tournament, users can cancel before start
  */
@@ -65,7 +65,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     // ============ State Variables ============
     
     /// @notice Reference to the NFT contract
-    IFantasyYC_NFT public nftContract;
+    IUnicornX_NFT public nftContract;
     
     /// @notice Reference to the PackOpener contract (for prize pool deposits)
     address public packOpener;
@@ -87,6 +87,18 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     
     /// @notice Check if user has entered: tournamentId => user => bool
     mapping(uint256 => mapping(address => bool)) public hasEntered;
+    
+    /// @notice Startup points per tournament: tournamentId => startupId => points
+    mapping(uint256 => mapping(uint256 => uint256)) public tournamentPoints;
+    
+    /// @notice User scores after calculation: tournamentId => user => score
+    mapping(uint256 => mapping(address => uint256)) public userScores;
+    
+    /// @notice Total score for tournament (sum of all user scores)
+    mapping(uint256 => uint256) public totalTournamentScore;
+    
+    /// @notice Number of startups (1-19)
+    uint256 public constant TOTAL_STARTUPS = 19;
     
     // ============ Events ============
     
@@ -170,14 +182,10 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     
     // ============ Constructor ============
     
-    constructor(
-        address _nftContract,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _nftContract) Ownable(msg.sender) {
         if (_nftContract == address(0)) revert ZeroAddress();
-        if (initialOwner == address(0)) revert ZeroAddress();
         
-        nftContract = IFantasyYC_NFT(_nftContract);
+        nftContract = IUnicornX_NFT(_nftContract);
         nextTournamentId = 1;
     }
     
@@ -308,6 +316,88 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
         
         emit TournamentFinalized(tournamentId, tournament.prizePool, winners.length);
     }
+    
+    /**
+     * @notice Finalize tournament with points-based prize distribution
+     * @dev Calculates each user's score = sum(points[startupId] * nftMultiplier) for their 5 cards
+     * @dev Prize = (userScore / totalScore) * prizePool
+     * @param tournamentId Tournament ID
+     * @param points Array of 19 points values for startupIds 1-19 (index 0 = startupId 1)
+     */
+    function finalizeWithPoints(
+        uint256 tournamentId,
+        uint256[19] calldata points
+    ) external onlyOwner nonReentrant {
+        Tournament storage tournament = tournaments[tournamentId];
+        if (tournament.id == 0) revert TournamentDoesNotExist();
+        if (tournament.status == TournamentStatus.Finalized) revert TournamentAlreadyFinalized();
+        if (tournament.status == TournamentStatus.Cancelled) revert TournamentCancelledError();
+        
+        // Store points for each startup (startupId 1-19)
+        for (uint256 i = 0; i < TOTAL_STARTUPS; i++) {
+            tournamentPoints[tournamentId][i + 1] = points[i];
+        }
+        
+        address[] storage participants = tournamentParticipants[tournamentId];
+        uint256 participantCount = participants.length;
+        uint256 totalScore = 0;
+        
+        // Calculate scores for all participants
+        for (uint256 i = 0; i < participantCount; i++) {
+            address user = participants[i];
+            Lineup storage lineup = lineups[tournamentId][user];
+            
+            // Skip cancelled entries
+            if (lineup.cancelled) continue;
+            
+            uint256 userScore = 0;
+            
+            // Calculate score for each of 5 cards
+            for (uint256 j = 0; j < LINEUP_SIZE; j++) {
+                uint256 tokenId = lineup.cardIds[j];
+                (uint256 startupId, , , uint256 multiplier, , ) = nftContract.getCardInfo(tokenId);
+                
+                // score += points[startupId] * multiplier
+                uint256 cardPoints = tournamentPoints[tournamentId][startupId];
+                unchecked {
+                    userScore += cardPoints * multiplier;
+                }
+            }
+            
+            userScores[tournamentId][user] = userScore;
+            unchecked {
+                totalScore += userScore;
+            }
+        }
+        
+        totalTournamentScore[tournamentId] = totalScore;
+        
+        // Calculate proportional prizes
+        if (totalScore > 0) {
+            uint256 prizePool = tournament.prizePool;
+            
+            for (uint256 i = 0; i < participantCount; i++) {
+                address user = participants[i];
+                uint256 score = userScores[tournamentId][user];
+                
+                if (score > 0) {
+                    // prize = (userScore * prizePool) / totalScore
+                    uint256 prize = (score * prizePool) / totalScore;
+                    prizes[tournamentId][user] = prize;
+                }
+            }
+        }
+        
+        tournament.status = TournamentStatus.Finalized;
+        
+        // Unfreeze all participants' NFTs
+        for (uint256 i = 0; i < participantCount; i++) {
+            _unfreezeLineup(tournamentId, participants[i]);
+        }
+        
+        emit TournamentFinalized(tournamentId, tournament.prizePool, participantCount);
+    }
+
     
     /**
      * @notice Cancel tournament and unfreeze all NFTs
@@ -511,6 +601,31 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
      */
     function getUserPrize(uint256 tournamentId, address user) external view returns (uint256) {
         return prizes[tournamentId][user];
+    }
+    
+    /**
+     * @notice Get user's score and prize info for a tournament
+     */
+    function getUserScoreInfo(uint256 tournamentId, address user) external view returns (
+        uint256 score,
+        uint256 prize,
+        uint256 totalScore
+    ) {
+        return (
+            userScores[tournamentId][user],
+            prizes[tournamentId][user],
+            totalTournamentScore[tournamentId]
+        );
+    }
+    
+    /**
+     * @notice Get all tournament points for startups 1-19
+     */
+    function getTournamentPoints(uint256 tournamentId) external view returns (uint256[19] memory points) {
+        for (uint256 i = 0; i < TOTAL_STARTUPS; i++) {
+            points[i] = tournamentPoints[tournamentId][i + 1];
+        }
+        return points;
     }
     
     /**

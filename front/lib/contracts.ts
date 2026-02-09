@@ -1,4 +1,4 @@
-// Contract addresses and ABIs for Fantasy YC
+// Contract addresses and ABIs for UnicornX
 import { ethers } from 'ethers';
 
 // ============ Network Configuration ============
@@ -10,11 +10,10 @@ export const METADATA_API = 'http://localhost:3001';
 
 // ============ Contract Addresses ============
 export const CONTRACTS = {
-    NFT: '0x2e71509a8F68F45654392B34277D5d51540ef047',
-    PackOpener: '0x4E2D0c68261E611f934C802E8E973a134CF6c325',
-    TournamentManager: '0x9825a62a0aE74fadB7cE80aD4f75B4a64F3be185',
-    Marketplace: '0xDB745F3C7E839DF975D9c8213Bb00cD2441332bf',
-    MarketplaceV2: '', // Will be set after deployment
+    UnicornX_NFT: '0x4032B143CEF318ED8bED214cAA2218C95BD462bC',
+    PackOpener: '0x61DB1b7c89F2e5a7DAD55d5e108974d7174A4648',
+    TournamentManager: '0xbB93dd51cF212D439638DB91A51BB54a550a50e8',
+    MarketplaceV2: '0x20C31b9d5a983183a1927b3786bcb977e7135Af3',
 } as const;
 
 // ============ ABIs (minimal for frontend) ============
@@ -75,6 +74,10 @@ export const TOURNAMENT_ABI = [
     'function getTournamentPhase(uint256 tournamentId) view returns (string)',
     'function getActiveEntryCount(uint256 tournamentId) view returns (uint256)',
     'function nextTournamentId() view returns (uint256)',
+    'function getUserScoreInfo(uint256 tournamentId, address user) view returns (uint256 score, uint256 prize, uint256 totalScore)',
+    'function getTournamentPoints(uint256 tournamentId) view returns (uint256[19])',
+    'function totalTournamentScore(uint256 tournamentId) view returns (uint256)',
+    'function userScores(uint256 tournamentId, address user) view returns (uint256)',
     // Write functions
     'function enterTournament(uint256 tournamentId, uint256[5] cardIds)',
     'function cancelEntry(uint256 tournamentId)',
@@ -82,7 +85,9 @@ export const TOURNAMENT_ABI = [
     // Admin functions
     'function createTournament(uint256 registrationStart, uint256 startTime, uint256 endTime) returns (uint256)',
     'function finalizeTournament(uint256 tournamentId, address[] winners, uint256[] amounts)',
+    'function finalizeWithPoints(uint256 tournamentId, uint256[19] points)',
     'function cancelTournament(uint256 tournamentId)',
+    'function withdrawFromPrizePool(uint256 tournamentId, uint256 amount, address to)',
     'function emergencyWithdraw(uint256 amount, address to)',
     'function pause()',
     'function unpause()',
@@ -92,24 +97,7 @@ export const TOURNAMENT_ABI = [
     'event LineupCancelled(uint256 indexed tournamentId, address indexed user)',
 ];
 
-export const MARKETPLACE_ABI = [
-    // Read functions
-    'function getActiveListings() view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active)[])',
-    'function getActiveListingCount() view returns (uint256)',
-    'function getListing(uint256 listingId) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active))',
-    'function isTokenListed(uint256 tokenId) view returns (bool)',
-    'function getListingsBySeller(address seller) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active)[])',
-    'function tokenToListing(uint256 tokenId) view returns (uint256)',
-    'function marketplaceFee() view returns (uint256)',
-    // Write functions
-    'function listCard(uint256 tokenId, uint256 price) returns (uint256)',
-    'function buyCard(uint256 listingId) payable',
-    'function cancelListing(uint256 listingId)',
-    // Events
-    'event CardListed(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId, uint256 price)',
-    'event CardSold(uint256 indexed listingId, address indexed seller, address indexed buyer, uint256 tokenId, uint256 price)',
-    'event ListingCancelled(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId)',
-];
+// Old MARKETPLACE_ABI removed - using MarketplaceV2 exclusively
 
 export const MARKETPLACE_V2_ABI = [
     // ===== Listings =====
@@ -156,25 +144,32 @@ export const MARKETPLACE_V2_ABI = [
 
 // ============ Startup Data (matches contract) ============
 export const STARTUPS: Record<number, { name: string; rarity: string; multiplier: number }> = {
-    1: { name: 'Manus', rarity: 'Legendary', multiplier: 10 },
+    // Legendary (10x multiplier) - IDs 1-5
+    1: { name: 'Openclaw', rarity: 'Legendary', multiplier: 10 },
     2: { name: 'Lovable', rarity: 'Legendary', multiplier: 10 },
     3: { name: 'Cursor', rarity: 'Legendary', multiplier: 10 },
-    4: { name: 'Anthropic', rarity: 'Legendary', multiplier: 10 },
-    5: { name: 'OpenAI', rarity: 'EpicRare', multiplier: 8 },
+    4: { name: 'OpenAI', rarity: 'Legendary', multiplier: 10 },
+    5: { name: 'Anthropic', rarity: 'Legendary', multiplier: 10 },
+
+    // Epic (5x multiplier) - IDs 6-8
     6: { name: 'Browser Use', rarity: 'Epic', multiplier: 5 },
     7: { name: 'Dedalus Labs', rarity: 'Epic', multiplier: 5 },
     8: { name: 'Autumn', rarity: 'Epic', multiplier: 5 },
-    9: { name: 'Axiom', rarity: 'Epic', multiplier: 5 },
+
+    // Rare (3x multiplier) - IDs 9-13
+    9: { name: 'Axiom', rarity: 'Rare', multiplier: 3 },
     10: { name: 'Multifactor', rarity: 'Rare', multiplier: 3 },
     11: { name: 'Dome', rarity: 'Rare', multiplier: 3 },
     12: { name: 'GrazeMate', rarity: 'Rare', multiplier: 3 },
     13: { name: 'Tornyol Systems', rarity: 'Rare', multiplier: 3 },
-    14: { name: 'Axiom', rarity: 'Rare', multiplier: 3 },
-    15: { name: 'Pocket', rarity: 'Common', multiplier: 1 },
-    16: { name: 'Caretta', rarity: 'Common', multiplier: 1 },
-    17: { name: 'AxionOrbital Space', rarity: 'Common', multiplier: 1 },
-    18: { name: 'Freeport Markets', rarity: 'Common', multiplier: 1 },
-    19: { name: 'Ruvo', rarity: 'Common', multiplier: 1 },
+
+    // Common (1x multiplier) - IDs 14-19
+    14: { name: 'Pocket', rarity: 'Common', multiplier: 1 },
+    15: { name: 'Caretta', rarity: 'Common', multiplier: 1 },
+    16: { name: 'AxionOrbital Space', rarity: 'Common', multiplier: 1 },
+    17: { name: 'Freeport Markets', rarity: 'Common', multiplier: 1 },
+    18: { name: 'Ruvo', rarity: 'Common', multiplier: 1 },
+    19: { name: 'Lightberry', rarity: 'Common', multiplier: 1 },
 };
 
 // ============ Provider ============
@@ -188,7 +183,7 @@ export function getProvider() {
 // ============ Contract Instances ============
 export function getNFTContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
     const provider = signerOrProvider || getProvider();
-    return new ethers.Contract(CONTRACTS.NFT, NFT_ABI, provider);
+    return new ethers.Contract(CONTRACTS.UnicornX_NFT, NFT_ABI, provider);
 }
 
 export function getPackOpenerContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
@@ -201,10 +196,7 @@ export function getTournamentContract(signerOrProvider?: ethers.Signer | ethers.
     return new ethers.Contract(CONTRACTS.TournamentManager, TOURNAMENT_ABI, provider);
 }
 
-export function getMarketplaceContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
-    const provider = signerOrProvider || getProvider();
-    return new ethers.Contract(CONTRACTS.Marketplace, MARKETPLACE_ABI, provider);
-}
+// Old getMarketplaceContract removed - using getMarketplaceV2Contract exclusively
 
 export function getMarketplaceV2Contract(signerOrProvider?: ethers.Signer | ethers.Provider) {
     const provider = signerOrProvider || getProvider();

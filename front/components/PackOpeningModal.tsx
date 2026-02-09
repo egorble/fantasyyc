@@ -412,7 +412,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose }) 
                                     {/* FRONT FACE */}
                                     <div className="absolute inset-0 backface-hidden rounded-xl bg-[#121212] border border-white/10 overflow-hidden shadow-2xl">
                                         <div className="h-1/2 relative">
-                                            <img src={card.image} className="w-full h-full object-cover" loading="eager" />
+                                            <img src={card.image} className="w-full h-full object-contain" loading="eager" />
                                             <div className={`absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md
                                             ${card.rarity === Rarity.LEGENDARY ? 'bg-orange-500 text-white border-orange-400' :
                                                     card.rarity === Rarity.EPIC_RARE ? 'bg-purple-600 text-white border-purple-500' :
@@ -446,7 +446,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose }) 
                                                 <div className="w-12 h-12 bg-yc-orange rounded flex items-center justify-center mx-auto mb-2 shadow-[0_0_15px_#F26522]">
                                                     <span className="text-white font-black text-xl">Y</span>
                                                 </div>
-                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">FANTASY</p>
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">UNICORNX</p>
                                             </div>
                                         </div>
                                     </div>

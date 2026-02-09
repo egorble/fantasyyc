@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Search, ArrowUpDown, ShoppingCart, Loader2 } from 'lucide-react';
-import { useMarketplace, MarketListing } from '../hooks/useMarketplace';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, ShoppingCart, Loader2, Gavel, Clock, Tag, X, User, Activity, DollarSign, History, Plus } from 'lucide-react';
+import { useMarketplaceV2, Listing, Auction, Bid } from '../hooks/useMarketplaceV2';
 import { useNFT } from '../hooks/useNFT';
 import { useWalletContext } from '../context/WalletContext';
-import { ethers } from 'ethers';
-import { getProvider, formatXTZ } from '../lib/contracts';
+import { usePollingData } from '../hooks/usePollingData';
+import { formatXTZ } from '../lib/contracts';
+import { CardData, Rarity } from '../types';
 
 // Rarity colors
 const RARITY_COLORS: Record<string, string> = {
@@ -15,41 +16,117 @@ const RARITY_COLORS: Record<string, string> = {
     'Legendary': 'bg-orange-500 text-white border-orange-400',
 };
 
+type MarketTab = 'listings' | 'auctions' | 'activity';
+
+interface ListingWithMeta extends Listing {
+    cardName?: string;
+    cardImage?: string;
+    rarity?: string;
+    multiplier?: number;
+    priceFormatted?: string;
+}
+
+interface AuctionWithMeta extends Auction {
+    cardName?: string;
+    cardImage?: string;
+    rarity?: string;
+    multiplier?: number;
+    timeLeft?: string;
+    isEnded?: boolean;
+}
+
+// Helper to format time remaining
+function formatTimeLeft(endTime: bigint): { text: string; isEnded: boolean } {
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    if (endTime <= now) return { text: 'Ended', isEnded: true };
+
+    const diff = Number(endTime - now);
+    const hours = Math.floor(diff / 3600);
+    const minutes = Math.floor((diff % 3600) / 60);
+    const seconds = diff % 60;
+
+    if (hours > 24) {
+        const days = Math.floor(hours / 24);
+        return { text: `${days}d ${hours % 24}h`, isEnded: false };
+    }
+    return { text: `${hours}h ${minutes}m ${seconds}s`, isEnded: false };
+}
+
 const Marketplace: React.FC = () => {
-    const { getActiveListings, buyCard, isLoading, error } = useMarketplace();
-    const { getCardInfo } = useNFT();
+    const {
+        getActiveListings,
+        buyCard,
+        getActiveAuctions,
+        bidOnAuction,
+        finalizeAuction,
+        placeBid,
+        getBidsForToken,
+        listCard,
+        createAuction,
+        cancelListing,
+        getTokenStats,
+        getTokenSaleHistory,
+        loading: isLoading,
+        error
+    } = useMarketplaceV2();
+    const { getCardInfo, getCards } = useNFT();
     const { address, isConnected } = useWalletContext();
 
-    const [listings, setListings] = useState<(MarketListing & { cardName?: string; cardImage?: string; rarity?: string; multiplier?: number })[]>([]);
+    // State
+    const [activeTab, setActiveTab] = useState<MarketTab>('listings');
+    const [listings, setListings] = useState<ListingWithMeta[]>([]);
+    const [auctions, setAuctions] = useState<AuctionWithMeta[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState<'price_asc' | 'price_desc' | 'recent'>('recent');
     const [rarityFilter, setRarityFilter] = useState<string>('All');
     const [buyingId, setBuyingId] = useState<number | null>(null);
+    const [biddingId, setBiddingId] = useState<number | null>(null);
+    const [cancellingId, setCancellingId] = useState<number | null>(null);
     const [loadingListings, setLoadingListings] = useState(true);
+    const [loadingAuctions, setLoadingAuctions] = useState(true);
 
-    const tabs = ['All', 'Common', 'Rare', 'Epic', 'Legendary'];
+    // Modal state
+    const [bidModal, setBidModal] = useState<{ auction?: AuctionWithMeta; listing?: ListingWithMeta } | null>(null);
+    const [bidAmount, setBidAmount] = useState('');
 
-    // Load listings on mount
-    useEffect(() => {
-        loadListings();
-    }, []);
+    // Stats Modal state
+    const [statsModalOpen, setStatsModalOpen] = useState(false);
+    const [statsItem, setStatsItem] = useState<ListingWithMeta | AuctionWithMeta | null>(null);
+    const [statsTab, setStatsTab] = useState<'bids' | 'sales' | 'stats'>('bids');
+    const [cardBids, setCardBids] = useState<any[]>([]);
+    const [cardSales, setCardSales] = useState<any[]>([]);
+    const [cardStats, setCardStats] = useState<any | null>(null);
+    const [loadingStats, setLoadingStats] = useState(false);
 
-    const loadListings = async () => {
-        setLoadingListings(true);
+    // List/Sell Modal state
+    const [listModalOpen, setListModalOpen] = useState(false);
+    const [myNFTs, setMyNFTs] = useState<CardData[]>([]);
+    const [selectedNFT, setSelectedNFT] = useState<CardData | null>(null);
+    const [sellMode, setSellMode] = useState<'fixed' | 'auction'>('fixed');
+    const [sellPrice, setSellPrice] = useState('');
+    const [auctionStartPrice, setAuctionStartPrice] = useState('');
+    const [auctionReservePrice, setAuctionReservePrice] = useState('');
+    const [auctionDuration, setAuctionDuration] = useState('1');
+    const [isSelling, setIsSelling] = useState(false);
+    const [loadingNFTs, setLoadingNFTs] = useState(false);
+
+    const rarityTabs = ['All', 'Common', 'Rare', 'Epic', 'Legendary'];
+
+    // Fetcher functions for polling
+    const fetchListings = useCallback(async (): Promise<ListingWithMeta[]> => {
         try {
             const rawListings = await getActiveListings();
-
-            // Fetch card metadata for each listing
             const listingsWithMetadata = await Promise.all(
                 rawListings.map(async (listing) => {
                     try {
-                        const cardInfo = await getCardInfo(listing.tokenId);
+                        const cardInfo = await getCardInfo(Number(listing.tokenId));
                         return {
                             ...listing,
                             cardName: cardInfo?.name || `Card #${listing.tokenId}`,
                             cardImage: cardInfo?.image || '/placeholder-card.png',
                             rarity: cardInfo?.rarity || 'Common',
                             multiplier: cardInfo?.multiplier || 1,
+                            priceFormatted: formatXTZ(listing.price),
                         };
                     } catch {
                         return {
@@ -58,20 +135,107 @@ const Marketplace: React.FC = () => {
                             cardImage: '/placeholder-card.png',
                             rarity: 'Common',
                             multiplier: 1,
+                            priceFormatted: formatXTZ(listing.price),
                         };
                     }
                 })
             );
-
-            setListings(listingsWithMetadata);
+            return listingsWithMetadata;
         } catch (e) {
             console.error('Failed to load listings:', e);
+            return [];
         }
-        setLoadingListings(false);
-    };
+    }, [getActiveListings, getCardInfo]);
 
-    // Handle buy
-    const handleBuy = async (listing: MarketListing) => {
+    const fetchAuctions = useCallback(async (): Promise<AuctionWithMeta[]> => {
+        try {
+            const rawAuctions = await getActiveAuctions();
+            const auctionsWithMetadata = await Promise.all(
+                rawAuctions.map(async (auction) => {
+                    try {
+                        const cardInfo = await getCardInfo(Number(auction.tokenId));
+                        const { text, isEnded } = formatTimeLeft(auction.endTime);
+                        return {
+                            ...auction,
+                            cardName: cardInfo?.name || `Card #${auction.tokenId}`,
+                            cardImage: cardInfo?.image || '/placeholder-card.png',
+                            rarity: cardInfo?.rarity || 'Common',
+                            multiplier: cardInfo?.multiplier || 1,
+                            timeLeft: text,
+                            isEnded,
+                        };
+                    } catch {
+                        const { text, isEnded } = formatTimeLeft(auction.endTime);
+                        return {
+                            ...auction,
+                            cardName: `Card #${auction.tokenId}`,
+                            cardImage: '/placeholder-card.png',
+                            rarity: 'Common',
+                            multiplier: 1,
+                            timeLeft: text,
+                            isEnded,
+                        };
+                    }
+                })
+            );
+            return auctionsWithMetadata;
+        } catch (e) {
+            console.error('Failed to load auctions:', e);
+            return [];
+        }
+    }, [getActiveAuctions, getCardInfo]);
+
+    // Auto-refresh listings with polling
+    const {
+        data: polledListings,
+        isLoading: pollingListingsLoading,
+        refresh: refreshListings
+    } = usePollingData<ListingWithMeta[]>(fetchListings, {
+        cacheKey: 'marketplace:active-listings',
+        interval: 30000, // 30 seconds
+        enabled: true
+    });
+
+    // Auto-refresh auctions with polling
+    const {
+        data: polledAuctions,
+        isLoading: pollingAuctionsLoading,
+        refresh: refreshAuctions
+    } = usePollingData<AuctionWithMeta[]>(fetchAuctions, {
+        cacheKey: 'marketplace:active-auctions',
+        interval: 30000, // 30 seconds
+        enabled: true
+    });
+
+    // Update listings/auctions when polled data changes
+    useEffect(() => {
+        if (polledListings) {
+            setListings(polledListings);
+            setLoadingListings(false);
+        }
+    }, [polledListings]);
+
+    useEffect(() => {
+        if (polledAuctions) {
+            setAuctions(polledAuctions);
+            setLoadingAuctions(false);
+        }
+    }, [polledAuctions]);
+
+    // Update auction timers every second
+    useEffect(() => {
+        if (activeTab !== 'auctions') return;
+        const interval = setInterval(() => {
+            setAuctions(prev => prev.map(a => {
+                const { text, isEnded } = formatTimeLeft(a.endTime);
+                return { ...a, timeLeft: text, isEnded };
+            }));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [activeTab]);
+
+    // Handle buy listing
+    const handleBuy = async (listing: ListingWithMeta) => {
         if (!isConnected) {
             alert('Please connect your wallet first');
             return;
@@ -81,23 +245,141 @@ const Marketplace: React.FC = () => {
             return;
         }
 
-        setBuyingId(listing.listingId);
+        setBuyingId(Number(listing.listingId));
         try {
-            const provider = getProvider();
-            const signer = await (provider as ethers.BrowserProvider).getSigner();
-            const result = await buyCard(signer, listing.listingId, listing.price);
-
-            if (result.success) {
-                // Reload listings after purchase
-                await loadListings();
-                alert('Purchase successful! The card is now in your portfolio.');
-            } else {
-                alert(`Failed: ${result.error}`);
-            }
+            await buyCard(listing.listingId, listing.price);
+            await refreshListings();
+            alert('Purchase successful! The card is now in your portfolio.');
         } catch (e: any) {
             alert(`Error: ${e.message}`);
         }
         setBuyingId(null);
+    };
+
+    // Handle cancel listing
+    const handleCancelListing = async (listing: ListingWithMeta) => {
+        setCancellingId(Number(listing.listingId));
+        try {
+            await cancelListing(listing.listingId);
+            await refreshListings();
+            alert('Listing cancelled successfully!');
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
+        setCancellingId(null);
+    };
+
+    // Handle auction bid
+    const handleAuctionBid = async () => {
+        if (!bidModal?.auction || !bidAmount) return;
+
+        setBiddingId(Number(bidModal.auction.auctionId));
+        try {
+            await bidOnAuction(bidModal.auction.auctionId, bidAmount);
+            await refreshAuctions();
+            setBidModal(null);
+            setBidAmount('');
+            alert('Bid placed successfully!');
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
+        setBiddingId(null);
+    };
+
+    // Handle finalize auction
+    const handleFinalizeAuction = async (auction: AuctionWithMeta) => {
+        setBiddingId(Number(auction.auctionId));
+        try {
+            await finalizeAuction(auction.auctionId);
+            await refreshAuctions();
+            alert('Auction finalized successfully!');
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
+        setBiddingId(null);
+    };
+
+    // Open Stats modal
+    const openStatsModal = async (item: ListingWithMeta | AuctionWithMeta) => {
+        setStatsItem(item);
+        setStatsModalOpen(true);
+        setLoadingStats(true);
+        setStatsTab('bids');
+        setCardBids([]);
+        setCardSales([]);
+        setCardStats(null);
+
+        try {
+            const tokenId = BigInt(item.tokenId);
+            const [bids, sales, stats] = await Promise.all([
+                getBidsForToken(tokenId),
+                getTokenSaleHistory(tokenId),
+                getTokenStats(tokenId)
+            ]);
+            setCardBids(bids || []);
+            setCardSales(sales || []);
+            setCardStats(stats);
+        } catch (e) {
+            console.error('Error loading stats:', e);
+        }
+        setLoadingStats(false);
+    };
+
+    // Open List/Sell modal
+    const openListModal = async () => {
+        setListModalOpen(true);
+        setLoadingNFTs(true);
+        setSelectedNFT(null);
+        setSellPrice('');
+        setAuctionStartPrice('');
+        setAuctionReservePrice('');
+
+        try {
+            const cards = await getCards(address || '');
+            // Filter out cards that are already listed
+            setMyNFTs(cards.filter(c => !c.isLocked));
+        } catch (e) {
+            console.error('Error loading NFTs:', e);
+        }
+        setLoadingNFTs(false);
+    };
+
+    // Handle listing NFT
+    const handleListNFT = async () => {
+        if (!selectedNFT) return;
+        setIsSelling(true);
+
+        try {
+            if (sellMode === 'fixed') {
+                if (!sellPrice || parseFloat(sellPrice) <= 0) {
+                    alert('Please enter a valid price');
+                    setIsSelling(false);
+                    return;
+                }
+                await listCard(BigInt(selectedNFT.tokenId), sellPrice);
+                alert('NFT listed successfully!');
+            } else {
+                if (!auctionStartPrice || parseFloat(auctionStartPrice) <= 0) {
+                    alert('Please enter a valid start price');
+                    setIsSelling(false);
+                    return;
+                }
+                const duration = parseInt(auctionDuration) || 1;
+                await createAuction(
+                    BigInt(selectedNFT.tokenId),
+                    auctionStartPrice,
+                    auctionReservePrice || auctionStartPrice,
+                    duration
+                );
+                alert('Auction created successfully!');
+            }
+            setListModalOpen(false);
+            await refreshListings();
+            await refreshAuctions();
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
+        setIsSelling(false);
     };
 
     // Filter and sort listings
@@ -110,28 +392,81 @@ const Marketplace: React.FC = () => {
         .sort((a, b) => {
             if (sortBy === 'price_asc') return Number(a.price - b.price);
             if (sortBy === 'price_desc') return Number(b.price - a.price);
-            return b.listedAt - a.listedAt; // recent first
+            return Number(b.listedAt - a.listedAt);
+        });
+
+    // Filter auctions
+    const filteredAuctions = auctions
+        .filter(a => {
+            if (rarityFilter !== 'All' && a.rarity !== rarityFilter) return false;
+            if (searchQuery && !a.cardName?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            return true;
         });
 
     return (
         <div className="animate-[fadeIn_0.3s_ease-out]">
 
-            {/* Header & Controls */}
+            {/* Header */}
             <div className="flex flex-col space-y-6 mb-8">
-                <div>
-                    <h2 className="text-2xl md:text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight">Marketplace</h2>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-                        Buy and sell NFT cards from the community.
-                        {listings.length > 0 && <span className="text-yc-orange ml-2">{listings.length} active listings</span>}
-                    </p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl md:text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight">Marketplace</h2>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                            Buy, bid, and auction NFT cards.
+                        </p>
+                    </div>
+                    {isConnected && (
+                        <button
+                            onClick={openListModal}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-yc-orange hover:bg-yc-orange/80 text-white rounded-lg font-bold transition-all"
+                        >
+                            <Plus className="w-4 h-4" />
+                            List NFT
+                        </button>
+                    )}
+                </div>
+
+                {/* Tab navigation */}
+                <div className="flex items-center space-x-1 bg-[#1a1a1a] p-1 rounded-lg w-fit">
+                    <button
+                        onClick={() => setActiveTab('listings')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'listings'
+                            ? 'bg-yc-orange text-white'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <Tag className="w-4 h-4" />
+                        Buy Now
+                        {listings.length > 0 && <span className="bg-black/30 px-1.5 py-0.5 rounded text-xs">{listings.length}</span>}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('auctions')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'auctions'
+                            ? 'bg-yc-orange text-white'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <Gavel className="w-4 h-4" />
+                        Auctions
+                        {auctions.length > 0 && <span className="bg-black/30 px-1.5 py-0.5 rounded text-xs">{auctions.length}</span>}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('activity')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'activity'
+                            ? 'bg-yc-orange text-white'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <User className="w-4 h-4" />
+                        My Activity
+                    </button>
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
-
+                <div className="flex flex-wrap items-center gap-4">
                     {/* Rarity tabs */}
-                    <div className="flex items-center space-x-2 overflow-x-auto w-full xl:w-auto pb-2 xl:pb-0 scrollbar-hide -mx-4 px-4 xl:mx-0 xl:px-0">
-                        {tabs.map((tab) => (
+                    <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                        {rarityTabs.map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setRarityFilter(tab)}
@@ -148,10 +483,8 @@ const Marketplace: React.FC = () => {
                     </div>
 
                     {/* Search & Sort */}
-                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
-
-                        {/* Search */}
-                        <div className="relative w-full sm:w-auto sm:flex-1 xl:flex-none xl:w-64 group">
+                    <div className="flex items-center gap-3 flex-1">
+                        <div className="relative flex-1 min-w-[200px] group">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-yc-orange transition-colors" />
                             <input
                                 type="text"
@@ -161,12 +494,10 @@ const Marketplace: React.FC = () => {
                                 className="w-full bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full pl-10 pr-4 py-2.5 text-sm font-medium text-yc-text-primary dark:text-white focus:outline-none focus:border-yc-orange focus:ring-1 focus:ring-yc-orange transition-all placeholder-gray-400 shadow-sm"
                             />
                         </div>
-
-                        {/* Sort */}
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as any)}
-                            className="w-full sm:w-auto flex items-center justify-center px-5 py-2.5 bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full text-sm font-bold text-yc-text-primary dark:text-white hover:border-yc-orange transition-all shadow-sm cursor-pointer"
+                            className="flex items-center justify-center px-5 py-2.5 bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full text-sm font-bold text-yc-text-primary dark:text-white hover:border-yc-orange transition-all shadow-sm cursor-pointer"
                         >
                             <option value="recent">Recently Listed</option>
                             <option value="price_asc">Price: Low to High</option>
@@ -176,89 +507,438 @@ const Marketplace: React.FC = () => {
                 </div>
             </div>
 
-            {/* Loading state */}
-            {loadingListings && (
-                <div className="flex flex-col items-center justify-center py-20">
-                    <Loader2 className="w-8 h-8 text-yc-orange animate-spin mb-4" />
-                    <p className="text-gray-400">Loading listings...</p>
-                </div>
+            {/* LISTINGS TAB */}
+            {activeTab === 'listings' && (
+                <>
+                    {loadingListings && (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <Loader2 className="w-8 h-8 text-yc-orange animate-spin mb-4" />
+                            <p className="text-gray-400">Loading listings...</p>
+                        </div>
+                    )}
+
+                    {!loadingListings && filteredListings.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-20 bg-[#121212] rounded-xl border border-[#2A2A2A]">
+                            <ShoppingCart className="w-16 h-16 text-gray-600 mb-4" />
+                            <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
+                            <p className="text-gray-400 text-center max-w-md">
+                                {listings.length === 0
+                                    ? "There are no cards listed for sale yet. Be the first to list!"
+                                    : "No cards match your current filters."}
+                            </p>
+                        </div>
+                    )}
+
+                    {!loadingListings && filteredListings.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+                            {filteredListings.map((listing) => (
+                                <div
+                                    key={listing.listingId}
+                                    className="bg-[#121212] border border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
+                                >
+                                    <div
+                                        className="relative h-56 overflow-hidden cursor-pointer"
+                                        onClick={() => openStatsModal(listing)}
+                                    >
+                                        <img
+                                            src={listing.cardImage}
+                                            alt={listing.cardName}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        />
+                                        <div className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md ${RARITY_COLORS[listing.rarity || 'Common']}`}>
+                                            {listing.rarity}
+                                        </div>
+                                        <div className="absolute top-2 right-2 bg-black/80 text-yc-green px-2 py-0.5 text-xs font-bold rounded">
+                                            {listing.multiplier}x
+                                        </div>
+                                        {/* Stats hint overlay */}
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                            <Activity className="w-8 h-8 text-white" />
+                                        </div>
+                                    </div>
+                                    <div className="p-4">
+                                        <h3 className="text-white font-bold text-lg mb-1 truncate">{listing.cardName}</h3>
+                                        <p className="text-gray-500 text-xs mb-3">
+                                            Token #{String(listing.tokenId)} · Seller: {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
+                                        </p>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-gray-400 text-xs">Price</p>
+                                                <p className="text-white font-bold text-lg">{listing.priceFormatted} XTZ</p>
+                                            </div>
+                                            {listing.seller.toLowerCase() === address?.toLowerCase() ? (
+                                                <button
+                                                    onClick={() => handleCancelListing(listing)}
+                                                    disabled={cancellingId === Number(listing.listingId)}
+                                                    className={`
+                                                        px-4 py-2 rounded-lg font-bold text-sm transition-all
+                                                        ${cancellingId === Number(listing.listingId)
+                                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                                            : 'bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white active:scale-95'}
+                                                    `}
+                                                >
+                                                    {cancellingId === Number(listing.listingId) ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        'Cancel'
+                                                    )}
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleBuy(listing)}
+                                                    disabled={buyingId === Number(listing.listingId) || !isConnected}
+                                                    className={`
+                                                        px-4 py-2 rounded-lg font-bold text-sm transition-all
+                                                        ${buyingId === Number(listing.listingId)
+                                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                                            : 'bg-yc-orange text-white hover:bg-yc-orange/80 active:scale-95'}
+                                                    `}
+                                                >
+                                                    {buyingId === Number(listing.listingId) ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        'Buy Now'
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
 
-            {/* Empty state */}
-            {!loadingListings && filteredListings.length === 0 && (
+            {/* AUCTIONS TAB */}
+            {activeTab === 'auctions' && (
+                <>
+                    {loadingAuctions && (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <Loader2 className="w-8 h-8 text-yc-orange animate-spin mb-4" />
+                            <p className="text-gray-400">Loading auctions...</p>
+                        </div>
+                    )}
+
+                    {!loadingAuctions && filteredAuctions.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-20 bg-[#121212] rounded-xl border border-[#2A2A2A]">
+                            <Gavel className="w-16 h-16 text-gray-600 mb-4" />
+                            <h3 className="text-xl font-bold text-white mb-2">No auctions found</h3>
+                            <p className="text-gray-400 text-center max-w-md">
+                                There are no active auctions. Create one from your Portfolio!
+                            </p>
+                        </div>
+                    )}
+
+                    {!loadingAuctions && filteredAuctions.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+                            {filteredAuctions.map((auction) => (
+                                <div
+                                    key={auction.auctionId}
+                                    className="bg-[#121212] border border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
+                                >
+                                    <div
+                                        className="relative h-56 overflow-hidden cursor-pointer"
+                                        onClick={() => openStatsModal(auction)}
+                                    >
+                                        <img
+                                            src={auction.cardImage}
+                                            alt={auction.cardName}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        />
+                                        <div className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md ${RARITY_COLORS[auction.rarity || 'Common']}`}>
+                                            {auction.rarity}
+                                        </div>
+                                        {/* Timer */}
+                                        <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 text-yc-orange'}`}>
+                                            <Clock className="w-3 h-3" />
+                                            {auction.timeLeft}
+                                        </div>
+                                        {/* Stats hint overlay */}
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                            <Activity className="w-8 h-8 text-white" />
+                                        </div>
+                                    </div>
+                                    <div className="p-4">
+                                        <h3 className="text-white font-bold text-lg mb-1 truncate">{auction.cardName}</h3>
+                                        <p className="text-gray-500 text-xs mb-3">
+                                            Token #{String(auction.tokenId)}
+                                        </p>
+
+                                        <div className="grid grid-cols-2 gap-2 mb-3">
+                                            <div>
+                                                <p className="text-gray-400 text-xs">Current Bid</p>
+                                                <p className="text-white font-bold">{formatXTZ(auction.highestBid)} XTZ</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-400 text-xs">Reserve</p>
+                                                <p className="text-gray-300 font-medium">{formatXTZ(auction.reservePrice)} XTZ</p>
+                                            </div>
+                                        </div>
+
+                                        {auction.isEnded ? (
+                                            <button
+                                                onClick={() => handleFinalizeAuction(auction)}
+                                                disabled={biddingId === Number(auction.auctionId)}
+                                                className="w-full px-4 py-2 rounded-lg font-bold text-sm bg-green-600 text-white hover:bg-green-700 transition-all"
+                                            >
+                                                {biddingId === Number(auction.auctionId) ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                                                ) : 'Finalize Auction'}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => { setBidModal({ auction }); setBidAmount(''); }}
+                                                disabled={auction.seller.toLowerCase() === address?.toLowerCase()}
+                                                className={`w-full px-4 py-2 rounded-lg font-bold text-sm transition-all ${auction.seller.toLowerCase() === address?.toLowerCase()
+                                                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                                    : 'bg-yc-orange text-white hover:bg-yc-orange/80'
+                                                    }`}
+                                            >
+                                                {auction.seller.toLowerCase() === address?.toLowerCase() ? 'Your Auction' : 'Place Bid'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* ACTIVITY TAB */}
+            {activeTab === 'activity' && (
                 <div className="flex flex-col items-center justify-center py-20 bg-[#121212] rounded-xl border border-[#2A2A2A]">
-                    <ShoppingCart className="w-16 h-16 text-gray-600 mb-4" />
-                    <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
+                    <User className="w-16 h-16 text-gray-600 mb-4" />
+                    <h3 className="text-xl font-bold text-white mb-2">My Activity</h3>
                     <p className="text-gray-400 text-center max-w-md">
-                        {listings.length === 0
-                            ? "There are no cards listed for sale yet. Be the first to list!"
-                            : "No cards match your current filters. Try adjusting your search."}
+                        {isConnected
+                            ? "View your bids, listings, and auction history. Coming soon!"
+                            : "Connect your wallet to see your marketplace activity."}
                     </p>
                 </div>
             )}
 
-            {/* Listings Grid */}
-            {!loadingListings && filteredListings.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
-                    {filteredListings.map((listing) => (
-                        <div
-                            key={listing.listingId}
-                            className="bg-[#121212] border border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
-                        >
-                            {/* Card Image */}
-                            <div className="relative h-56 overflow-hidden">
-                                <img
-                                    src={listing.cardImage}
-                                    alt={listing.cardName}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                />
-                                {/* Rarity badge */}
-                                <div className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md ${RARITY_COLORS[listing.rarity || 'Common']}`}>
-                                    {listing.rarity}
-                                </div>
-                                {/* Multiplier */}
-                                <div className="absolute top-2 right-2 bg-black/80 text-yc-green px-2 py-0.5 text-xs font-bold rounded">
-                                    {listing.multiplier}x
-                                </div>
-                            </div>
+            {/* BID MODAL */}
+            {bidModal && (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setBidModal(null)}>
+                    <div className="bg-[#1a1a1a] rounded-2xl border border-[#2A2A2A] w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-white">Place Bid</h3>
+                            <button onClick={() => setBidModal(null)} className="text-gray-400 hover:text-white">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
 
-                            {/* Card Info */}
-                            <div className="p-4">
-                                <h3 className="text-white font-bold text-lg mb-1 truncate">{listing.cardName}</h3>
-                                <p className="text-gray-500 text-xs mb-3">
-                                    Token #{listing.tokenId} · Seller: {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
-                                </p>
-
-                                {/* Price & Buy */}
-                                <div className="flex items-center justify-between">
+                        {bidModal.auction && (
+                            <>
+                                <div className="flex items-center gap-4 mb-6">
+                                    <img src={bidModal.auction.cardImage} alt="" className="w-20 h-20 rounded-lg object-cover" />
                                     <div>
-                                        <p className="text-gray-400 text-xs">Price</p>
-                                        <p className="text-white font-bold text-lg">{listing.priceFormatted} XTZ</p>
+                                        <h4 className="text-white font-bold">{bidModal.auction.cardName}</h4>
+                                        <p className="text-gray-400 text-sm">Current: {formatXTZ(bidModal.auction.highestBid)} XTZ</p>
                                     </div>
-                                    <button
-                                        onClick={() => handleBuy(listing)}
-                                        disabled={buyingId === listing.listingId || !isConnected}
-                                        className={`
-                                            px-4 py-2 rounded-lg font-bold text-sm transition-all
-                                            ${buyingId === listing.listingId
-                                                ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                                : listing.seller.toLowerCase() === address?.toLowerCase()
-                                                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                                    : 'bg-yc-orange text-white hover:bg-yc-orange/80 active:scale-95'}
-                                        `}
-                                    >
-                                        {buyingId === listing.listingId ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : listing.seller.toLowerCase() === address?.toLowerCase() ? (
-                                            'Your Card'
-                                        ) : (
-                                            'Buy Now'
-                                        )}
-                                    </button>
                                 </div>
+
+                                <div className="mb-6">
+                                    <label className="text-gray-400 text-sm mb-2 block">Your Bid (XTZ)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={bidAmount}
+                                        onChange={(e) => setBidAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold text-lg focus:border-yc-orange focus:outline-none"
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={handleAuctionBid}
+                                    disabled={!bidAmount || biddingId !== null}
+                                    className="w-full bg-yc-orange text-white font-bold py-3 rounded-lg hover:bg-yc-orange/80 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {biddingId !== null ? (
+                                        <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                                    ) : 'Confirm Bid'}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Stats Modal */}
+            {statsModalOpen && statsItem && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#1A1A1A] rounded-2xl border border-[#2A2A2A] max-w-lg w-full max-h-[80vh] overflow-hidden">
+                        <div className="p-4 border-b border-[#2A2A2A] flex justify-between items-center">
+                            <h3 className="text-white font-bold text-lg">NFT Statistics</h3>
+                            <button onClick={() => setStatsModalOpen(false)} className="text-gray-400 hover:text-white">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Card preview */}
+                        <div className="p-4 flex gap-4 border-b border-[#2A2A2A]">
+                            <img src={statsItem.cardImage} alt={statsItem.cardName} className="w-20 h-20 rounded-lg object-cover" />
+                            <div>
+                                <h4 className="text-white font-bold">{statsItem.cardName}</h4>
+                                <p className="text-gray-400 text-sm">Token #{String(statsItem.tokenId)}</p>
+                                <span className={`text-xs px-2 py-0.5 rounded ${RARITY_COLORS[statsItem.rarity || 'Common']}`}>{statsItem.rarity}</span>
                             </div>
                         </div>
-                    ))}
+
+                        {/* Tabs */}
+                        <div className="flex border-b border-[#2A2A2A]">
+                            {['bids', 'sales', 'stats'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setStatsTab(tab as any)}
+                                    className={`flex-1 py-3 text-sm font-bold transition-colors ${statsTab === tab ? 'text-yc-orange border-b-2 border-yc-orange' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    {tab === 'bids' && <><Activity className="w-4 h-4 inline mr-1" />Bids</>}
+                                    {tab === 'sales' && <><History className="w-4 h-4 inline mr-1" />Sales</>}
+                                    {tab === 'stats' && <><DollarSign className="w-4 h-4 inline mr-1" />Stats</>}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-4 max-h-64 overflow-y-auto">
+                            {loadingStats ? (
+                                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-yc-orange animate-spin" /></div>
+                            ) : (
+                                <>
+                                    {statsTab === 'bids' && (
+                                        cardBids.length === 0 ? <p className="text-gray-500 text-center py-4">No active bids</p> :
+                                            cardBids.map((bid, i) => (
+                                                <div key={i} className="flex justify-between py-2 border-b border-[#2A2A2A] last:border-0">
+                                                    <span className="text-gray-400 text-sm">{bid.bidder?.slice(0, 6)}...{bid.bidder?.slice(-4)}</span>
+                                                    <span className="text-white font-bold">{formatXTZ(bid.amount)} XTZ</span>
+                                                </div>
+                                            ))
+                                    )}
+                                    {statsTab === 'sales' && (
+                                        cardSales.length === 0 ? <p className="text-gray-500 text-center py-4">No sales history</p> :
+                                            cardSales.map((sale, i) => (
+                                                <div key={i} className="py-2 border-b border-[#2A2A2A] last:border-0">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-white font-bold">{formatXTZ(sale.price)} XTZ</span>
+                                                        <span className="text-gray-400 text-xs">{new Date(Number(sale.timestamp) * 1000).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <p className="text-gray-500 text-xs">{sale.seller?.slice(0, 6)}... → {sale.buyer?.slice(0, 6)}...</p>
+                                                </div>
+                                            ))
+                                    )}
+                                    {statsTab === 'stats' && cardStats && (
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between"><span className="text-gray-400">Total Sales</span><span className="text-white font-bold">{String(cardStats.totalSales || 0)}</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-400">Total Volume</span><span className="text-white font-bold">{formatXTZ(cardStats.totalVolume || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-400">Highest Sale</span><span className="text-yc-green font-bold">{formatXTZ(cardStats.highestSale || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-400">Lowest Sale</span><span className="text-red-400 font-bold">{formatXTZ(cardStats.lowestSale || 0n)} XTZ</span></div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* List NFT Modal */}
+            {listModalOpen && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#1A1A1A] rounded-2xl border border-[#2A2A2A] max-w-lg w-full max-h-[85vh] overflow-hidden">
+                        <div className="p-4 border-b border-[#2A2A2A] flex justify-between items-center">
+                            <h3 className="text-white font-bold text-lg">List NFT for Sale</h3>
+                            <button onClick={() => setListModalOpen(false)} className="text-gray-400 hover:text-white">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-4 max-h-[calc(85vh-120px)] overflow-y-auto">
+                            {loadingNFTs ? (
+                                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-yc-orange animate-spin" /></div>
+                            ) : !selectedNFT ? (
+                                <>
+                                    <p className="text-gray-400 text-sm mb-4">Select an NFT to list:</p>
+                                    {myNFTs.length === 0 ? <p className="text-gray-500 text-center py-4">No NFTs available to list</p> : (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {myNFTs.map(nft => (
+                                                <div
+                                                    key={nft.tokenId}
+                                                    onClick={() => setSelectedNFT(nft)}
+                                                    className="cursor-pointer rounded-xl border border-[#2A2A2A] overflow-hidden hover:border-yc-orange transition-colors"
+                                                >
+                                                    <img src={nft.image} alt={nft.name} className="w-full h-24 object-contain" />
+                                                    <div className="p-2">
+                                                        <p className="text-white font-bold text-sm truncate">{nft.name}</p>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${RARITY_COLORS[nft.rarity] || RARITY_COLORS['Common']}`}>{nft.rarity}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex gap-4 mb-4">
+                                        <img src={selectedNFT.image} alt={selectedNFT.name} className="w-20 h-20 rounded-lg object-contain" />
+                                        <div>
+                                            <h4 className="text-white font-bold">{selectedNFT.name}</h4>
+                                            <p className="text-gray-400 text-sm">#{selectedNFT.tokenId}</p>
+                                            <button onClick={() => setSelectedNFT(null)} className="text-yc-orange text-xs hover:underline">Change</button>
+                                        </div>
+                                    </div>
+
+                                    {/* Sale Mode Tabs */}
+                                    <div className="flex bg-[#121212] rounded-lg p-1 mb-4">
+                                        <button onClick={() => setSellMode('fixed')} className={`flex-1 py-2 rounded text-sm font-bold ${sellMode === 'fixed' ? 'bg-yc-orange text-white' : 'text-gray-400'}`}>
+                                            <Tag className="w-4 h-4 inline mr-1" />Fixed Price
+                                        </button>
+                                        <button onClick={() => setSellMode('auction')} className={`flex-1 py-2 rounded text-sm font-bold ${sellMode === 'auction' ? 'bg-yc-orange text-white' : 'text-gray-400'}`}>
+                                            <Gavel className="w-4 h-4 inline mr-1" />Auction
+                                        </button>
+                                    </div>
+
+                                    {sellMode === 'fixed' ? (
+                                        <div>
+                                            <label className="text-gray-400 text-sm mb-2 block">Price (XTZ)</label>
+                                            <input type="number" step="0.01" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder="0.00" className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold focus:border-yc-orange focus:outline-none" />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="text-gray-400 text-sm mb-1 block">Start Price (XTZ)</label>
+                                                <input type="number" step="0.01" value={auctionStartPrice} onChange={e => setAuctionStartPrice(e.target.value)} placeholder="0.00" className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold focus:border-yc-orange focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="text-gray-400 text-sm mb-1 block">Reserve Price (XTZ, optional)</label>
+                                                <input type="number" step="0.01" value={auctionReservePrice} onChange={e => setAuctionReservePrice(e.target.value)} placeholder="0.00" className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold focus:border-yc-orange focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="text-gray-400 text-sm mb-1 block">Duration (days)</label>
+                                                <select value={auctionDuration} onChange={e => setAuctionDuration(e.target.value)} className="w-full bg-[#121212] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white font-bold focus:border-yc-orange focus:outline-none">
+                                                    <option value="1">1 day</option>
+                                                    <option value="3">3 days</option>
+                                                    <option value="7">7 days</option>
+                                                    <option value="14">14 days</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleListNFT}
+                                        disabled={isSelling || (sellMode === 'fixed' ? !sellPrice : !auctionStartPrice)}
+                                        className="w-full mt-4 bg-yc-orange text-white font-bold py-3 rounded-lg hover:bg-yc-orange/80 disabled:bg-gray-700 disabled:text-gray-400 transition-all"
+                                    >
+                                        {isSelling ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : sellMode === 'fixed' ? 'List for Sale' : 'Create Auction'}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

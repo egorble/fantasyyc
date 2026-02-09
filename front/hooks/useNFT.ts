@@ -72,14 +72,16 @@ export function useNFT() {
         }
     }, []);
 
-    // Get all tokens owned by address - with caching
+    // Get all tokens owned by address - with caching and polling
     const getOwnedTokens = useCallback(async (address: string): Promise<number[]> => {
         const key = CacheKeys.ownedTokens(address);
 
         // Check cache first
         const cached = blockchainCache.get<number[]>(key);
         if (cached !== undefined) {
-            // Background refresh if stale
+            // Subscribe for updates if not already done (will handle polling)
+            // We don't need a persistent subscription here as the hook consumer
+            // should use usePollingData for that. This just ensures fresh data if stale
             if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
                 blockchainCache.fetchInBackground(key, async () => {
                     const contract = getNFTContract();

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { CardData, Rarity } from '../types';
 import CardDetailModal, { CardDetailData } from './CardDetailModal';
-import { Wallet, ArrowUpRight, TrendingUp, Plus, ShoppingCart, Layers, Zap, X, Check, RefreshCw, Tag, Loader2 } from 'lucide-react';
+import { Wallet, ArrowUpRight, TrendingUp, Plus, ShoppingCart, Layers, Zap, X, Check, RefreshCw, Tag, Loader2, Gavel, Clock, Activity, DollarSign, History } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
-import { useMarketplace } from '../hooks/useMarketplace';
+import { useMarketplaceV2 } from '../hooks/useMarketplaceV2';
+import { usePollingData } from '../hooks/usePollingData';
 import { formatXTZ } from '../lib/contracts';
 import gsap from 'gsap';
 
@@ -26,8 +27,21 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     // Sell modal state
     const [sellModalOpen, setSellModalOpen] = useState(false);
     const [cardToSell, setCardToSell] = useState<CardData | null>(null);
+    const [sellMode, setSellMode] = useState<'fixed' | 'auction'>('fixed');
     const [sellPrice, setSellPrice] = useState('');
+    const [auctionStartPrice, setAuctionStartPrice] = useState('');
+    const [auctionReservePrice, setAuctionReservePrice] = useState('');
+    const [auctionDuration, setAuctionDuration] = useState('24'); // hours
     const [isSelling, setIsSelling] = useState(false);
+
+    // NFT Stats Modal state
+    const [statsModalOpen, setStatsModalOpen] = useState(false);
+    const [statsCard, setStatsCard] = useState<CardData | null>(null);
+    const [statsTab, setStatsTab] = useState<'bids' | 'sales' | 'stats'>('bids');
+    const [cardBids, setCardBids] = useState<any[]>([]);
+    const [cardSales, setCardSales] = useState<any[]>([]);
+    const [cardStats, setCardStats] = useState<any | null>(null);
+    const [loadingStats, setLoadingStats] = useState(false);
 
     // Refs for animation
     const fusionContainerRef = useRef<HTMLDivElement>(null);
@@ -39,12 +53,38 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     // Hooks
     const { isConnected, address, getSigner, connect } = useWalletContext();
     const { getCards, getCardInfo, mergeCards, isLoading } = useNFT();
-    const { listCard, isTokenListed } = useMarketplace();
+    const { listCard, createAuction, getBidsForToken, getTokenStats, getTokenSaleHistory, loading: marketplaceLoading } = useMarketplaceV2();
 
-    // Load cards on mount and when address changes
+    // Auto-refresh cards with polling (disabled when not connected)
+    const {
+        data: polledCards,
+        isLoading: pollingLoading,
+        refresh: refreshCards
+    } = usePollingData<CardData[]>(
+        async () => {
+            if (!address) return [];
+            return await getCards(address);
+        },
+        {
+            cacheKey: `portfolio:cards:${address || 'none'}`,
+            interval: 30000, // 30 seconds
+            enabled: isConnected && !!address
+        }
+    );
+
+    // Update myCards when polled data changes
+    useEffect(() => {
+        if (polledCards) {
+            setMyCards(polledCards);
+            setIsRefreshing(false);
+        }
+    }, [polledCards]);
+
+    // Load cards when address changes
     useEffect(() => {
         if (isConnected && address) {
-            loadCards();
+            setIsRefreshing(true);
+            refreshCards();
         } else {
             setMyCards([]);
         }
@@ -53,9 +93,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     const loadCards = async () => {
         if (!address) return;
         setIsRefreshing(true);
-        const cards = await getCards(address);
-        setMyCards(cards);
-        setIsRefreshing(false);
+        await refreshCards();
     };
 
     const totalValue = myCards.reduce((acc, card) => acc + card.multiplier, 0);
@@ -258,10 +296,14 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         }
         setCardToSell(card);
         setSellPrice('');
+        setAuctionStartPrice('');
+        setAuctionReservePrice('');
+        setAuctionDuration('24');
+        setSellMode('fixed');
         setSellModalOpen(true);
     };
 
-    // Handle listing a card for sale
+    // Handle listing a card for sale (fixed price)
     const handleSellCard = async () => {
         if (!cardToSell || !sellPrice || parseFloat(sellPrice) <= 0) {
             alert('Please enter a valid price');
@@ -277,22 +319,80 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                 return;
             }
 
-            const result = await listCard(signer, cardToSell.tokenId, sellPrice);
+            await listCard(BigInt(cardToSell.tokenId), sellPrice);
 
-            if (result.success) {
-                alert(`Card listed for ${sellPrice} XTZ!`);
-                setSellModalOpen(false);
-                setCardToSell(null);
-                setSellPrice('');
-                // Reload cards to show updated state
-                await loadCards();
-            } else {
-                alert(`Failed to list: ${result.error}`);
-            }
+            alert(`Card listed for ${sellPrice} XTZ!`);
+            setSellModalOpen(false);
+            setCardToSell(null);
+            setSellPrice('');
+            await loadCards();
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            alert(`Failed to list: ${e.message}`);
         }
         setIsSelling(false);
+    };
+
+    // Handle creating an auction
+    const handleCreateAuction = async () => {
+        if (!cardToSell) return;
+        if (!auctionStartPrice || parseFloat(auctionStartPrice) <= 0) {
+            alert('Please enter a valid start price');
+            return;
+        }
+
+        const reservePrice = auctionReservePrice || auctionStartPrice;
+        const durationHours = parseFloat(auctionDuration);
+        const durationDays = durationHours / 24; // Convert hours to days
+
+        setIsSelling(true);
+        try {
+            const signer = await getSigner();
+            if (!signer) {
+                alert('Please connect your wallet');
+                setIsSelling(false);
+                return;
+            }
+
+            await createAuction(
+                BigInt(cardToSell.tokenId),
+                auctionStartPrice,
+                reservePrice,
+                durationDays
+            );
+
+            alert(`Auction created! Starting at ${auctionStartPrice} XTZ for ${auctionDuration} hours.`);
+            setSellModalOpen(false);
+            setCardToSell(null);
+            await loadCards();
+        } catch (e: any) {
+            alert(`Failed to create auction: ${e.message}`);
+        }
+        setIsSelling(false);
+    };
+
+    // Open NFT Stats modal
+    const openStatsModal = async (card: CardData) => {
+        setStatsCard(card);
+        setStatsModalOpen(true);
+        setLoadingStats(true);
+        setStatsTab('bids');
+        setCardBids([]);
+        setCardSales([]);
+        setCardStats(null);
+
+        try {
+            const [bids, sales, stats] = await Promise.all([
+                getBidsForToken(BigInt(card.tokenId)),
+                getTokenSaleHistory(BigInt(card.tokenId)),
+                getTokenStats(BigInt(card.tokenId))
+            ]);
+            setCardBids(bids || []);
+            setCardSales(sales || []);
+            setCardStats(stats);
+        } catch (e) {
+            console.error('Error loading stats:', e);
+        }
+        setLoadingStats(false);
     };
 
     return (
@@ -454,7 +554,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                         )}
 
                                         <div className="h-40 relative">
-                                            <img src={card.image} alt={card.name} className="w-full h-full object-cover" />
+                                            <img src={card.image} alt={card.name} className="w-full h-full object-contain" />
                                             <span className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md
                                       ${card.rarity === Rarity.LEGENDARY ? 'bg-orange-500/80 text-white border-orange-400' :
                                                     card.rarity === Rarity.EPIC_RARE ? 'bg-purple-600/80 text-white border-purple-500' :
@@ -480,19 +580,6 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                                     <p className="font-mono font-bold text-yc-green">{card.multiplier}x</p>
                                                 </div>
                                             </div>
-                                            {/* Sell Button - only show when not in merge mode and card is not locked */}
-                                            {!isMergeMode && !card.isLocked && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        openSellModal(card);
-                                                    }}
-                                                    className="mt-3 w-full bg-yc-orange/10 hover:bg-yc-orange text-yc-orange hover:text-white py-2 rounded-lg text-xs font-bold uppercase transition-all flex items-center justify-center gap-1"
-                                                >
-                                                    <Tag className="w-3 h-3" />
-                                                    Sell
-                                                </button>
-                                            )}
                                         </div>
                                     </div>
                                 );
@@ -601,7 +688,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                             className="absolute w-32 h-48 bg-black border-2 border-yc-orange rounded-xl overflow-hidden shadow-[0_0_30px_rgba(242,101,34,0.3)] z-20"
                                             style={{ transform: `translate(${x}px, ${y}px)` }}
                                         >
-                                            <img src={card.image} className="w-full h-full object-cover opacity-80" />
+                                            <img src={card.image} className="w-full h-full object-contain opacity-80" />
                                             <div className="absolute inset-0 bg-yc-orange/20 mix-blend-overlay"></div>
                                         </div>
                                     );
@@ -626,7 +713,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             {newlyForgedCard && (
                                 <div className="w-64 bg-[#121212] border border-yc-orange/50 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(242,101,34,0.4)] mb-8 transform hover:scale-105 transition-transform duration-500">
                                     <div className="h-64 relative">
-                                        <img src={newlyForgedCard.image} className="w-full h-full object-cover" />
+                                        <img src={newlyForgedCard.image} className="w-full h-full object-contain" />
                                         <div className="absolute top-2 right-2 bg-yc-orange text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg uppercase">
                                             New
                                         </div>
@@ -662,8 +749,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
                     <div className="bg-[#121212] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl animate-[scaleIn_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
                         {/* Header */}
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-white">List for Sale</h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-white">Sell Card</h3>
                             <button
                                 onClick={() => {
                                     setSellModalOpen(false);
@@ -676,7 +763,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         </div>
 
                         {/* Card Preview */}
-                        <div className="flex items-center gap-4 mb-6 p-3 bg-black/50 rounded-xl">
+                        <div className="flex items-center gap-4 mb-4 p-3 bg-black/50 rounded-xl">
                             <img
                                 src={cardToSell.image}
                                 alt={cardToSell.name}
@@ -690,29 +777,124 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             </div>
                         </div>
 
-                        {/* Price Input */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-bold text-gray-400 uppercase mb-2">
-                                Sale Price (XTZ)
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.01"
-                                    placeholder="0.00"
-                                    value={sellPrice}
-                                    onChange={(e) => setSellPrice(e.target.value)}
-                                    className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-yc-orange transition-colors"
-                                />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                    XTZ
-                                </span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-2">
-                                2% royalty will be deducted on sale
-                            </p>
+                        {/* Sale Type Tabs */}
+                        <div className="flex gap-2 mb-4">
+                            <button
+                                onClick={() => setSellMode('fixed')}
+                                className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${sellMode === 'fixed'
+                                    ? 'bg-yc-orange text-white'
+                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    }`}
+                            >
+                                <Tag className="w-4 h-4" />
+                                Fixed Price
+                            </button>
+                            <button
+                                onClick={() => setSellMode('auction')}
+                                className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${sellMode === 'auction'
+                                    ? 'bg-purple-500 text-white'
+                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    }`}
+                            >
+                                <Gavel className="w-4 h-4" />
+                                Auction
+                            </button>
                         </div>
+
+                        {/* Fixed Price Form */}
+                        {sellMode === 'fixed' && (
+                            <div className="mb-4">
+                                <label className="block text-sm font-bold text-gray-400 uppercase mb-2">
+                                    Sale Price (XTZ)
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        placeholder="0.00"
+                                        value={sellPrice}
+                                        onChange={(e) => setSellPrice(e.target.value)}
+                                        className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-yc-orange transition-colors"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                                        XTZ
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    2% royalty will be deducted on sale
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Auction Form */}
+                        {sellMode === 'auction' && (
+                            <div className="space-y-4 mb-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-400 uppercase mb-2">
+                                        Starting Price (XTZ)
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            placeholder="0.00"
+                                            value={auctionStartPrice}
+                                            onChange={(e) => setAuctionStartPrice(e.target.value)}
+                                            className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                                            XTZ
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-400 uppercase mb-2">
+                                        Reserve Price (Optional)
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="Same as start price"
+                                            value={auctionReservePrice}
+                                            onChange={(e) => setAuctionReservePrice(e.target.value)}
+                                            className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                                            XTZ
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Minimum price to complete sale
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-400 uppercase mb-2">
+                                        <Clock className="w-3 h-3 inline mr-1" />
+                                        Duration
+                                    </label>
+                                    <select
+                                        value={auctionDuration}
+                                        onChange={(e) => setAuctionDuration(e.target.value)}
+                                        className="w-full bg-black border border-[#2A2A2A] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                    >
+                                        <option value="1">1 Hour</option>
+                                        <option value="6">6 Hours</option>
+                                        <option value="12">12 Hours</option>
+                                        <option value="24">24 Hours</option>
+                                        <option value="48">48 Hours</option>
+                                        <option value="72">72 Hours</option>
+                                        <option value="168">1 Week</option>
+                                    </select>
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    2% royalty will be deducted on final sale
+                                </p>
+                            </div>
+                        )}
 
                         {/* Actions */}
                         <div className="flex gap-3">
@@ -725,26 +907,245 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             >
                                 Cancel
                             </button>
-                            <button
-                                onClick={handleSellCard}
-                                disabled={isSelling || !sellPrice || parseFloat(sellPrice) <= 0}
-                                className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${isSelling || !sellPrice || parseFloat(sellPrice) <= 0
+                            {sellMode === 'fixed' ? (
+                                <button
+                                    onClick={handleSellCard}
+                                    disabled={isSelling || !sellPrice || parseFloat(sellPrice) <= 0}
+                                    className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${isSelling || !sellPrice || parseFloat(sellPrice) <= 0
                                         ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                         : 'bg-yc-orange text-white hover:bg-orange-600'
+                                        }`}
+                                >
+                                    {isSelling ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Listing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Tag className="w-4 h-4" />
+                                            List for Sale
+                                        </>
+                                    )}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleCreateAuction}
+                                    disabled={isSelling || !auctionStartPrice || parseFloat(auctionStartPrice) <= 0}
+                                    className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${isSelling || !auctionStartPrice || parseFloat(auctionStartPrice) <= 0
+                                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                        : 'bg-purple-500 text-white hover:bg-purple-600'
+                                        }`}
+                                >
+                                    {isSelling ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Creating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Gavel className="w-4 h-4" />
+                                            Create Auction
+                                        </>
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* NFT Stats Modal */}
+            {statsModalOpen && statsCard && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl animate-[scaleIn_0.3s_cubic-bezier(0.34,1.56,0.64,1)] max-h-[85vh] flex flex-col">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-white">Card Details</h3>
+                            <button
+                                onClick={() => {
+                                    setStatsModalOpen(false);
+                                    setStatsCard(null);
+                                }}
+                                className="text-gray-400 hover:text-white transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Card Preview */}
+                        <div className="flex items-center gap-4 mb-4 p-3 bg-black/50 rounded-xl">
+                            <img
+                                src={statsCard.image}
+                                alt={statsCard.name}
+                                className="w-16 h-16 rounded-lg object-cover"
+                            />
+                            <div>
+                                <h4 className="text-white font-bold">{statsCard.name}</h4>
+                                <p className="text-gray-400 text-sm">
+                                    {statsCard.rarity} · {statsCard.multiplier}x · #{statsCard.tokenId}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex gap-2 mb-4">
+                            <button
+                                onClick={() => setStatsTab('bids')}
+                                className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${statsTab === 'bids'
+                                    ? 'bg-yc-orange text-white'
+                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
                                     }`}
                             >
-                                {isSelling ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Listing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Tag className="w-4 h-4" />
-                                        List for Sale
-                                    </>
-                                )}
+                                <Gavel className="w-4 h-4" />
+                                Bids ({cardBids.length})
                             </button>
+                            <button
+                                onClick={() => setStatsTab('sales')}
+                                className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${statsTab === 'sales'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    }`}
+                            >
+                                <History className="w-4 h-4" />
+                                Sales
+                            </button>
+                            <button
+                                onClick={() => setStatsTab('stats')}
+                                className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${statsTab === 'stats'
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222]'
+                                    }`}
+                            >
+                                <Activity className="w-4 h-4" />
+                                Stats
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto">
+                            {loadingStats ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-8 h-8 text-yc-orange animate-spin" />
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Bids Tab */}
+                                    {statsTab === 'bids' && (
+                                        <div className="space-y-3">
+                                            {cardBids.length === 0 ? (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <Gavel className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                    <p>No active bids on this card</p>
+                                                </div>
+                                            ) : (
+                                                cardBids.map((bid, idx) => (
+                                                    <div key={idx} className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                        <div className="flex justify-between items-center">
+                                                            <div>
+                                                                <p className="text-white font-bold">{formatXTZ(bid.amount)} XTZ</p>
+                                                                <p className="text-gray-500 text-xs font-mono">
+                                                                    {bid.bidder.slice(0, 6)}...{bid.bidder.slice(-4)}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-gray-400 text-sm flex items-center gap-1">
+                                                                    <Clock className="w-3 h-3" />
+                                                                    Expires
+                                                                </p>
+                                                                <p className="text-gray-300 text-xs">
+                                                                    {new Date(Number(bid.expiration) * 1000).toLocaleDateString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Sales Tab */}
+                                    {statsTab === 'sales' && (
+                                        <div className="space-y-3">
+                                            {cardSales.length === 0 ? (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                    <p>No sales history yet</p>
+                                                </div>
+                                            ) : (
+                                                cardSales.map((sale, idx) => (
+                                                    <div key={idx} className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                        <div className="flex justify-between items-center">
+                                                            <div>
+                                                                <p className="text-white font-bold">{formatXTZ(sale.price)} XTZ</p>
+                                                                <p className="text-gray-500 text-xs">
+                                                                    {sale.saleType === 0 ? 'Listing' : sale.saleType === 1 ? 'Bid Accepted' : 'Auction'}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-gray-400 text-xs font-mono">
+                                                                    From: {sale.seller.slice(0, 6)}...{sale.seller.slice(-4)}
+                                                                </p>
+                                                                <p className="text-gray-400 text-xs font-mono">
+                                                                    To: {sale.buyer.slice(0, 6)}...{sale.buyer.slice(-4)}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-gray-500 text-xs mt-2">
+                                                            {new Date(Number(sale.timestamp) * 1000).toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Stats Tab */}
+                                    {statsTab === 'stats' && (
+                                        <div className="space-y-3">
+                                            {cardStats ? (
+                                                <>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                            <p className="text-gray-500 text-xs uppercase mb-1">Total Sales</p>
+                                                            <p className="text-white text-xl font-bold">{cardStats.salesCount?.toString() || '0'}</p>
+                                                        </div>
+                                                        <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                            <p className="text-gray-500 text-xs uppercase mb-1">Total Volume</p>
+                                                            <p className="text-white text-xl font-bold">
+                                                                {cardStats.totalVolume ? formatXTZ(cardStats.totalVolume) : '0'} XTZ
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                            <p className="text-gray-500 text-xs uppercase mb-1">Highest Sale</p>
+                                                            <p className="text-green-400 text-xl font-bold">
+                                                                {cardStats.highestSale ? formatXTZ(cardStats.highestSale) : '0'} XTZ
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                            <p className="text-gray-500 text-xs uppercase mb-1">Lowest Sale</p>
+                                                            <p className="text-blue-400 text-xl font-bold">
+                                                                {cardStats.lowestSale && cardStats.lowestSale > 0n ? formatXTZ(cardStats.lowestSale) : '-'} XTZ
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A]">
+                                                        <p className="text-gray-500 text-xs uppercase mb-1">Last Sale Price</p>
+                                                        <p className="text-yc-orange text-2xl font-bold">
+                                                            {cardStats.lastSalePrice && cardStats.lastSalePrice > 0n ? formatXTZ(cardStats.lastSalePrice) : '-'} XTZ
+                                                        </p>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                    <p>No stats available</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

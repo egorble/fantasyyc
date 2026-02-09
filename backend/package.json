@@ -1,7 +1,7 @@
 {
-    "name": "fantasy-yc-api",
+    "name": "unicornx-api",
     "version": "1.0.0",
-    "description": "Fantasy YC Metadata API Backend",
+    "description": "UnicornX Metadata API Backend",
     "main": "server.js",
     "scripts": {
         "start": "node server.js",

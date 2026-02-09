@@ -271,7 +271,7 @@ const Leagues: React.FC = () => {
                                 >
                                     {slot ? (
                                         <>
-                                            <img src={slot.image} alt={slot.name} className="w-10 h-10 rounded object-cover" />
+                                            <img src={slot.image} alt={slot.name} className="w-10 h-10 rounded object-contain" />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-bold text-white truncate">{slot.name}</p>
                                                 <p className="text-[10px] text-yc-green font-mono">{slot.multiplier}x</p>
@@ -363,7 +363,7 @@ const Leagues: React.FC = () => {
                                                 `}
                                             >
                                                 <div className="aspect-square bg-black rounded overflow-hidden mb-2 relative">
-                                                    <img src={card.image} className="w-full h-full object-cover" alt={card.name} />
+                                                    <img src={card.image} className="w-full h-full object-contain" alt={card.name} />
                                                     {!isSelected && canAdd && (
                                                         <div className="absolute inset-0 bg-yc-orange/0 group-hover:bg-yc-orange/20 flex items-center justify-center transition-colors">
                                                             <span className="text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity">+</span>
@@ -378,10 +378,10 @@ const Leagues: React.FC = () => {
                                                 <p className="text-xs font-bold text-white truncate">{card.name}</p>
                                                 <div className="flex justify-between items-center mt-1">
                                                     <span className={`text-[9px] px-1 py-0.5 rounded font-bold uppercase ${card.rarity === Rarity.LEGENDARY ? 'bg-orange-900/50 text-orange-400' :
-                                                            card.rarity === Rarity.EPIC_RARE ? 'bg-purple-900/50 text-purple-400' :
-                                                                card.rarity === Rarity.EPIC ? 'bg-violet-900/50 text-violet-400' :
-                                                                    card.rarity === Rarity.RARE ? 'bg-green-900/50 text-green-400' :
-                                                                        'bg-gray-800 text-gray-400'
+                                                        card.rarity === Rarity.EPIC_RARE ? 'bg-purple-900/50 text-purple-400' :
+                                                            card.rarity === Rarity.EPIC ? 'bg-violet-900/50 text-violet-400' :
+                                                                card.rarity === Rarity.RARE ? 'bg-green-900/50 text-green-400' :
+                                                                    'bg-gray-800 text-gray-400'
                                                         }`}>
                                                         {card.rarity}
                                                     </span>
@@ -423,7 +423,7 @@ const Leagues: React.FC = () => {
                             </span>
                         )}
                     </div>
-                    <h2 className="text-4xl font-black text-white mb-4 uppercase tracking-tighter">Global YC Fantasy League</h2>
+                    <h2 className="text-4xl font-black text-white mb-4 uppercase tracking-tighter">Global UnicornX League</h2>
                     <p className="text-gray-400 mb-6 leading-relaxed">
                         Compete against other investors. Build a portfolio of 5 NFT startup cards.
                         Cards are locked during the tournament. Top players win from the prize pool!

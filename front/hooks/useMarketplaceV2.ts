@@ -1,10 +1,11 @@
-// useMarketplaceV2.ts - Hook for MarketplaceV2 contract with bids, auctions, history
-'use client';
-
 import { useState, useCallback } from 'react';
 import { useWeb3ModalProvider, useWeb3ModalAccount } from '@web3modal/ethers/react';
 import { BrowserProvider, ethers } from 'ethers';
 import { getMarketplaceV2Contract, getNFTContract, CONTRACTS, formatXTZ } from '@/lib/contracts';
+import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
+
+// ============ Constants ============
+// Gas limits removed - letting ethers.js auto-estimate for better reliability
 
 // ============ Types ============
 export interface Bid {
@@ -80,8 +81,34 @@ export function useMarketplaceV2() {
     }, [walletProvider]);
 
     // ============ Listings ============
+    // ============ Listings ============
+    // Cache-first polling for active listings
     const getActiveListings = useCallback(async (): Promise<Listing[]> => {
-        try {
+        const key = CacheKeys.activeListings();
+
+        // Check cache first
+        const cached = blockchainCache.get<Listing[]>(key);
+        if (cached !== undefined) {
+            // Background refresh if stale - hook consumer should use usePollingData for persistent updates
+            // But we'll trigger a background fetch if it's stale to ensure freshness
+            if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
+                blockchainCache.fetchInBackground(key, async () => {
+                    const contract = getMarketplaceV2Contract();
+                    const listings = await contract.getActiveListings();
+                    return listings.map((l: any) => ({
+                        listingId: l.listingId,
+                        seller: l.seller,
+                        tokenId: l.tokenId,
+                        price: l.price,
+                        listedAt: l.listedAt,
+                        active: l.active,
+                    }));
+                });
+            }
+            return cached;
+        }
+
+        return blockchainCache.getOrFetch(key, async () => {
             const contract = getMarketplaceV2Contract();
             const listings = await contract.getActiveListings();
             return listings.map((l: any) => ({
@@ -92,10 +119,43 @@ export function useMarketplaceV2() {
                 listedAt: l.listedAt,
                 active: l.active,
             }));
-        } catch (err: any) {
-            console.error('Error getting listings:', err);
-            return [];
+        }, CacheTTL.DEFAULT);
+    }, []);
+
+    const getUserListings = useCallback(async (userAddress: string): Promise<Listing[]> => {
+        const key = CacheKeys.userListings(userAddress);
+
+        const cached = blockchainCache.get<Listing[]>(key);
+        if (cached !== undefined) {
+            if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
+                blockchainCache.fetchInBackground(key, async () => {
+                    const contract = getMarketplaceV2Contract();
+                    const listings = await contract.getUserListings(userAddress);
+                    return listings.map((l: any) => ({
+                        listingId: l.listingId,
+                        seller: l.seller,
+                        tokenId: l.tokenId,
+                        price: l.price,
+                        listedAt: l.listedAt,
+                        active: l.active,
+                    }));
+                });
+            }
+            return cached;
         }
+
+        return blockchainCache.getOrFetch(key, async () => {
+            const contract = getMarketplaceV2Contract();
+            const listings = await contract.getUserListings(userAddress);
+            return listings.map((l: any) => ({
+                listingId: l.listingId,
+                seller: l.seller,
+                tokenId: l.tokenId,
+                price: l.price,
+                listedAt: l.listedAt,
+                active: l.active,
+            }));
+        }, CacheTTL.DEFAULT);
     }, []);
 
     const listCard = useCallback(async (tokenId: bigint, priceInXTZ: string) => {
@@ -107,16 +167,12 @@ export function useMarketplaceV2() {
             const marketplaceContract = getMarketplaceV2Contract(signer);
 
             // Approve marketplace
-            const approveTx = await nftContract.approve(CONTRACTS.MarketplaceV2, tokenId, {
-                gasLimit: 100000n
-            });
+            const approveTx = await nftContract.approve(CONTRACTS.MarketplaceV2, tokenId);
             await approveTx.wait();
 
             // List card
             const priceWei = ethers.parseEther(priceInXTZ);
-            const listTx = await marketplaceContract.listCard(tokenId, priceWei, {
-                gasLimit: 300000n
-            });
+            const listTx = await marketplaceContract.listCard(tokenId, priceWei);
             await listTx.wait();
 
             return true;
@@ -136,8 +192,7 @@ export function useMarketplaceV2() {
             const contract = getMarketplaceV2Contract(signer);
 
             const tx = await contract.buyCard(listingId, {
-                value: price,
-                gasLimit: 500000n
+                value: price
             });
             await tx.wait();
 
@@ -157,9 +212,7 @@ export function useMarketplaceV2() {
             const signer = await getSigner();
             const contract = getMarketplaceV2Contract(signer);
 
-            const tx = await contract.cancelListing(listingId, {
-                gasLimit: 200000n
-            });
+            const tx = await contract.cancelListing(listingId);
             await tx.wait();
 
             return true;
@@ -167,11 +220,46 @@ export function useMarketplaceV2() {
             setError(err.message || 'Failed to cancel listing');
             throw err;
         } finally {
-            setLoading(false);
         }
     }, [getSigner]);
 
     // ============ Bids ============
+    const getUserBids = useCallback(async (userAddress: string): Promise<Bid[]> => {
+        const key = CacheKeys.userBids(userAddress);
+
+        const cached = blockchainCache.get<Bid[]>(key);
+        if (cached !== undefined) {
+            if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
+                blockchainCache.fetchInBackground(key, async () => {
+                    const contract = getMarketplaceV2Contract();
+                    const bids = await contract.getUserBids(userAddress);
+                    return bids.map((b: any) => ({
+                        bidId: b.bidId,
+                        bidder: b.bidder,
+                        tokenId: b.tokenId,
+                        amount: b.amount,
+                        expiration: b.expiration,
+                        active: b.active,
+                    }));
+                });
+            }
+            return cached;
+        }
+
+        return blockchainCache.getOrFetch(key, async () => {
+            const contract = getMarketplaceV2Contract();
+            const bids = await contract.getUserBids(userAddress);
+            return bids.map((b: any) => ({
+                bidId: b.bidId,
+                bidder: b.bidder,
+                tokenId: b.tokenId,
+                amount: b.amount,
+                expiration: b.expiration,
+                active: b.active,
+            }));
+        }, CacheTTL.DEFAULT);
+    }, []);
+
     const placeBid = useCallback(async (tokenId: bigint, amountInXTZ: string, expirationDays: number = 7) => {
         setLoading(true);
         setError(null);
@@ -183,8 +271,7 @@ export function useMarketplaceV2() {
             const expiration = BigInt(Math.floor(Date.now() / 1000) + expirationDays * 24 * 60 * 60);
 
             const tx = await contract.placeBid(tokenId, expiration, {
-                value: amountWei,
-                gasLimit: 300000n
+                value: amountWei
             });
             await tx.wait();
 
@@ -204,9 +291,7 @@ export function useMarketplaceV2() {
             const signer = await getSigner();
             const contract = getMarketplaceV2Contract(signer);
 
-            const tx = await contract.cancelBid(bidId, {
-                gasLimit: 200000n
-            });
+            const tx = await contract.cancelBid(bidId);
             await tx.wait();
 
             return true;
@@ -225,9 +310,7 @@ export function useMarketplaceV2() {
             const signer = await getSigner();
             const contract = getMarketplaceV2Contract(signer);
 
-            const tx = await contract.acceptBid(bidId, {
-                gasLimit: 500000n
-            });
+            const tx = await contract.acceptBid(bidId);
             await tx.wait();
 
             return true;
@@ -259,7 +342,28 @@ export function useMarketplaceV2() {
 
     const getMyBids = useCallback(async (): Promise<Bid[]> => {
         if (!address) return [];
-        try {
+        const key = CacheKeys.userBids(address);
+
+        const cached = blockchainCache.get<Bid[]>(key);
+        if (cached !== undefined) {
+            if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
+                blockchainCache.fetchInBackground(key, async () => {
+                    const contract = getMarketplaceV2Contract();
+                    const bids = await contract.getBidsByBidder(address);
+                    return bids.map((b: any) => ({
+                        bidId: b.bidId,
+                        bidder: b.bidder,
+                        tokenId: b.tokenId,
+                        amount: b.amount,
+                        expiration: b.expiration,
+                        active: b.active,
+                    }));
+                });
+            }
+            return cached;
+        }
+
+        return blockchainCache.getOrFetch(key, async () => {
             const contract = getMarketplaceV2Contract();
             const bids = await contract.getBidsByBidder(address);
             return bids.map((b: any) => ({
@@ -270,10 +374,7 @@ export function useMarketplaceV2() {
                 expiration: b.expiration,
                 active: b.active,
             }));
-        } catch (err: any) {
-            console.error('Error getting my bids:', err);
-            return [];
-        }
+        }, CacheTTL.DEFAULT);
     }, [address]);
 
     // ============ Auctions ============
@@ -291,18 +392,14 @@ export function useMarketplaceV2() {
             const contract = getMarketplaceV2Contract(signer);
 
             // Approve marketplace
-            const approveTx = await nftContract.approve(CONTRACTS.MarketplaceV2, tokenId, {
-                gasLimit: 100000n
-            });
+            const approveTx = await nftContract.approve(CONTRACTS.MarketplaceV2, tokenId);
             await approveTx.wait();
 
             const startPrice = ethers.parseEther(startPriceXTZ);
             const reservePrice = ethers.parseEther(reservePriceXTZ);
             const duration = BigInt(durationDays * 24 * 60 * 60);
 
-            const tx = await contract.createAuction(tokenId, startPrice, reservePrice, duration, {
-                gasLimit: 400000n
-            });
+            const tx = await contract.createAuction(tokenId, startPrice, reservePrice, duration);
             await tx.wait();
 
             return true;
@@ -324,8 +421,7 @@ export function useMarketplaceV2() {
             const amountWei = ethers.parseEther(amountInXTZ);
 
             const tx = await contract.bidOnAuction(auctionId, {
-                value: amountWei,
-                gasLimit: 300000n
+                value: amountWei
             });
             await tx.wait();
 
@@ -345,9 +441,7 @@ export function useMarketplaceV2() {
             const signer = await getSigner();
             const contract = getMarketplaceV2Contract(signer);
 
-            const tx = await contract.finalizeAuction(auctionId, {
-                gasLimit: 500000n
-            });
+            const tx = await contract.finalizeAuction(auctionId);
             await tx.wait();
 
             return true;
@@ -366,9 +460,7 @@ export function useMarketplaceV2() {
             const signer = await getSigner();
             const contract = getMarketplaceV2Contract(signer);
 
-            const tx = await contract.cancelAuction(auctionId, {
-                gasLimit: 300000n
-            });
+            const tx = await contract.cancelAuction(auctionId);
             await tx.wait();
 
             return true;
@@ -381,7 +473,32 @@ export function useMarketplaceV2() {
     }, [getSigner]);
 
     const getActiveAuctions = useCallback(async (): Promise<Auction[]> => {
-        try {
+        const key = CacheKeys.activeAuctions();
+
+        const cached = blockchainCache.get<Auction[]>(key);
+        if (cached !== undefined) {
+            if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
+                blockchainCache.fetchInBackground(key, async () => {
+                    const contract = getMarketplaceV2Contract();
+                    const auctions = await contract.getActiveAuctions();
+                    return auctions.map((a: any) => ({
+                        auctionId: a.auctionId,
+                        seller: a.seller,
+                        tokenId: a.tokenId,
+                        startPrice: a.startPrice,
+                        reservePrice: a.reservePrice,
+                        highestBid: a.highestBid,
+                        highestBidder: a.highestBidder,
+                        startTime: a.startTime,
+                        endTime: a.endTime,
+                        status: a.status,
+                    }));
+                });
+            }
+            return cached;
+        }
+
+        return blockchainCache.getOrFetch(key, async () => {
             const contract = getMarketplaceV2Contract();
             const auctions = await contract.getActiveAuctions();
             return auctions.map((a: any) => ({
@@ -396,10 +513,7 @@ export function useMarketplaceV2() {
                 endTime: a.endTime,
                 status: a.status,
             }));
-        } catch (err: any) {
-            console.error('Error getting auctions:', err);
-            return [];
-        }
+        }, CacheTTL.DEFAULT);
     }, []);
 
     // ============ History & Stats ============
@@ -465,6 +579,7 @@ export function useMarketplaceV2() {
 
         // Listings
         getActiveListings,
+        getUserListings,
         listCard,
         buyCard,
         cancelListing,
@@ -475,6 +590,7 @@ export function useMarketplaceV2() {
         acceptBid,
         getBidsForToken,
         getMyBids,
+        getUserBids,
 
         // Auctions
         createAuction,

@@ -54,12 +54,12 @@ export function useAdmin() {
             const provider = new ethers.JsonRpcProvider(RPC_URL);
 
             console.log('📊 Fetching contract balances...');
-            console.log('   NFT:', CONTRACTS.NFT);
+            console.log('   NFT:', CONTRACTS.UnicornX_NFT);
             console.log('   PackOpener:', CONTRACTS.PackOpener);
             console.log('   Tournament:', CONTRACTS.TournamentManager);
 
             const [nft, packOpener, tournament] = await Promise.all([
-                provider.getBalance(CONTRACTS.NFT),
+                provider.getBalance(CONTRACTS.UnicornX_NFT),
                 provider.getBalance(CONTRACTS.PackOpener),
                 provider.getBalance(CONTRACTS.TournamentManager),
             ]);
@@ -145,7 +145,7 @@ export function useAdmin() {
             const contract = getPackOpenerContract(signer);
             console.log('💰 Withdrawing from PackOpener...');
 
-            const tx = await contract.withdraw({ gasLimit: 1000000n });
+            const tx = await contract.withdraw();
             await tx.wait();
 
             console.log('✅ Withdrawal successful');
@@ -173,7 +173,7 @@ export function useAdmin() {
             const priceWei = ethers.parseEther(priceInXTZ.toString());
 
             console.log('💰 Setting pack price to', priceInXTZ, 'XTZ');
-            const tx = await contract.setPackPrice(priceWei, { gasLimit: 1000000n });
+            const tx = await contract.setPackPrice(priceWei);
             await tx.wait();
 
             console.log('✅ Pack price updated');
@@ -199,7 +199,7 @@ export function useAdmin() {
             const contract = getPackOpenerContract(signer);
             console.log('🏆 Setting active tournament to', tournamentId);
 
-            const tx = await contract.setActiveTournament(tournamentId, { gasLimit: 1000000n });
+            const tx = await contract.setActiveTournament(tournamentId);
             await tx.wait();
 
             console.log('✅ Active tournament updated');
@@ -232,8 +232,7 @@ export function useAdmin() {
             const tx = await contract.createTournament(
                 registrationStart,
                 startTime,
-                endTime,
-                { gasLimit: 1000000n }
+                endTime
             );
             const receipt = await tx.wait();
 
@@ -277,8 +276,7 @@ export function useAdmin() {
             const tx = await contract.finalizeTournament(
                 tournamentId,
                 winners,
-                amounts,
-                { gasLimit: 1000000n }
+                amounts
             );
             await tx.wait();
 
@@ -286,6 +284,40 @@ export function useAdmin() {
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to finalize';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Finalize tournament with points-based distribution
+    const finalizeWithPoints = useCallback(async (
+        signer: ethers.Signer,
+        tournamentId: number,
+        points: bigint[] // Array of 19 points for startupIds 1-19
+    ): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            if (points.length !== 19) {
+                throw new Error('Must provide exactly 19 points values');
+            }
+
+            const contract = getTournamentContract(signer);
+            console.log('🎯 Finalizing tournament with points', tournamentId, points);
+
+            const tx = await contract.finalizeWithPoints(
+                tournamentId,
+                points
+            );
+            await tx.wait();
+
+            console.log('✅ Tournament finalized with points');
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Failed to finalize with points';
             setError(msg);
             return { success: false, error: msg };
         } finally {
@@ -305,13 +337,45 @@ export function useAdmin() {
             const contract = getTournamentContract(signer);
             console.log('❌ Cancelling tournament', tournamentId);
 
-            const tx = await contract.cancelTournament(tournamentId, { gasLimit: 1000000n });
+            const tx = await contract.cancelTournament(tournamentId);
             await tx.wait();
 
             console.log('✅ Tournament cancelled');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to cancel';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Withdraw from specific tournament prize pool
+    const withdrawFromPrizePool = useCallback(async (
+        signer: ethers.Signer,
+        tournamentId: number,
+        amount: bigint,
+        to: string
+    ): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getTournamentContract(signer);
+            console.log('💰 Withdrawing', formatXTZ(amount), 'XTZ from tournament', tournamentId);
+
+            const tx = await contract.withdrawFromPrizePool(
+                tournamentId,
+                amount,
+                to
+            );
+            await tx.wait();
+
+            console.log('✅ Prize pool withdrawal successful');
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Withdrawal failed';
             setError(msg);
             return { success: false, error: msg };
         } finally {
@@ -332,7 +396,7 @@ export function useAdmin() {
             const contract = getTournamentContract(signer);
             console.log('💰 Emergency withdraw', formatXTZ(amount), 'XTZ to', to);
 
-            const tx = await contract.emergencyWithdraw(amount, to, { gasLimit: 1000000n });
+            const tx = await contract.emergencyWithdraw(amount, to);
             await tx.wait();
 
             console.log('✅ Emergency withdrawal successful');
@@ -350,25 +414,25 @@ export function useAdmin() {
 
     const pausePackOpener = useCallback(async (signer: ethers.Signer) => {
         const contract = getPackOpenerContract(signer);
-        const tx = await contract.pause({ gasLimit: 1000000n });
+        const tx = await contract.pause();
         await tx.wait();
     }, []);
 
     const unpausePackOpener = useCallback(async (signer: ethers.Signer) => {
         const contract = getPackOpenerContract(signer);
-        const tx = await contract.unpause({ gasLimit: 1000000n });
+        const tx = await contract.unpause();
         await tx.wait();
     }, []);
 
     const pauseTournament = useCallback(async (signer: ethers.Signer) => {
         const contract = getTournamentContract(signer);
-        const tx = await contract.pause({ gasLimit: 1000000n });
+        const tx = await contract.pause();
         await tx.wait();
     }, []);
 
     const unpauseTournament = useCallback(async (signer: ethers.Signer) => {
         const contract = getTournamentContract(signer);
-        const tx = await contract.unpause({ gasLimit: 1000000n });
+        const tx = await contract.unpause();
         await tx.wait();
     }, []);
 
@@ -388,7 +452,9 @@ export function useAdmin() {
         // Tournament
         createTournament,
         finalizeTournament,
+        finalizeWithPoints,
         cancelTournament,
+        withdrawFromPrizePool,
         emergencyWithdrawTournament,
         pauseTournament,
         unpauseTournament,

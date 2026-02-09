@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-interface IFantasyYC_NFT {
+interface IUnicornX_NFT {
     function batchMint(address to, uint256[5] calldata startupIds) external returns (uint256[5] memory);
     function totalSupply() external view returns (uint256);
 }
@@ -16,8 +16,8 @@ interface ITournamentManager {
 
 /**
  * @title PackOpener
- * @author Fantasy YC Team
- * @notice Handle pack purchases and random card generation for Fantasy YC
+ * @author UnicornX Team
+ * @notice Handle pack purchases and random card generation for UnicornX
  * @dev Uses on-chain randomness (prevrandao) for card generation
  */
 contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
@@ -52,7 +52,7 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     // ============ State Variables ============
     
     /// @notice Reference to the NFT contract
-    IFantasyYC_NFT public nftContract;
+    IUnicornX_NFT public nftContract;
     
     /// @notice Number of packs sold
     uint256 public packsSold;
@@ -130,7 +130,7 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     
     /**
      * @notice Initialize the PackOpener contract
-     * @param _nftContract Address of the FantasyYC_NFT contract
+     * @param _nftContract Address of the UnicornX_NFT contract
      * @param _treasury Address to receive pack sale funds
      * @param initialOwner Initial owner of the contract
      */
@@ -143,7 +143,7 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         if (_treasury == address(0)) revert ZeroAddress();
         if (initialOwner == address(0)) revert ZeroAddress();
         
-        nftContract = IFantasyYC_NFT(_nftContract);
+        nftContract = IUnicornX_NFT(_nftContract);
         treasury = _treasury;
         currentPackPrice = PACK_PRICE;
     }
@@ -444,7 +444,7 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
      */
     function setNftContract(address newNftContract) external onlyOwner {
         if (newNftContract == address(0)) revert ZeroAddress();
-        nftContract = IFantasyYC_NFT(newNftContract);
+        nftContract = IUnicornX_NFT(newNftContract);
     }
     
     /**

@@ -1,7 +1,7 @@
 {
-  "name": "fantasy-yc",
+  "name": "unicornx-contracts",
   "version": "1.0.0",
-  "description": "Fantasy YC NFT Smart Contracts for Etherlink blockchain",
+  "description": "UnicornX NFT Smart Contracts for Etherlink blockchain",
   "main": "scripts/deploy.js",
   "scripts": {
     "install:solc": "npm install -g solc",
@@ -14,7 +14,7 @@
     "nft",
     "solidity",
     "etherlink",
-    "fantasy",
+    "unicornx",
     "yc"
   ],
   "author": "",

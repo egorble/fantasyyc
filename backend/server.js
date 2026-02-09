@@ -1,4 +1,4 @@
-// Fantasy YC Metadata API Server
+// UnicornX Metadata API Server
 // Serves dynamic NFT metadata for OpenSea and other marketplaces
 
 const express = require("express");
@@ -27,49 +27,186 @@ const IPFS_IMAGE_BASE = process.env.IPFS_IMAGE_BASE || "ipfs://QmIMAGEPLACEHOLDE
 // ============ Startup Data ============
 
 const STARTUPS = {
-    1: { name: "Manus", slug: "manus", rarity: "Legendary", multiplier: 10, description: "AI-powered humanoid robots" },
-    2: { name: "Lovable", slug: "lovable", rarity: "Legendary", multiplier: 10, description: "AI software engineer" },
-    3: { name: "Cursor", slug: "cursor", rarity: "Legendary", multiplier: 10, description: "AI-first code editor" },
-    4: { name: "Anthropic", slug: "anthropic", rarity: "Legendary", multiplier: 10, description: "AI safety company - Claude" },
-    5: { name: "OpenAI", slug: "openai", rarity: "Epic Rare", multiplier: 8, description: "Leading AI research lab - GPT" },
-    6: { name: "Browser Use", slug: "browser-use", rarity: "Epic", multiplier: 5, description: "AI browser automation" },
-    7: { name: "Dedalus Labs", slug: "dedalus-labs", rarity: "Epic", multiplier: 5, description: "Decentralized infrastructure" },
-    8: { name: "Autumn", slug: "autumn", rarity: "Epic", multiplier: 5, description: "Insurance automation" },
-    9: { name: "Axiom", slug: "axiom", rarity: "Epic", multiplier: 5, description: "ZK coprocessor for Ethereum" },
-    10: { name: "Multifactor", slug: "multifactor", rarity: "Rare", multiplier: 3, description: "Authentication platform" },
-    11: { name: "Dome", slug: "dome", rarity: "Rare", multiplier: 3, description: "Smart home security" },
-    12: { name: "GrazeMate", slug: "grazemate", rarity: "Rare", multiplier: 3, description: "AgTech for livestock" },
-    13: { name: "Tornyol Systems", slug: "tornyol-systems", rarity: "Rare", multiplier: 3, description: "Industrial automation" },
-    14: { name: "Axiom", slug: "axiom-rare", rarity: "Rare", multiplier: 3, description: "Data analytics platform" },
-    15: { name: "Pocket", slug: "pocket", rarity: "Common", multiplier: 1, description: "Mobile savings app" },
-    16: { name: "Caretta", slug: "caretta", rarity: "Common", multiplier: 1, description: "Fleet management" },
-    17: { name: "AxionOrbital Space", slug: "axionorbital-space", rarity: "Common", multiplier: 1, description: "Space logistics" },
-    18: { name: "Freeport Markets", slug: "freeport-markets", rarity: "Common", multiplier: 1, description: "DeFi marketplace" },
-    19: { name: "Ruvo", slug: "ruvo", rarity: "Common", multiplier: 1, description: "Sustainable packaging" },
+    // Legendary (10x multiplier)
+    1: {
+        name: "Openclaw",
+        slug: "openclaw",
+        rarity: "Legendary",
+        multiplier: 10,
+        description: "AI-powered autonomous coding agent"
+    },
+    2: {
+        name: "Lovable",
+        slug: "lovable",
+        rarity: "Legendary",
+        multiplier: 10,
+        description: "AI software engineer",
+        fundraising: { round: "Series B", amount: "$330M", valuation: "$6.6B" }
+    },
+    3: {
+        name: "Cursor",
+        slug: "cursor",
+        rarity: "Legendary",
+        multiplier: 10,
+        description: "AI-first code editor",
+        fundraising: { round: "Series D", amount: "$2.3B", valuation: "$29.3B" }
+    },
+    4: {
+        name: "OpenAI",
+        slug: "openai",
+        rarity: "Legendary",
+        multiplier: 10,
+        description: "Leading AI research lab - GPT",
+        fundraising: { round: "Series F", amount: "$30B", valuation: null }
+    },
+    5: {
+        name: "Anthropic",
+        slug: "anthropic",
+        rarity: "Legendary",
+        multiplier: 10,
+        description: "AI safety company - Claude",
+        fundraising: { round: "Series F", amount: "$13B", valuation: "$183B" }
+    },
+
+    // Epic (5x multiplier)
+    6: {
+        name: "Browser Use",
+        slug: "browser-use",
+        rarity: "Epic",
+        multiplier: 5,
+        description: "AI browser automation",
+        fundraising: { round: "Seed", amount: "$17M", valuation: null }
+    },
+    7: {
+        name: "Dedalus Labs",
+        slug: "dedalus-labs",
+        rarity: "Epic",
+        multiplier: 5,
+        description: "Decentralized infrastructure",
+        fundraising: { round: "Seed", amount: "$11M", valuation: null }
+    },
+    8: {
+        name: "Autumn",
+        slug: "autumn",
+        rarity: "Epic",
+        multiplier: 5,
+        description: "Insurance automation"
+    },
+
+    // Rare (3x multiplier)
+    9: {
+        name: "Axiom",
+        slug: "axiom",
+        rarity: "Rare",
+        multiplier: 3,
+        description: "ZK coprocessor for Ethereum"
+    },
+    10: {
+        name: "Multifactor",
+        slug: "multifactor",
+        rarity: "Rare",
+        multiplier: 3,
+        description: "Authentication platform",
+        fundraising: { round: "Seed", amount: "$15M", valuation: null }
+    },
+    11: {
+        name: "Dome",
+        slug: "dome",
+        rarity: "Rare",
+        multiplier: 3,
+        description: "Smart home security",
+        fundraising: { round: "Pre-seed", amount: "$500K", valuation: null }
+    },
+    12: {
+        name: "GrazeMate",
+        slug: "grazemate",
+        rarity: "Rare",
+        multiplier: 3,
+        description: "AgTech for livestock",
+        fundraising: { round: "Seed", amount: "$1.2M", valuation: null }
+    },
+    13: {
+        name: "Tornyol Systems",
+        slug: "tornyol-systems",
+        rarity: "Rare",
+        multiplier: 3,
+        description: "Industrial automation",
+        fundraising: { round: "Seed", amount: "$4M", valuation: null }
+    },
+
+    // Common (1x multiplier)
+    14: {
+        name: "Pocket",
+        slug: "pocket",
+        rarity: "Common",
+        multiplier: 1,
+        description: "Mobile savings app",
+        fundraising: { round: "Seed", amount: "$500K", valuation: null }
+    },
+    15: {
+        name: "Caretta",
+        slug: "caretta",
+        rarity: "Common",
+        multiplier: 1,
+        description: "Fleet management",
+        fundraising: { round: "Seed", amount: "$1.3M", valuation: null }
+    },
+    16: {
+        name: "AxionOrbital Space",
+        slug: "axionorbital-space",
+        rarity: "Common",
+        multiplier: 1,
+        description: "Space logistics",
+        fundraising: { round: "Seed", amount: "$500K", valuation: null }
+    },
+    17: {
+        name: "Freeport Markets",
+        slug: "freeport-markets",
+        rarity: "Common",
+        multiplier: 1,
+        description: "DeFi marketplace",
+        fundraising: { round: "Pre-seed", amount: "$1.1M", valuation: null }
+    },
+    18: {
+        name: "Ruvo",
+        slug: "ruvo",
+        rarity: "Common",
+        multiplier: 1,
+        description: "Sustainable packaging",
+        fundraising: { round: "Seed", amount: "$4.6M", valuation: null }
+    },
+    19: {
+        name: "Lightberry",
+        slug: "lightberry",
+        rarity: "Common",
+        multiplier: 1,
+        description: "Energy management platform",
+        fundraising: { round: "Seed", amount: "$500K", valuation: null }
+    },
 };
 
 // ============ Dynamic Stats (simulated - would come from Grok API/DB) ============
 
 const DYNAMIC_STATS = {
-    1: { valuation: "$2.5B", partnerships: 12, funding: "$100M Series B" },
-    2: { valuation: "$1.2B", partnerships: 8, funding: "$60M Series A" },
-    3: { valuation: "$2.6B", partnerships: 15, funding: "$150M Series B" },
-    4: { valuation: "$18B", partnerships: 25, funding: "$750M Series D" },
-    5: { valuation: "$157B", partnerships: 50, funding: "$13B Total" },
-    6: { valuation: "$50M", partnerships: 3, funding: "$5M Seed" },
-    7: { valuation: "$80M", partnerships: 4, funding: "$12M Series A" },
-    8: { valuation: "$120M", partnerships: 6, funding: "$20M Series A" },
-    9: { valuation: "$200M", partnerships: 10, funding: "$30M Series B" },
-    10: { valuation: "$30M", partnerships: 2, funding: "$4M Seed" },
-    11: { valuation: "$25M", partnerships: 2, funding: "$3M Seed" },
-    12: { valuation: "$15M", partnerships: 1, funding: "$2M Seed" },
-    13: { valuation: "$20M", partnerships: 2, funding: "$3M Seed" },
-    14: { valuation: "$35M", partnerships: 3, funding: "$5M Seed" },
-    15: { valuation: "$8M", partnerships: 1, funding: "$1M Pre-seed" },
-    16: { valuation: "$10M", partnerships: 1, funding: "$1.5M Pre-seed" },
-    17: { valuation: "$12M", partnerships: 1, funding: "$2M Seed" },
-    18: { valuation: "$7M", partnerships: 1, funding: "$1M Pre-seed" },
-    19: { valuation: "$9M", partnerships: 1, funding: "$1.2M Pre-seed" },
+    1: { valuation: "Stealth", partnerships: 2, funding: "Stealth Mode" },
+    2: { valuation: "$6.6B", partnerships: 15, funding: "$330M Series B" },
+    3: { valuation: "$29.3B", partnerships: 25, funding: "$2.3B Series D" },
+    4: { valuation: "Est. $300B+", partnerships: 100, funding: "$30B Series F" },
+    5: { valuation: "$183B", partnerships: 50, funding: "$13B Series F" },
+    6: { valuation: "Est. $100M", partnerships: 5, funding: "$17M Seed" },
+    7: { valuation: "Est. $80M", partnerships: 4, funding: "$11M Seed" },
+    8: { valuation: "Stealth", partnerships: 2, funding: "Stealth Mode" },
+    9: { valuation: "Stealth", partnerships: 3, funding: "Stealth Mode" },
+    10: { valuation: "Est. $120M", partnerships: 8, funding: "$15M Seed" },
+    11: { valuation: "Est. $5M", partnerships: 2, funding: "$500K Pre-seed" },
+    12: { valuation: "Est. $10M", partnerships: 3, funding: "$1.2M Seed" },
+    13: { valuation: "Est. $30M", partnerships: 4, funding: "$4M Seed" },
+    14: { valuation: "Est. $5M", partnerships: 2, funding: "$500K Seed" },
+    15: { valuation: "Est. $12M", partnerships: 3, funding: "$1.3M Seed" },
+    16: { valuation: "Est. $5M", partnerships: 2, funding: "$500K Seed" },
+    17: { valuation: "Est. $10M", partnerships: 3, funding: "$1.1M Pre-seed" },
+    18: { valuation: "Est. $40M", partnerships: 5, funding: "$4.6M Seed" },
+    19: { valuation: "Est. $5M", partnerships: 2, funding: "$500K Seed" },
 };
 
 // ============ Contract ABI (minimal for reading) ============
@@ -177,7 +314,7 @@ function setCachedToken(tokenId, data) {
  */
 app.get("/", (req, res) => {
     res.json({
-        name: "Fantasy YC Metadata API",
+        name: "UnicornX Metadata API",
         version: "1.0.0",
         status: "running",
         contract: NFT_CONTRACT_ADDRESS,
@@ -250,15 +387,16 @@ app.get("/metadata/:tokenId", async (req, res) => {
 
         // Build OpenSea-compatible metadata
         // Use server URL for images (or IPFS if configured)
+        // Images are now numbered by startup ID (1.png, 2.png, etc.)
         const imageUrl = IPFS_IMAGE_BASE.startsWith("ipfs://") && !IPFS_IMAGE_BASE.includes("PLACEHOLDER")
-            ? `${IPFS_IMAGE_BASE}/${startup.slug}.png`
-            : `${SERVER_URL}/images/${startup.slug}.png`;
+            ? `${IPFS_IMAGE_BASE}/${startupId}.png`
+            : `${SERVER_URL}/images/${startupId}.png`;
 
         const metadata = {
             name: `${startup.name} #${edition}`,
             description: `${startup.rarity} YC startup card - ${startup.description}. Edition ${edition} of ${totalMinted} minted.`,
             image: imageUrl,
-            external_url: `https://fantasyyc.app/card/${tokenId}`,
+            external_url: `https://unicornx.app/card/${tokenId}`,
             attributes: [
                 {
                     trait_type: "Startup",
@@ -379,7 +517,7 @@ initContract();
 app.listen(PORT, () => {
     console.log("");
     console.log("═══════════════════════════════════════════════════════════════");
-    console.log("🚀 Fantasy YC Metadata API Server");
+    console.log("🚀 UnicornX Metadata API Server");
     console.log("═══════════════════════════════════════════════════════════════");
     console.log("");
     console.log(`📍 Server running at: http://localhost:${PORT}`);

@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title MarketplaceV2
- * @author Fantasy YC Team
+ * @author UnicornX Team
  * @notice NFT Marketplace with listings, bids, auctions, and sale history
  * @dev Full OpenSea-like functionality
  */
@@ -74,7 +74,7 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
     // ============ State Variables ============
     
     IERC721 public immutable nftContract;
-    IFantasyYC_NFT public immutable fantasyNFT;
+    IUnicornX_NFT public immutable unicornXNFT;
     
     uint256 public marketplaceFee = 0; // Basis points
     address public feeRecipient;
@@ -164,7 +164,7 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
     
     constructor(address _nftContract, address initialOwner) Ownable(initialOwner) {
         nftContract = IERC721(_nftContract);
-        fantasyNFT = IFantasyYC_NFT(_nftContract);
+        unicornXNFT = IUnicornX_NFT(_nftContract);
         feeRecipient = initialOwner;
     }
     
@@ -173,7 +173,7 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
     function listCard(uint256 tokenId, uint256 price) external whenNotPaused nonReentrant returns (uint256) {
         if (price == 0) revert ZeroPrice();
         if (nftContract.ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
-        if (fantasyNFT.isLocked(tokenId)) revert TokenIsLocked();
+        if (unicornXNFT.isLocked(tokenId)) revert TokenIsLocked();
         if (tokenToListing[tokenId] != 0) revert TokenAlreadyListed();
         if (tokenToAuction[tokenId] != 0) revert TokenInAuction();
         
@@ -249,7 +249,7 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
     function placeBid(uint256 tokenId, uint256 expiration) external payable whenNotPaused nonReentrant returns (uint256) {
         if (msg.value == 0) revert ZeroPrice();
         if (expiration <= block.timestamp) revert BidExpired();
-        if (fantasyNFT.isLocked(tokenId)) revert TokenIsLocked();
+        if (unicornXNFT.isLocked(tokenId)) revert TokenIsLocked();
         
         uint256 bidId = _nextBidId++;
         bids[bidId] = Bid({
@@ -294,7 +294,7 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 tokenId = bid.tokenId;
         address owner = nftContract.ownerOf(tokenId);
         if (owner != msg.sender) revert NotTokenOwner();
-        if (fantasyNFT.isLocked(tokenId)) revert TokenIsLocked();
+        if (unicornXNFT.isLocked(tokenId)) revert TokenIsLocked();
         
         address bidder = bid.bidder;
         uint256 amount = bid.amount;
@@ -333,7 +333,7 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
         if (startPrice == 0) revert ZeroPrice();
         if (duration < 1 hours || duration > 30 days) revert InvalidDuration();
         if (nftContract.ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
-        if (fantasyNFT.isLocked(tokenId)) revert TokenIsLocked();
+        if (unicornXNFT.isLocked(tokenId)) revert TokenIsLocked();
         if (tokenToListing[tokenId] != 0) revert TokenAlreadyListed();
         if (tokenToAuction[tokenId] != 0) revert TokenInAuction();
         
@@ -529,6 +529,32 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
         return result;
     }
     
+    // Get all active bids for a token (both auction and listing bids)
+    function getActiveBidsForToken(uint256 tokenId) external view returns (Bid[] memory) {
+        uint256[] memory bidIds = _tokenBids[tokenId];
+        
+        // Count active bids
+        uint256 activeCount = 0;
+        for (uint256 i = 0; i < bidIds.length; i++) {
+            if (bids[bidIds[i]].active && bids[bidIds[i]].expiration > block.timestamp) {
+                activeCount++;
+            }
+        }
+        
+        // Build result array
+        Bid[] memory result = new Bid[](activeCount);
+        uint256 idx = 0;
+        
+        for (uint256 i = 0; i < bidIds.length; i++) {
+            Bid storage bid = bids[bidIds[i]];
+            if (bid.active && bid.expiration > block.timestamp) {
+                result[idx++] = bid;
+            }
+        }
+        
+        return result;
+    }
+    
     function getTokenSaleHistory(uint256 tokenId) external view returns (Sale[] memory) {
         uint256[] memory ids = _tokenSales[tokenId];
         Sale[] memory result = new Sale[](ids.length);
@@ -677,7 +703,7 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
     }
 }
 
-// Interface for FantasyYC_NFT lock check
-interface IFantasyYC_NFT {
+// Interface for UnicornX_NFT lock check
+interface IUnicornX_NFT {
     function isLocked(uint256 tokenId) external view returns (bool);
 }

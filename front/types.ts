@@ -1,4 +1,4 @@
-// Types for Fantasy YC application
+// Types for UnicornX application
 
 // ============ Rarity (matches contract enum) ============
 export enum Rarity {
