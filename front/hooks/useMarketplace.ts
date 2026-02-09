@@ -117,13 +117,13 @@ export function useMarketplace() {
 
             // First approve marketplace to transfer NFT
             const nftContract = getNFTContract(signer);
-            const approveTx = await nftContract.approve(CONTRACTS.Marketplace, tokenId);
+            const approveTx = await nftContract.approve(CONTRACTS.Marketplace, tokenId, { gasLimit: 100000n });
             await approveTx.wait();
 
             // Then list the card
             const marketplace = getMarketplaceContract(signer);
             const priceWei = ethers.parseEther(priceInXTZ);
-            const tx = await marketplace.listCard(tokenId, priceWei);
+            const tx = await marketplace.listCard(tokenId, priceWei, { gasLimit: 500000n });
             const receipt = await tx.wait();
 
             // Get listing ID from event
@@ -157,7 +157,7 @@ export function useMarketplace() {
             setState(prev => ({ ...prev, isLoading: true, error: null }));
 
             const marketplace = getMarketplaceContract(signer);
-            const tx = await marketplace.buyCard(listingId, { value: price });
+            const tx = await marketplace.buyCard(listingId, { value: price, gasLimit: 1000000n });
             await tx.wait();
 
             // Invalidate caches
@@ -182,7 +182,7 @@ export function useMarketplace() {
             setState(prev => ({ ...prev, isLoading: true, error: null }));
 
             const marketplace = getMarketplaceContract(signer);
-            const tx = await marketplace.cancelListing(listingId);
+            const tx = await marketplace.cancelListing(listingId, { gasLimit: 300000n });
             await tx.wait();
 
             // Invalidate caches

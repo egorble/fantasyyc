@@ -114,11 +114,13 @@ export function usePacks() {
 
             console.log('📦 Buying and opening pack...');
             console.log('   Price:', ethers.formatEther(price), 'XTZ');
+            console.log('   Price (wei):', price.toString());
 
             // Single transaction: buy and open pack
+            // Pass value explicitly to ensure wallet displays it
             const tx = await packContract.buyAndOpenPack({
-                value: price,
-                gasLimit: 3000000
+                value: BigInt(price.toString()),
+                gasLimit: 3000000n
             });
             console.log('   TX sent:', tx.hash);
 

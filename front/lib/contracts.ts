@@ -10,10 +10,11 @@ export const METADATA_API = 'http://localhost:3001';
 
 // ============ Contract Addresses ============
 export const CONTRACTS = {
-    NFT: '0xdF5c40E244d30C8C1A90CFC76d96129839BB3613',
-    PackOpener: '0x02483f5CD96CfcA9834EeF591EfF6d1860a2dC10',
-    TournamentManager: '0x999bc7Bc4AAce9bDcAe5BbC5721c6c4d602CCe97',
-    Marketplace: '', // TODO: Deploy and update this address
+    NFT: '0x2e71509a8F68F45654392B34277D5d51540ef047',
+    PackOpener: '0x4E2D0c68261E611f934C802E8E973a134CF6c325',
+    TournamentManager: '0x9825a62a0aE74fadB7cE80aD4f75B4a64F3be185',
+    Marketplace: '0xDB745F3C7E839DF975D9c8213Bb00cD2441332bf',
+    MarketplaceV2: '', // Will be set after deployment
 } as const;
 
 // ============ ABIs (minimal for frontend) ============
@@ -110,6 +111,49 @@ export const MARKETPLACE_ABI = [
     'event ListingCancelled(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId)',
 ];
 
+export const MARKETPLACE_V2_ABI = [
+    // ===== Listings =====
+    'function listCard(uint256 tokenId, uint256 price) returns (uint256)',
+    'function buyCard(uint256 listingId) payable',
+    'function cancelListing(uint256 listingId)',
+    'function getActiveListings() view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active)[])',
+    'function getListing(uint256 listingId) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active))',
+    'function isTokenListed(uint256 tokenId) view returns (bool)',
+
+    // ===== Bids =====
+    'function placeBid(uint256 tokenId, uint256 expiration) payable returns (uint256)',
+    'function cancelBid(uint256 bidId)',
+    'function acceptBid(uint256 bidId)',
+    'function getActiveBidsForToken(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
+    'function getBidsByBidder(address bidder) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
+    'function getBid(uint256 bidId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active))',
+
+    // ===== Auctions =====
+    'function createAuction(uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 duration) returns (uint256)',
+    'function bidOnAuction(uint256 auctionId) payable',
+    'function finalizeAuction(uint256 auctionId)',
+    'function cancelAuction(uint256 auctionId)',
+    'function getActiveAuctions() view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status)[])',
+    'function getAuction(uint256 auctionId) view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status))',
+
+    // ===== History & Stats =====
+    'function getTokenSaleHistory(uint256 tokenId) view returns (tuple(uint256 tokenId, address seller, address buyer, uint256 price, uint256 timestamp, uint8 saleType)[])',
+    'function getTokenStats(uint256 tokenId) view returns (tuple(uint256 totalSales, uint256 totalVolume, uint256 highestSale, uint256 lowestSale, uint256 lastSalePrice, uint256 lastSaleTime))',
+    'function getMarketplaceStats() view returns (tuple(uint256 totalListings, uint256 activeBids, uint256 activeAuctions, uint256 totalVolume, uint256 totalSales) memory)',
+
+    // Events
+    'event CardListed(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId, uint256 price)',
+    'event CardSold(uint256 indexed listingId, address indexed seller, address indexed buyer, uint256 tokenId, uint256 price)',
+    'event ListingCancelled(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId)',
+    'event BidPlaced(uint256 indexed bidId, address indexed bidder, uint256 indexed tokenId, uint256 amount)',
+    'event BidCancelled(uint256 indexed bidId, address indexed bidder, uint256 indexed tokenId)',
+    'event BidAccepted(uint256 indexed bidId, address indexed seller, address indexed bidder, uint256 tokenId, uint256 amount)',
+    'event AuctionCreated(uint256 indexed auctionId, address indexed seller, uint256 indexed tokenId, uint256 startPrice, uint256 reservePrice, uint256 endTime)',
+    'event AuctionBid(uint256 indexed auctionId, address indexed bidder, uint256 amount)',
+    'event AuctionFinalized(uint256 indexed auctionId, address indexed winner, uint256 finalPrice)',
+    'event AuctionCancelled(uint256 indexed auctionId, address indexed seller, uint256 indexed tokenId)',
+];
+
 // ============ Startup Data (matches contract) ============
 export const STARTUPS: Record<number, { name: string; rarity: string; multiplier: number }> = {
     1: { name: 'Manus', rarity: 'Legendary', multiplier: 10 },
@@ -136,7 +180,7 @@ export const STARTUPS: Record<number, { name: string; rarity: string; multiplier
 // ============ Provider ============
 export function getProvider() {
     if (typeof window !== 'undefined' && window.ethereum) {
-        return new ethers.BrowserProvider(window.ethereum);
+        return new ethers.BrowserProvider(window.ethereum as unknown as ethers.Eip1193Provider);
     }
     return new ethers.JsonRpcProvider(RPC_URL);
 }
@@ -160,6 +204,11 @@ export function getTournamentContract(signerOrProvider?: ethers.Signer | ethers.
 export function getMarketplaceContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
     const provider = signerOrProvider || getProvider();
     return new ethers.Contract(CONTRACTS.Marketplace, MARKETPLACE_ABI, provider);
+}
+
+export function getMarketplaceV2Contract(signerOrProvider?: ethers.Signer | ethers.Provider) {
+    const provider = signerOrProvider || getProvider();
+    return new ethers.Contract(CONTRACTS.MarketplaceV2, MARKETPLACE_V2_ABI, provider);
 }
 
 // ============ Utils ============

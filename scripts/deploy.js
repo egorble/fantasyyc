@@ -60,6 +60,12 @@ async function main() {
     const TournamentManager = JSON.parse(
         fs.readFileSync(path.join(buildDir, "TournamentManager.json"), "utf8")
     );
+    const Marketplace = JSON.parse(
+        fs.readFileSync(path.join(buildDir, "Marketplace.json"), "utf8")
+    );
+    const MarketplaceV2 = JSON.parse(
+        fs.readFileSync(path.join(buildDir, "MarketplaceV2.json"), "utf8")
+    );
 
     console.log("📦 Loaded compiled contracts from build/\n");
 
@@ -151,32 +157,72 @@ async function main() {
     console.log(`   Explorer: ${network.explorer}/address/${tournamentAddress}`);
     console.log("");
 
-    // ============ Step 4: Authorize PackOpener as Minter ============
-    console.log("🔐 Step 4: Authorizing PackOpener as minter...");
+    // ============ Step 4: Deploy Marketplace ============
+    console.log("📦 Step 4: Deploying Marketplace...");
+
+    const marketplaceFactory = new ethers.ContractFactory(
+        Marketplace.abi,
+        Marketplace.bytecode,
+        wallet
+    );
+
+    const marketplace = await marketplaceFactory.deploy(
+        nftAddress,
+        OWNER_ADDRESS
+    );
+    await marketplace.waitForDeployment();
+
+    const marketplaceAddress = await marketplace.getAddress();
+    console.log("✅ Marketplace deployed to:", marketplaceAddress);
+    console.log(`   Explorer: ${network.explorer}/address/${marketplaceAddress}`);
+    console.log("");
+
+    // ============ Step 5: Deploy MarketplaceV2 ============
+    console.log("📦 Step 5: Deploying MarketplaceV2 (with bids, auctions, history)...");
+
+    const marketplaceV2Factory = new ethers.ContractFactory(
+        MarketplaceV2.abi,
+        MarketplaceV2.bytecode,
+        wallet
+    );
+
+    const marketplaceV2 = await marketplaceV2Factory.deploy(
+        nftAddress,
+        OWNER_ADDRESS
+    );
+    await marketplaceV2.waitForDeployment();
+
+    const marketplaceV2Address = await marketplaceV2.getAddress();
+    console.log("✅ MarketplaceV2 deployed to:", marketplaceV2Address);
+    console.log(`   Explorer: ${network.explorer}/address/${marketplaceV2Address}`);
+    console.log("");
+
+    // ============ Step 6: Authorize PackOpener as Minter ============
+    console.log("🔐 Step 6: Authorizing PackOpener as minter...");
 
     const authMinterTx = await nftContract.setAuthorizedMinter(packAddress, true);
     await authMinterTx.wait();
     console.log("✅ PackOpener authorized as minter");
     console.log("");
 
-    // ============ Step 5: Authorize TournamentManager as Locker ============
-    console.log("🔐 Step 5: Authorizing TournamentManager as locker...");
+    // ============ Step 7: Authorize TournamentManager as Locker ============
+    console.log("🔐 Step 7: Authorizing TournamentManager as locker...");
 
     const authLockerTx = await nftContract.setAuthorizedLocker(tournamentAddress, true);
     await authLockerTx.wait();
     console.log("✅ TournamentManager authorized as locker");
     console.log("");
 
-    // ============ Step 6: Link PackOpener to TournamentManager ============
-    console.log("🔗 Step 6: Linking PackOpener to TournamentManager...");
+    // ============ Step 8: Link PackOpener to TournamentManager ============
+    console.log("🔗 Step 8: Linking PackOpener to TournamentManager...");
 
     const setTmTx = await packOpener.setTournamentManager(tournamentAddress);
     await setTmTx.wait();
     console.log("✅ PackOpener → TournamentManager linked");
     console.log("");
 
-    // ============ Step 7: Link TournamentManager to PackOpener ============
-    console.log("🔗 Step 7: Linking TournamentManager to PackOpener...");
+    // ============ Step 9: Link TournamentManager to PackOpener ============
+    console.log("🔗 Step 9: Linking TournamentManager to PackOpener...");
 
     const setPoTx = await tournamentManager.setPackOpener(packAddress);
     await setPoTx.wait();
@@ -192,6 +238,8 @@ async function main() {
     console.log("   FantasyYC_NFT:      ", nftAddress);
     console.log("   PackOpener:         ", packAddress);
     console.log("   TournamentManager:  ", tournamentAddress);
+    console.log("   Marketplace:        ", marketplaceAddress);
+    console.log("   MarketplaceV2:      ", marketplaceV2Address);
     console.log("");
     console.log("📋 Network:");
     console.log("   Name:               ", network.name);
@@ -220,7 +268,9 @@ async function main() {
         contracts: {
             FantasyYC_NFT: nftAddress,
             PackOpener: packAddress,
-            TournamentManager: tournamentAddress
+            TournamentManager: tournamentAddress,
+            Marketplace: marketplaceAddress,
+            MarketplaceV2: marketplaceV2Address
         },
         configuration: {
             owner: OWNER_ADDRESS,

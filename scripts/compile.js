@@ -22,7 +22,8 @@ const contractFiles = [
     "FantasyYC_NFT.sol",
     "PackOpener.sol",
     "TournamentManager.sol",
-    "Marketplace.sol"
+    "Marketplace.sol",
+    "MarketplaceV2.sol"
 ];
 
 // Read contract sources
@@ -146,5 +147,6 @@ console.log("   - FantasyYC_NFT.json");
 console.log("   - PackOpener.json");
 console.log("   - TournamentManager.json");
 console.log("   - Marketplace.json");
+console.log("   - MarketplaceV2.json");
 console.log("   - contracts.json (combined)");
 console.log("");
