@@ -66,7 +66,7 @@ const AppContent: React.FC = () => {
     const { getActiveListings } = useMarketplaceV2();
 
     // NFT hook
-    const { getCardMetadata } = useNFT();
+    const { getCardInfo } = useNFT();
 
     // Dynamic user from wallet + profile
     const user: UserProfile = {
@@ -91,7 +91,7 @@ const AppContent: React.FC = () => {
                 // Fetch metadata for each listing
                 const listingsWithCards = await Promise.all(
                     listings.map(async (listing) => {
-                        const card = await getCardMetadata(Number(listing.tokenId));
+                        const card = await getCardInfo(Number(listing.tokenId));
                         return card ? { listing, card } : null;
                     })
                 );
@@ -107,7 +107,7 @@ const AppContent: React.FC = () => {
         };
 
         loadDashboardData();
-    }, [getActiveListings, getCardMetadata]);
+    }, [getActiveListings, getCardInfo]);
 
     // Filter and sort dashboard listings
     const filteredAndSortedListings = useMemo(() => {

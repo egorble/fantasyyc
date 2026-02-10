@@ -1,73 +1,84 @@
 /**
  * Tournament Finalizer
- * Runs when tournament ends - collects final scores and calls finalizeWithPoints on blockchain
+ * Checks if active tournament has ended and finalizes it on-chain.
+ *
+ * Flow:
+ * 1. Get active tournament from PackOpener
+ * 2. Check if endTime has passed
+ * 3. Fetch all participants and their lineups from chain
+ * 4. Calculate each player's score using DB startup points + card multipliers
+ * 5. Distribute prize pool proportionally to scores
+ * 6. Call finalizeTournament(tournamentId, winners[], amounts[]) on-chain
+ * 7. Players can then claimPrize() to receive XTZ
+ *
+ * Designed to be imported by server/index.js and run periodically.
+ * Requires ADMIN_PRIVATE_KEY env variable for blockchain transactions.
  */
 
 import { ethers } from 'ethers';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import * as db from '../db/database.js';
+import { CHAIN, CONTRACTS, ADMIN_PRIVATE_KEY } from '../config.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Blockchain configuration
-const RPC_URL = 'https://node.shadownet.etherlink.com';
-const PACK_OPENER_ADDRESS = '0x638B92a58a8317e5f47247B5bD47cb16faA87eD9';
-const TOURNAMENT_ADDRESS = '0x6036a89aE64cd3A1404E0e093A80622E949942d0';
-
-// Private key for admin (should be in .env in production)
-const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY || 'YOUR_ADMIN_PRIVATE_KEY';
-
-// ABIs
-const packOpenerABI = ['function activeTournamentId() view returns (uint256)'];
 const tournamentABI = [
     'function getTournament(uint256 tournamentId) view returns (tuple(uint256 id, uint256 registrationStart, uint256 startTime, uint256 endTime, uint256 prizePool, uint256 entryCount, uint8 status))',
-    'function finalizeWithPoints(uint256 tournamentId, uint256[19] points)',
-    'function getTournamentParticipants(uint256 tournamentId) view returns (address[])'
+    'function finalizeTournament(uint256 tournamentId, address[] winners, uint256[] amounts)',
+    'function getTournamentParticipants(uint256 tournamentId) view returns (address[])',
+    'function getUserLineup(uint256 tournamentId, address user) view returns (tuple(uint256[5] cardIds, address owner, uint256 timestamp, bool cancelled, bool claimed))',
 ];
 
-// 19 startups mapping (index 0 = startupId 1)
+const nftABI = [
+    'function getCardInfo(uint256 tokenId) view returns (tuple(uint256 startupId, uint256 edition, uint8 rarity, uint256 multiplier, bool isLocked, string name))',
+];
+
+const packOpenerABI = [
+    'function activeTournamentId() view returns (uint256)',
+];
+
+// Startup name → contract startupId (1-indexed, matching NFT contract)
 const STARTUP_IDS = {
-    'OpenAI': 1,
-    'Anthropic': 2,
-    'Stripe': 3,
-    'Rippling': 4,
-    'Deel': 5,
-    'Brex': 6,
-    'Mercury': 7,
-    'Ramp': 8,
-    'Retool': 9,
-    'Vercel': 10,
-    'Linear': 11,
-    'Notion': 12,
-    'Figma': 13,
-    'Airtable': 14,
-    'Superhuman': 15,
-    'Scale AI': 16,
-    'Instacart': 17,
-    'DoorDash': 18,
-    'Coinbase': 19
+    'Openclaw': 1,
+    'Lovable': 2,
+    'Cursor': 3,
+    'OpenAI': 4,
+    'Anthropic': 5,
+    'Browser Use': 6,
+    'Dedalus Labs': 7,
+    'Autumn': 8,
+    'Axiom': 9,
+    'Multifactor': 10,
+    'Dome': 11,
+    'GrazeMate': 12,
+    'Tornyol Systems': 13,
+    'Pocket': 14,
+    'Caretta': 15,
+    'AxionOrbital Space': 16,
+    'Freeport Markets': 17,
+    'Ruvo': 18,
+    'Lightberry': 19,
 };
 
-/**
- * Aggregate total points for each startup across all days
- */
-function aggregateStartupPoints(tournamentId) {
-    const points = new Array(19).fill(0);
+// Reverse map: startupId → name
+const STARTUP_NAMES = {};
+for (const [name, id] of Object.entries(STARTUP_IDS)) {
+    STARTUP_NAMES[id] = name;
+}
 
-    // Get all daily scores for this tournament
+/**
+ * Build startup points map from aggregated DB scores.
+ * Returns: { startupId: points }
+ */
+function buildStartupPoints(tournamentId) {
+    const points = {}; // startupId → total points
     const dailyScores = db.getAggregatedStartupScores(tournamentId);
 
-    console.log(`\n📊 Aggregated Scores:`);
-
+    console.log('\n   Aggregated startup scores:');
     dailyScores.forEach(score => {
         const startupId = STARTUP_IDS[score.startup_name];
         if (startupId) {
-            // Points are stored at index startupId - 1
-            points[startupId - 1] = Math.floor(score.total_points);
-            console.log(`   ${score.startup_name} (ID ${startupId}): ${points[startupId - 1]} pts`);
+            points[startupId] = Math.floor(score.total_points);
+            if (points[startupId] > 0) {
+                console.log(`     ${score.startup_name} (ID ${startupId}): ${points[startupId]} pts`);
+            }
         }
     });
 
@@ -75,96 +86,135 @@ function aggregateStartupPoints(tournamentId) {
 }
 
 /**
- * Check if tournament has ended and needs finalization
+ * Check if tournament has ended and finalize it.
+ * Returns: { finalized: boolean, reason: string }
  */
-async function checkAndFinalizeTournament() {
-    console.log('🏁 Tournament Finalizer Started');
-    console.log('━'.repeat(60));
+async function checkAndFinalize() {
+    const provider = new ethers.JsonRpcProvider(CHAIN.RPC_URL);
+    const packOpener = new ethers.Contract(CONTRACTS.PackOpener, packOpenerABI, provider);
+    const tournamentContract = new ethers.Contract(CONTRACTS.TournamentManager, tournamentABI, provider);
+    const nftContract = new ethers.Contract(CONTRACTS.UnicornX_NFT, nftABI, provider);
 
-    await db.initDatabase();
-
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const packOpener = new ethers.Contract(PACK_OPENER_ADDRESS, packOpenerABI, provider);
-    const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
-
-    // Get active tournament ID
-    const tournamentId = await packOpener.activeTournamentId();
-
-    if (tournamentId == 0) {
-        console.log('❌ No active tournament');
-        return;
+    // 1. Get active tournament
+    const tournamentId = Number(await packOpener.activeTournamentId());
+    if (tournamentId === 0) {
+        return { finalized: false, reason: 'No active tournament on chain' };
     }
 
-    console.log(`\n✅ Found tournament #${tournamentId}`);
+    // 2. Get tournament data
+    const t = await tournamentContract.getTournament(tournamentId);
+    const now = Math.floor(Date.now() / 1000);
+    const endTime = Number(t.endTime);
+    const status = Number(t.status); // 0=Created, 1=Active, 2=Finalized, 3=Cancelled
+    const prizePool = t.prizePool;
 
-    // Get tournament details
-    const tournamentData = await tournament.getTournament(tournamentId);
-    const currentTime = Math.floor(Date.now() / 1000);
-    const endTime = Number(tournamentData.endTime);
-    const status = Number(tournamentData.status);
+    console.log(`   Tournament #${tournamentId} | ends: ${new Date(endTime * 1000).toISOString()} | status: ${status} | pool: ${ethers.formatEther(prizePool)} XTZ`);
 
-    console.log(`   End time: ${new Date(endTime * 1000).toISOString()}`);
-    console.log(`   Current time: ${new Date(currentTime * 1000).toISOString()}`);
-    console.log(`   Status: ${status} (0=Upcoming, 1=Registration, 2=Active, 3=Ended, 4=Finalized)`);
-
-    // Check if tournament has ended but not finalized
-    if (currentTime < endTime) {
-        console.log('\n⏳ Tournament still active');
-        return;
+    // Already finalized or cancelled
+    if (status === 2) {
+        return { finalized: false, reason: 'Already finalized' };
+    }
+    if (status === 3) {
+        return { finalized: false, reason: 'Tournament cancelled' };
     }
 
-    if (status === 4) {
-        console.log('\n✅ Tournament already finalized');
-        return;
+    // Not ended yet
+    if (now < endTime) {
+        const hoursLeft = ((endTime - now) / 3600).toFixed(1);
+        return { finalized: false, reason: `Still active (${hoursLeft}h remaining)` };
     }
 
-    console.log('\n🎯 Tournament ended! Preparing finalization...');
+    // 3. Tournament ended - prepare finalization
+    console.log('   Tournament ended! Preparing finalization...');
 
-    // Aggregate points for all 19 startups
-    const points = aggregateStartupPoints(tournamentId);
-
-    console.log('\n📝 Points array for blockchain:');
-    console.log(points);
-
-    // Check if we have admin key
-    if (!ADMIN_PRIVATE_KEY || ADMIN_PRIVATE_KEY === 'YOUR_ADMIN_PRIVATE_KEY') {
-        console.log('\n⚠️  ADMIN_PRIVATE_KEY not configured!');
-        console.log('   Set ADMIN_PRIVATE_KEY environment variable to finalize on blockchain');
-        console.log('\n✅ Points calculated and saved to database');
-
-        // Update tournament status in DB
+    // Check admin key
+    if (!ADMIN_PRIVATE_KEY) {
         db.updateTournamentStatus(tournamentId, 'ended');
-        return;
+        db.saveDatabase();
+        return { finalized: false, reason: 'ADMIN_PRIVATE_KEY not set - cannot finalize on-chain. DB marked as ended.' };
     }
 
-    // Finalize on blockchain
-    console.log('\n🔗 Finalizing tournament on blockchain...');
+    // 4. Get startup points from DB
+    const startupPoints = buildStartupPoints(tournamentId);
 
+    // 5. Fetch participants and calculate scores off-chain
+    console.log('\n   Fetching participants and calculating scores...');
+    const participants = await tournamentContract.getTournamentParticipants(tournamentId);
+    console.log(`   ${participants.length} participants`);
+
+    const userScores = []; // { address, score }
+    let totalScore = 0n;
+
+    for (const participant of participants) {
+        try {
+            const lineup = await tournamentContract.getUserLineup(tournamentId, participant);
+
+            // Skip cancelled entries
+            if (lineup.cancelled) {
+                console.log(`     ${participant.substring(0, 10)}... - cancelled, skipping`);
+                continue;
+            }
+
+            let userScore = 0n;
+
+            // Calculate score for each of 5 cards
+            for (const tokenId of lineup.cardIds) {
+                if (Number(tokenId) === 0) continue;
+
+                const info = await nftContract.getCardInfo(tokenId);
+                const sId = Number(info.startupId);
+                const multiplier = Number(info.multiplier);
+                const pts = startupPoints[sId] || 0;
+
+                userScore += BigInt(pts) * BigInt(multiplier);
+            }
+
+            userScores.push({ address: participant, score: userScore });
+            totalScore += userScore;
+
+            console.log(`     ${participant.substring(0, 10)}... - score: ${userScore}`);
+        } catch (e) {
+            console.error(`     ${participant.substring(0, 10)}... - error: ${e.message}`);
+        }
+    }
+
+    console.log(`\n   Total score: ${totalScore}`);
+
+    // 6. Calculate proportional prize distribution
+    const winners = [];
+    const amounts = [];
+
+    if (totalScore > 0n && prizePool > 0n) {
+        for (const { address, score } of userScores) {
+            if (score > 0n) {
+                const prize = (score * prizePool) / totalScore;
+                winners.push(address);
+                amounts.push(prize);
+                console.log(`     ${address.substring(0, 10)}... - prize: ${ethers.formatEther(prize)} XTZ`);
+            }
+        }
+    } else if (totalScore === 0n) {
+        console.log('   No scores - no prizes to distribute');
+    } else {
+        console.log('   No prize pool');
+    }
+
+    // 7. Finalize on blockchain
+    console.log(`\n   Sending finalizeTournament tx (${winners.length} winners)...`);
     const wallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
-    const tournamentWithSigner = tournament.connect(wallet);
+    const tournamentWithSigner = tournamentContract.connect(wallet);
 
-    try {
-        const tx = await tournamentWithSigner.finalizeWithPoints(tournamentId, points);
-        console.log(`   Transaction sent: ${tx.hash}`);
+    const tx = await tournamentWithSigner.finalizeTournament(tournamentId, winners, amounts);
+    console.log(`   TX sent: ${tx.hash}`);
 
-        const receipt = await tx.wait();
-        console.log(`   ✅ Transaction confirmed in block ${receipt.blockNumber}`);
-        console.log(`   Gas used: ${receipt.gasUsed.toString()}`);
+    const receipt = await tx.wait();
+    console.log(`   TX confirmed in block ${receipt.blockNumber} (gas: ${receipt.gasUsed})`);
 
-        // Update database
-        db.updateTournamentStatus(tournamentId, 'finalized');
+    // 8. Update DB
+    db.updateTournamentStatus(tournamentId, 'finalized');
+    db.saveDatabase();
 
-        console.log('\n🎉 Tournament finalized successfully!');
-        console.log('   Players can now claim their prizes');
-
-    } catch (error) {
-        console.error('\n❌ Error finalizing tournament:', error.message);
-        throw error;
-    }
+    return { finalized: true, reason: `Tournament #${tournamentId} finalized! ${winners.length} winners, pool: ${ethers.formatEther(prizePool)} XTZ` };
 }
 
-// Run finalization
-checkAndFinalizeTournament().catch(error => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-});
+export { checkAndFinalize };

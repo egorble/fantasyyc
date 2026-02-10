@@ -5,7 +5,7 @@ import { useNFT } from '../hooks/useNFT';
 import { useWalletContext } from '../context/WalletContext';
 import { usePollingData } from '../hooks/usePollingData';
 import { formatXTZ } from '../lib/contracts';
-import { CardData, Rarity } from '../types';
+import { CardData, Rarity, sortByRarity } from '../types';
 
 // Rarity colors
 const RARITY_COLORS: Record<string, string> = {
@@ -369,7 +369,7 @@ const Marketplace: React.FC = () => {
         try {
             const cards = await getCards(address || '');
             // Filter out cards that are already listed
-            setMyNFTs(cards.filter(c => !c.isLocked));
+            setMyNFTs(sortByRarity(cards.filter(c => !c.isLocked)));
         } catch (e) {
             console.error('Error loading NFTs:', e);
         }
@@ -569,27 +569,16 @@ const Marketplace: React.FC = () => {
                                     className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
                                 >
                                     <div
-                                        className="relative h-56 overflow-hidden cursor-pointer"
+                                        className="relative overflow-hidden cursor-pointer"
                                         onClick={() => openStatsModal(listing)}
                                     >
                                         <img
                                             src={listing.cardImage}
                                             alt={listing.cardName}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
                                         />
-                                        <div className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md ${RARITY_COLORS[listing.rarity || 'Common']}`}>
-                                            {listing.rarity}
-                                        </div>
-                                        <div className="absolute top-2 right-2 bg-black/80 dark:bg-black/80 text-yc-green px-2 py-0.5 text-xs font-bold rounded">
-                                            {listing.multiplier}x
-                                        </div>
-                                        {/* Stats hint overlay */}
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                            <Activity className="w-8 h-8 text-white" />
-                                        </div>
                                     </div>
                                     <div className="p-4">
-                                        <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-1 truncate">{listing.cardName}</h3>
                                         <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">
                                             Token #{String(listing.tokenId)} · Seller: {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
                                         </p>
@@ -677,32 +666,21 @@ const Marketplace: React.FC = () => {
                                     className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group"
                                 >
                                     <div
-                                        className="relative h-56 overflow-hidden cursor-pointer"
+                                        className="relative overflow-hidden cursor-pointer"
                                         onClick={() => openStatsModal(auction)}
                                     >
                                         <img
                                             src={auction.cardImage}
                                             alt={auction.cardName}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
                                         />
-                                        <div className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md ${RARITY_COLORS[auction.rarity || 'Common']}`}>
-                                            {auction.rarity}
-                                        </div>
                                         {/* Timer */}
                                         <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 dark:bg-black/80 text-yc-orange'}`}>
                                             <Clock className="w-3 h-3" />
                                             {auction.timeLeft}
                                         </div>
-                                        {/* Stats hint overlay */}
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                            <Activity className="w-8 h-8 text-white" />
-                                        </div>
                                     </div>
                                     <div className="p-4">
-                                        <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-1 truncate">{auction.cardName}</h3>
-                                        <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">
-                                            Token #{String(auction.tokenId)}
-                                        </p>
 
                                         <div className="grid grid-cols-2 gap-2 mb-3">
                                             <div>
@@ -969,11 +947,7 @@ const Marketplace: React.FC = () => {
                                                     onClick={() => setSelectedNFT(nft)}
                                                     className="cursor-pointer rounded-xl border border-gray-200 dark:border-[#2A2A2A] overflow-hidden hover:border-yc-orange transition-colors bg-white dark:bg-[#121212]"
                                                 >
-                                                    <img src={nft.image} alt={nft.name} className="w-full h-24 object-contain" />
-                                                    <div className="p-2">
-                                                        <p className="text-gray-900 dark:text-white font-bold text-sm truncate">{nft.name}</p>
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${RARITY_COLORS[nft.rarity] || RARITY_COLORS['Common']}`}>{nft.rarity}</span>
-                                                    </div>
+                                                    <img src={nft.image} alt={nft.name} className="w-full object-contain" />
                                                 </div>
                                             ))}
                                         </div>

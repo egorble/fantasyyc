@@ -225,6 +225,43 @@ export function useTournament() {
         }
     }, []);
 
+    // Get user's score and prize info
+    const getUserScoreInfo = useCallback(async (tournamentId: number, address: string): Promise<{ score: bigint; prize: bigint; totalScore: bigint } | null> => {
+        try {
+            const contract = getTournamentContract();
+            const result = await contract.getUserScoreInfo(tournamentId, address);
+            return {
+                score: result.score,
+                prize: result.prize,
+                totalScore: result.totalScore,
+            };
+        } catch {
+            return null;
+        }
+    }, []);
+
+    // Claim prize after tournament finalized
+    const claimPrize = useCallback(async (
+        signer: ethers.Signer,
+        tournamentId: number
+    ): Promise<{ success: boolean; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const contract = getTournamentContract(signer);
+            const tx = await contract.claimPrize(tournamentId);
+            await tx.wait();
+            return { success: true };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Failed to claim prize';
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
     return {
         isLoading,
         error,
@@ -236,5 +273,7 @@ export function useTournament() {
         enterTournament,
         cancelEntry,
         getPhase,
+        getUserScoreInfo,
+        claimPrize,
     };
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw } from 'lucide-react';
-import { CardData, Rarity } from '../types';
+import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw, Gift } from 'lucide-react';
+import { CardData, sortByRarity } from '../types';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
 import { useTournament, Tournament } from '../hooks/useTournament';
@@ -17,7 +17,10 @@ const Leagues: React.FC = () => {
     const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
     const [activeTournamentId, setActiveTournamentId] = useState<number>(0);
     const [hasUserEntered, setHasUserEntered] = useState(false);
-    const [phase, setPhase] = useState<'registration' | 'active' | 'ended' | 'upcoming'>('upcoming');
+    const [phase, setPhase] = useState<'registration' | 'active' | 'ended' | 'upcoming' | 'finalized'>('upcoming');
+    const [userPrize, setUserPrize] = useState<bigint>(0n);
+    const [isClaiming, setIsClaiming] = useState(false);
+    const [hasClaimed, setHasClaimed] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Hooks
@@ -29,6 +32,9 @@ const Leagues: React.FC = () => {
         enterTournament,
         hasEntered,
         canRegister,
+        getUserScoreInfo,
+        claimPrize,
+        getUserLineup,
         isLoading: tournamentLoading
     } = useTournament();
 
@@ -47,9 +53,11 @@ const Leagues: React.FC = () => {
             if (tournament) {
                 setActiveTournament(tournament);
 
-                // Determine phase
+                // Determine phase (check contract status for finalized)
                 const now = Date.now() / 1000;
-                if (now < tournament.registrationStart) {
+                if (tournament.status === 'Finalized') {
+                    setPhase('finalized');
+                } else if (now < tournament.registrationStart) {
                     setPhase('upcoming');
                 } else if (now >= tournament.registrationStart && now < tournament.startTime) {
                     setPhase('registration');
@@ -62,6 +70,19 @@ const Leagues: React.FC = () => {
                 if (address) {
                     const entered = await hasEntered(activeId, address);
                     setHasUserEntered(entered);
+
+                    // If finalized, check prize info
+                    if (tournament.status === 'Finalized' && entered) {
+                        const scoreInfo = await getUserScoreInfo(activeId, address);
+                        if (scoreInfo) {
+                            setUserPrize(scoreInfo.prize);
+                        }
+                        // Check if already claimed
+                        const lineup = await getUserLineup(activeId, address);
+                        if (lineup) {
+                            setHasClaimed(lineup.claimed);
+                        }
+                    }
                 }
             }
         }
@@ -75,7 +96,7 @@ const Leagues: React.FC = () => {
         if (!address) return;
         const cards = await getCards(address);
         // Filter out locked cards
-        setAvailableCards(cards.filter(c => !c.isLocked));
+        setAvailableCards(sortByRarity(cards.filter(c => !c.isLocked)));
     };
 
     useEffect(() => {
@@ -172,6 +193,21 @@ const Leagues: React.FC = () => {
         }
     };
 
+    const handleClaimPrize = async () => {
+        if (!activeTournamentId || isClaiming) return;
+        setIsClaiming(true);
+        const signer = await getSigner();
+        if (!signer) {
+            setIsClaiming(false);
+            return;
+        }
+        const result = await claimPrize(signer, activeTournamentId);
+        if (result.success) {
+            setHasClaimed(true);
+        }
+        setIsClaiming(false);
+    };
+
     // Format address for display
     const formatAddress = (addr: string) => {
         if (addr.length <= 12) return addr;
@@ -196,6 +232,7 @@ const Leagues: React.FC = () => {
             const hours = Math.max(0, Math.ceil((activeTournament.endTime - now) / 3600));
             return { label: 'Ends In', value: hours < 24 ? `${hours}h` : `${Math.ceil(hours / 24)}d` };
         }
+        if (phase === 'finalized') return { label: 'Status', value: 'Finalized' };
         return { label: 'Status', value: 'Ended' };
     };
 
@@ -206,6 +243,7 @@ const Leagues: React.FC = () => {
             case 'registration': return 'Registration Open';
             case 'active': return 'In Progress';
             case 'ended': return 'Ended';
+            case 'finalized': return 'Finalized';
             case 'upcoming': return 'Coming Soon';
         }
     };
@@ -215,6 +253,7 @@ const Leagues: React.FC = () => {
             case 'registration': return 'bg-blue-500';
             case 'active': return 'bg-green-500';
             case 'ended': return 'bg-gray-500';
+            case 'finalized': return 'bg-yellow-500';
             case 'upcoming': return 'bg-purple-500';
         }
     };
@@ -278,7 +317,6 @@ const Leagues: React.FC = () => {
                                             <img src={slot.image} alt={slot.name} className="w-10 h-10 rounded object-contain" />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-bold text-white truncate">{slot.name}</p>
-                                                <p className="text-[10px] text-yc-green font-mono">{slot.multiplier}x</p>
                                             </div>
                                             <button
                                                 onClick={() => removeCard(idx)}
@@ -366,7 +404,7 @@ const Leagues: React.FC = () => {
                                                             : 'border-[#2A2A2A] opacity-60 cursor-not-allowed'}
                                                 `}
                                             >
-                                                <div className="aspect-square bg-black rounded overflow-hidden mb-2 relative">
+                                                <div className="aspect-square bg-black rounded overflow-hidden relative">
                                                     <img src={card.image} className="w-full h-full object-contain" alt={card.name} />
                                                     {!isSelected && canAdd && (
                                                         <div className="absolute inset-0 bg-yc-orange/0 group-hover:bg-yc-orange/20 flex items-center justify-center transition-colors">
@@ -378,18 +416,6 @@ const Leagues: React.FC = () => {
                                                             <CheckCircle className="w-6 h-6 text-yc-orange" />
                                                         </div>
                                                     )}
-                                                </div>
-                                                <p className="text-xs font-bold text-white truncate">{card.name}</p>
-                                                <div className="flex justify-between items-center mt-1">
-                                                    <span className={`text-[9px] px-1 py-0.5 rounded font-bold uppercase ${card.rarity === Rarity.LEGENDARY ? 'bg-orange-900/50 text-orange-400' :
-                                                        card.rarity === Rarity.EPIC_RARE ? 'bg-purple-900/50 text-purple-400' :
-                                                            card.rarity === Rarity.EPIC ? 'bg-violet-900/50 text-violet-400' :
-                                                                card.rarity === Rarity.RARE ? 'bg-green-900/50 text-green-400' :
-                                                                    'bg-gray-800 text-gray-400'
-                                                        }`}>
-                                                        {card.rarity}
-                                                    </span>
-                                                    <span className="text-[9px] font-mono text-gray-500">{card.multiplier}x</span>
                                                 </div>
                                             </div>
                                         );
@@ -457,6 +483,28 @@ const Leagues: React.FC = () => {
                         >
                             <Wallet className="w-4 h-4 mr-2" /> Connect to Enter
                         </button>
+                    ) : phase === 'finalized' && hasUserEntered ? (
+                        hasClaimed ? (
+                            <span className="text-yc-green font-bold flex items-center">
+                                <CheckCircle className="w-5 h-5 mr-2" /> Prize claimed!
+                            </span>
+                        ) : userPrize > 0n ? (
+                            <button
+                                onClick={handleClaimPrize}
+                                disabled={isClaiming}
+                                className="bg-yellow-500 hover:bg-yellow-600 text-black px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wide transition-all flex items-center shadow-lg"
+                            >
+                                {isClaiming ? (
+                                    <span className="animate-pulse">Claiming...</span>
+                                ) : (
+                                    <>
+                                        <Gift className="w-4 h-4 mr-2" /> Claim {formatXTZ(userPrize)} XTZ
+                                    </>
+                                )}
+                            </button>
+                        ) : (
+                            <span className="text-gray-500 font-bold">Tournament finalized - no prize earned</span>
+                        )
                     ) : hasUserEntered ? (
                         <div className="flex items-center gap-4">
                             <span className="text-yc-green font-bold flex items-center">
@@ -472,6 +520,8 @@ const Leagues: React.FC = () => {
                         </button>
                     ) : phase === 'upcoming' ? (
                         <span className="text-purple-500 dark:text-purple-400 font-bold">Registration opens soon</span>
+                    ) : phase === 'ended' ? (
+                        <span className="text-gray-500 font-bold">Tournament ended - awaiting finalization</span>
                     ) : (
                         <span className="text-gray-500 dark:text-gray-500 font-bold">Tournament ended</span>
                     )}

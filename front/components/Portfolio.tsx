@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { CardData, Rarity } from '../types';
+import { CardData, sortByRarity } from '../types';
 import CardDetailModal, { CardDetailData } from './CardDetailModal';
 import { Wallet, ArrowUpRight, TrendingUp, Plus, ShoppingCart, Layers, Zap, X, Check, RefreshCw, Tag, Loader2, Gavel, Clock, Activity, DollarSign, History } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
@@ -72,10 +72,10 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         }
     );
 
-    // Update myCards when polled data changes
+    // Update myCards when polled data changes (sorted by rarity, rarest first)
     useEffect(() => {
         if (polledCards) {
-            setMyCards(polledCards);
+            setMyCards(sortByRarity(polledCards));
             setIsRefreshing(false);
         }
     }, [polledCards]);
@@ -265,7 +265,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         // Then reload all cards
         if (address) {
             const cards = await getCards(address);
-            setMyCards(cards);
+            setMyCards(sortByRarity(cards));
         }
 
         if (newCard) {
@@ -553,38 +553,13 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
                                         {/* Locked Badge */}
                                         {card.isLocked && (
-                                            <div className="absolute top-3 right-3 z-20 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded">
+                                            <div className="absolute top-3 left-3 z-20 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded">
                                                 LOCKED
                                             </div>
                                         )}
 
-                                        <div className="h-40 relative">
-                                            <img src={card.image} alt={card.name} className="w-full h-full object-contain" />
-                                            <span className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md
-                                      ${card.rarity === Rarity.LEGENDARY ? 'bg-orange-500/80 text-white border-orange-400' :
-                                                    card.rarity === Rarity.EPIC_RARE ? 'bg-purple-600/80 text-white border-purple-500' :
-                                                        card.rarity === Rarity.EPIC ? 'bg-violet-600/80 text-white border-violet-500' :
-                                                            card.rarity === Rarity.RARE ? 'bg-green-600/80 text-white border-green-500' :
-                                                                'bg-black/60 text-white border-white/20'}
-                                   `}>
-                                                {card.rarity}
-                                            </span>
-                                        </div>
-                                        <div className="p-4">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-yc-text-primary dark:text-white">{card.name}</h4>
-                                                <span className="text-xs text-gray-500 font-mono">#{card.tokenId}</span>
-                                            </div>
-                                            <div className="flex justify-between items-end">
-                                                <div>
-                                                    <p className="text-[10px] text-gray-500 uppercase">Edition</p>
-                                                    <p className="font-mono font-bold text-yc-text-primary dark:text-white">#{card.edition}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-[10px] text-gray-500 uppercase">Mult</p>
-                                                    <p className="font-mono font-bold text-yc-green">{card.multiplier}x</p>
-                                                </div>
-                                            </div>
+                                        <div className="relative">
+                                            <img src={card.image} alt={card.name} className="w-full object-contain" />
                                         </div>
                                     </div>
                                 );
@@ -720,25 +695,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             <p className="text-gray-400 mb-8">A new powerful asset has been forged.</p>
 
                             {newlyForgedCard && (
-                                <div className="w-64 bg-[#121212] border border-yc-orange/50 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(242,101,34,0.4)] mb-8 transform hover:scale-105 transition-transform duration-500">
-                                    <div className="h-64 relative">
-                                        <img src={newlyForgedCard.image} className="w-full h-full object-contain" />
-                                        <div className="absolute top-2 right-2 bg-yc-orange text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg uppercase">
-                                            New
-                                        </div>
-                                        <div className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md
-                                        ${newlyForgedCard.rarity === Rarity.LEGENDARY ? 'bg-orange-500 text-white border-orange-400' :
-                                                newlyForgedCard.rarity === Rarity.EPIC_RARE ? 'bg-purple-600 text-white border-purple-500' :
-                                                    newlyForgedCard.rarity === Rarity.EPIC ? 'bg-violet-600 text-white border-violet-500' :
-                                                        newlyForgedCard.rarity === Rarity.RARE ? 'bg-green-600 text-white border-green-500' :
-                                                            'bg-gray-800 text-gray-300 border-white/20'}`}>
-                                            {newlyForgedCard.rarity}
-                                        </div>
-                                    </div>
-                                    <div className="p-4 text-center bg-gradient-to-b from-[#121212] to-black">
-                                        <h3 className="text-white font-bold text-lg">{newlyForgedCard.name}</h3>
-                                        <div className="text-yc-green font-mono font-bold mt-1 text-xl">{newlyForgedCard.multiplier}x</div>
-                                    </div>
+                                <div className="w-64 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(242,101,34,0.4)] mb-8 transform hover:scale-105 transition-transform duration-500">
+                                    <img src={newlyForgedCard.image} className="w-full object-contain" />
                                 </div>
                             )}
 

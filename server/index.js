@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ethers } from 'ethers';
 import * as db from './db/database.js';
+import { CHAIN, CONTRACTS } from './config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -208,6 +209,49 @@ app.get('/api/player/:address/cards/:tournamentId', (req, res) => {
 });
 
 /**
+ * GET /api/player/:address/card-scores/:tournamentId
+ * Aggregated per-startup scores for a player (for portfolio analytics)
+ */
+app.get('/api/player/:address/card-scores/:tournamentId', (req, res) => {
+    try {
+        const { address, tournamentId } = req.params;
+        const history = db.getPlayerScoreHistory(parseInt(tournamentId), address.toLowerCase());
+
+        const aggregated = {};
+        let latestDate = null;
+
+        for (const entry of history) {
+            if (!latestDate || entry.date > latestDate) latestDate = entry.date;
+
+            const breakdown = entry.breakdown || {};
+            for (const [startup, data] of Object.entries(breakdown)) {
+                if (!aggregated[startup]) {
+                    aggregated[startup] = { totalPoints: 0, todayPoints: 0, daysScored: 0 };
+                }
+                aggregated[startup].totalPoints += data.totalPoints || 0;
+                aggregated[startup].daysScored += 1;
+            }
+        }
+
+        // Set todayPoints from latest scored entry
+        if (latestDate) {
+            const latestEntry = history.find(h => h.date === latestDate);
+            if (latestEntry?.breakdown) {
+                for (const [startup, data] of Object.entries(latestEntry.breakdown)) {
+                    if (aggregated[startup]) {
+                        aggregated[startup].todayPoints = data.totalPoints || 0;
+                    }
+                }
+            }
+        }
+
+        return res.json({ success: true, data: aggregated });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * GET /api/stats/:tournamentId
  * Get tournament statistics
  */
@@ -295,6 +339,7 @@ app.get('/api/live-feed', (req, res) => {
                 eventType: e.event_type,
                 description: e.description,
                 points: e.points,
+                tweetId: e.tweet_id || null,
                 date: e.date,
                 createdAt: e.created_at
             }))
@@ -540,6 +585,20 @@ app.post('/api/referrals/track', (req, res) => {
 });
 
 /**
+ * GET /api/contracts
+ * Returns contract addresses so frontend can auto-configure
+ */
+app.get('/api/contracts', (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            chain: CHAIN,
+            contracts: CONTRACTS,
+        }
+    });
+});
+
+/**
  * GET /health
  * Health check endpoint
  */
@@ -573,18 +632,30 @@ app.post('/api/run-scorer', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/finalize
+ * Manually trigger tournament finalization check.
+ */
+app.post('/api/finalize', async (req, res) => {
+    try {
+        const { checkAndFinalize } = await import('./jobs/finalize-tournament.js');
+        console.log('Finalization triggered via API');
+        const result = await checkAndFinalize();
+        return res.json({ success: true, ...result });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ============= BLOCKCHAIN SYNC =============
-const RPC_URL = 'https://node.shadownet.etherlink.com';
-const PACK_OPENER_ADDRESS = '0x8A35cbe95CD07321CE4f0C73dC2518AAc5b28554';
-const TOURNAMENT_ADDRESS = '0xfF528538033a55C7b9C23608eB3d15e2387E0d61';
 
 async function syncTournamentFromBlockchain() {
     try {
-        const provider = new ethers.JsonRpcProvider(RPC_URL);
-        const packOpener = new ethers.Contract(PACK_OPENER_ADDRESS, [
+        const provider = new ethers.JsonRpcProvider(CHAIN.RPC_URL);
+        const packOpener = new ethers.Contract(CONTRACTS.PackOpener, [
             'function activeTournamentId() view returns (uint256)',
         ], provider);
-        const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, [
+        const tournament = new ethers.Contract(CONTRACTS.TournamentManager, [
             'function getTournament(uint256 id) view returns (tuple(uint256 id, uint256 registrationStart, uint256 startTime, uint256 endTime, uint256 prizePool, uint256 entryCount, uint8 status))',
             'function nextTournamentId() view returns (uint256)',
         ], provider);
@@ -661,6 +732,23 @@ function scheduleDailyScorer() {
         runScorer();
         setInterval(runScorer, 24 * 60 * 60 * 1000);
     }, delay);
+
+    // Finalization check every hour
+    async function checkFinalization() {
+        try {
+            const { checkAndFinalize } = await import('./jobs/finalize-tournament.js');
+            console.log('[CRON] Checking tournament finalization...');
+            const result = await checkAndFinalize();
+            console.log(`[CRON] Finalization: ${result.reason}`);
+        } catch (err) {
+            console.error('[CRON] Finalization check error:', err.message);
+        }
+    }
+
+    // First check after 10 seconds, then every hour
+    setTimeout(checkFinalization, 10000);
+    setInterval(checkFinalization, 60 * 60 * 1000);
+    console.log('Finalization checker: every 1h');
 }
 
 // Start server with database initialization
@@ -680,6 +768,17 @@ async function startServer() {
         });
         db.saveDatabase();
         console.log('✅ Schema applied');
+
+        // Detect contract changes → wipe stale tournament data
+        const contractHash = JSON.stringify(CONTRACTS);
+        const storedHash = db.getConfig('contract_addresses');
+        if (storedHash && storedHash !== contractHash) {
+            console.log('⚠️  Contract addresses changed! Wiping old tournament data...');
+            db.wipeTournamentData();
+            db.saveDatabase();
+        }
+        db.setConfig('contract_addresses', contractHash);
+        console.log(`📋 Contracts: TM=${CONTRACTS.TournamentManager.substring(0, 10)}... PO=${CONTRACTS.PackOpener.substring(0, 10)}...`);
 
         // Sync tournament from blockchain
         console.log('🔗 Syncing tournament from blockchain...');
@@ -702,6 +801,7 @@ async function startServer() {
             console.log(`   GET /api/player/:address/rank/:tournamentId`);
             console.log(`   GET /api/player/:address/history/:tournamentId`);
             console.log(`   GET /api/player/:address/cards/:tournamentId`);
+            console.log(`   GET /api/player/:address/card-scores/:tournamentId`);
             console.log(`   GET /api/stats/:tournamentId`);
             console.log(`   GET /api/daily-scores/:tournamentId/:date`);
             console.log(`   GET /api/live-feed`);
@@ -711,6 +811,7 @@ async function startServer() {
             console.log(`   POST /api/users/bulk`);
             console.log(`   GET /api/referrals/:address`);
             console.log(`   POST /api/referrals/track`);
+            console.log(`   GET /api/contracts`);
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);

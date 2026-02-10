@@ -18,12 +18,14 @@ import {
 } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useAdmin, isAdmin, ContractBalances, AdminStats, TournamentData } from '../hooks/useAdmin';
+import { useNFT } from '../hooks/useNFT';
 import { formatXTZ } from '../lib/contracts';
 import { ethers } from 'ethers';
 
 const AdminPanel: React.FC = () => {
     const { address, getSigner, isConnected } = useWalletContext();
     const admin = useAdmin();
+    const { clearCache: clearNFTCache } = useNFT();
 
     const [balances, setBalances] = useState<ContractBalances | null>(null);
     const [stats, setStats] = useState<AdminStats | null>(null);
@@ -221,6 +223,7 @@ const AdminPanel: React.FC = () => {
         setActionLoading('cancel');
         const result = await admin.cancelTournament(signer, tournamentId);
         if (result.success) {
+            clearNFTCache(); // Invalidate cached lock status so cards show as unlocked
             showMessage('success', `Tournament #${tournamentId} cancelled!`);
             setManageTournament(null);
             loadData();
@@ -238,6 +241,7 @@ const AdminPanel: React.FC = () => {
         // Finalize with empty winners (just unlock NFTs)
         const result = await admin.finalizeTournament(signer, tournamentId, [], []);
         if (result.success) {
+            clearNFTCache(); // Invalidate cached lock status so cards show as unlocked
             showMessage('success', `Tournament #${tournamentId} finalized!`);
             setManageTournament(null);
             loadData();
@@ -303,6 +307,7 @@ const AdminPanel: React.FC = () => {
 
             const result = await admin.finalizeWithPoints(signer, showPointsModal.id, points);
             if (result.success) {
+                clearNFTCache(); // Invalidate cached lock status so cards show as unlocked
                 showMessage('success', `Tournament #${showPointsModal.id} finalized with points!`);
                 setShowPointsModal(null);
                 setPointsValues(Array(19).fill('0'));
@@ -633,8 +638,8 @@ const AdminPanel: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Action Buttons */}
-                                        {t.status === 0 && (
+                                        {/* Action Buttons - show for Created (0) and Active (1) */}
+                                        {(t.status === 0 || t.status === 1) && (
                                             <div className="mt-3 pt-3 border-t border-[#2A2A2A] flex gap-2">
                                                 <button
                                                     onClick={() => handleCancelTournament(t.id)}

@@ -5,6 +5,27 @@
  * When contracts are redeployed, update ONLY this file and restart the server.
  */
 
+import { readFileSync, existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load admin key from scripts/.env (for tournament finalization)
+function loadAdminKey() {
+    if (process.env.ADMIN_PRIVATE_KEY) return process.env.ADMIN_PRIVATE_KEY;
+    const envPath = join(__dirname, '..', 'scripts', '.env');
+    if (existsSync(envPath)) {
+        const content = readFileSync(envPath, 'utf-8');
+        const match = content.match(/PRIVATE_KEY=(.+)/);
+        if (match) return match[1].trim();
+    }
+    return null;
+}
+
+export const ADMIN_PRIVATE_KEY = loadAdminKey();
+
 export const CHAIN = {
     RPC_URL: 'https://node.shadownet.etherlink.com',
     CHAIN_ID: 127823,

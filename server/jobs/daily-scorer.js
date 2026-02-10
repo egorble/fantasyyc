@@ -17,6 +17,7 @@ import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as db from '../db/database.js';
+import { CHAIN, CONTRACTS } from '../config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,12 +26,7 @@ const __dirname = dirname(__filename);
 const twitterScorerPath = join(__dirname, '../../scripts/twitter-league-scorer.js');
 const { processStartupForDate, STARTUP_MAPPING } = await import(`file:///${twitterScorerPath.replace(/\\/g, '/')}`);
 
-// ============ Blockchain config ============
-// These are read once at import. If contracts change, restart the server.
-const RPC_URL = 'https://node.shadownet.etherlink.com';
-const PACK_OPENER_ADDRESS = '0x8A35cbe95CD07321CE4f0C73dC2518AAc5b28554';
-const TOURNAMENT_ADDRESS = '0xfF528538033a55C7b9C23608eB3d15e2387E0d61';
-const NFT_ADDRESS = '0xD3C4633257733dA9597b193cDaAA06bCBCbA0BF0';
+// ============ Blockchain config (from server/config.js) ============
 
 const packOpenerABI = [
     'function activeTournamentId() view returns (uint256)'
@@ -52,13 +48,13 @@ const RARITY_MULTIPLIERS = { Common: 1, Rare: 2, Epic: 3, EpicRare: 4, Legendary
 // ============ Blockchain reads ============
 
 function getProvider() {
-    return new ethers.JsonRpcProvider(RPC_URL);
+    return new ethers.JsonRpcProvider(CHAIN.RPC_URL);
 }
 
 async function getActiveTournament() {
     const provider = getProvider();
-    const packOpener = new ethers.Contract(PACK_OPENER_ADDRESS, packOpenerABI, provider);
-    const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
+    const packOpener = new ethers.Contract(CONTRACTS.PackOpener, packOpenerABI, provider);
+    const tournament = new ethers.Contract(CONTRACTS.TournamentManager, tournamentABI, provider);
 
     const tournamentId = await packOpener.activeTournamentId();
     if (tournamentId == 0) return null;
@@ -88,15 +84,15 @@ async function getActiveTournament() {
 
 async function getParticipants(tournamentId) {
     const provider = getProvider();
-    const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
+    const tournament = new ethers.Contract(CONTRACTS.TournamentManager, tournamentABI, provider);
     const participants = await tournament.getTournamentParticipants(tournamentId);
     return participants.map(addr => addr.toLowerCase());
 }
 
 async function getPlayerCards(tournamentId, playerAddress) {
     const provider = getProvider();
-    const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
-    const nft = new ethers.Contract(NFT_ADDRESS, nftABI, provider);
+    const tournament = new ethers.Contract(CONTRACTS.TournamentManager, tournamentABI, provider);
+    const nft = new ethers.Contract(CONTRACTS.UnicornX_NFT, nftABI, provider);
 
     const lineup = await tournament.getUserLineup(tournamentId, playerAddress);
     const cards = [];

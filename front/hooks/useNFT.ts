@@ -123,6 +123,21 @@ export function useNFT() {
 
             // Filter out nulls
             const validCards = cards.filter((c): c is CardData => c !== null);
+
+            // Verify isLocked from contract (metadata cache may be stale)
+            const contract = getNFTContract();
+            const lockChecks = validCards.map(async (card) => {
+                try {
+                    const locked = await contract.isLocked(card.tokenId);
+                    if (card.isLocked !== locked) {
+                        card.isLocked = locked;
+                        // Update cached metadata too
+                        blockchainCache.set(CacheKeys.cardMetadata(card.tokenId), { ...card });
+                    }
+                } catch {}
+            });
+            await Promise.all(lockChecks);
+
             console.log('   Loaded', validCards.length, 'cards');
 
             return validCards;

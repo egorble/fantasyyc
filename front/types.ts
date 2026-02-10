@@ -9,6 +9,19 @@ export enum Rarity {
   LEGENDARY = 'Legendary' // 4
 }
 
+// Rarity sort order (higher = rarer)
+export const RARITY_ORDER: Record<string, number> = {
+  [Rarity.COMMON]: 0,
+  [Rarity.RARE]: 1,
+  [Rarity.EPIC]: 2,
+  [Rarity.EPIC_RARE]: 3,
+  [Rarity.LEGENDARY]: 4,
+};
+
+export function sortByRarity(cards: CardData[]): CardData[] {
+  return [...cards].sort((a, b) => (RARITY_ORDER[b.rarity] ?? 0) - (RARITY_ORDER[a.rarity] ?? 0));
+}
+
 // ============ Startup Display Data ============
 export interface Startup {
   id: string;

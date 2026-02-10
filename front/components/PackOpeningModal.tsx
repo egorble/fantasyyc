@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { CardData, Rarity } from '../types';
+import { CardData } from '../types';
 import { Layers, Wallet, Package } from 'lucide-react';
 import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
@@ -410,32 +410,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose }) 
                             >
                                 <div className="card-inner w-full h-full relative preserve-3d">
                                     {/* FRONT FACE */}
-                                    <div className="absolute inset-0 backface-hidden rounded-xl bg-[#121212] border border-white/10 overflow-hidden shadow-2xl">
-                                        <div className="h-1/2 relative">
-                                            <img src={card.image} className="w-full h-full object-contain" loading="eager" />
-                                            <div className={`absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded border backdrop-blur-md
-                                            ${card.rarity === Rarity.LEGENDARY ? 'bg-orange-500 text-white border-orange-400' :
-                                                    card.rarity === Rarity.EPIC_RARE ? 'bg-purple-600 text-white border-purple-500' :
-                                                        card.rarity === Rarity.EPIC ? 'bg-violet-600 text-white border-violet-500' :
-                                                            card.rarity === Rarity.RARE ? 'bg-green-600 text-white border-green-500' :
-                                                                'bg-gray-800 text-gray-300 border-white/20'}`}>
-                                                {card.rarity}
-                                            </div>
-                                        </div>
-                                        <div className="p-4 h-1/2 flex flex-col justify-between bg-gradient-to-b from-[#121212] to-black">
-                                            <div>
-                                                <h3 className="text-white font-bold text-lg">{card.name}</h3>
-                                                <p className="text-gray-500 text-xs">Edition #{card.edition} • Token #{card.tokenId}</p>
-                                            </div>
-                                            <div className="flex justify-between items-end">
-                                                <div>
-                                                    <p className="text-[10px] text-gray-500 uppercase font-bold">Multiplier</p>
-                                                    <p className={`font-mono font-bold ${card.rarity === Rarity.LEGENDARY ? 'text-yc-orange' : 'text-yc-green'}`}>
-                                                        {card.multiplier}x
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    <div className="absolute inset-0 backface-hidden rounded-xl overflow-hidden shadow-2xl">
+                                        <img src={card.image} className="w-full h-full object-contain" loading="eager" />
                                     </div>
 
                                     {/* BACK FACE */}

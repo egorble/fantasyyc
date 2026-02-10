@@ -431,7 +431,7 @@ export function saveLiveFeedEvent(startupName, eventType, description, points, t
 export function getLiveFeed(limit = 20) {
     return all(`
         SELECT * FROM live_feed
-        ORDER BY created_at DESC
+        ORDER BY points DESC, created_at DESC
         LIMIT ?
     `, [limit]);
 }
