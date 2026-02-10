@@ -1,69 +1,62 @@
 /**
  * Twitter League Scorer
- * Fetches latest tweets from startups and calculates league points based on events
- * API: https://docs.twitterapi.io/
+ * Fetches tweets from startups and calculates league points based on events.
+ * Uses twitterapi.io advanced_search with date filtering.
  */
 
-import { appendFileSync } from 'fs';
-import { join } from 'path';
+import { appendFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const LOG_DIR = join(__dirname, '../server/logs');
-const TWEET_LOG_FILE = join(LOG_DIR, `tweets-${new Date().toISOString().split('T')[0]}.log`);
 
-// Create logs directory if it doesn't exist
-import { mkdirSync, existsSync } from 'fs';
 if (!existsSync(LOG_DIR)) {
     mkdirSync(LOG_DIR, { recursive: true });
 }
 
-/**
- * Log tweet data to file
- */
 function logTweet(userName, tweet, analysis) {
+    const logFile = join(LOG_DIR, `tweets-${new Date().toISOString().split('T')[0]}.log`);
     const logEntry = {
         timestamp: new Date().toISOString(),
         userName,
         tweetId: tweet.id,
         tweetText: tweet.text,
-        likes: tweet.public_metrics?.like_count || 0,
-        retweets: tweet.public_metrics?.retweet_count || 0,
+        likes: tweet.likeCount || 0,
+        retweets: tweet.retweetCount || 0,
         analysis
     };
-
-    appendFileSync(TWEET_LOG_FILE, JSON.stringify(logEntry) + '\n');
+    appendFileSync(logFile, JSON.stringify(logEntry) + '\n');
 }
 
 const API_KEY = 'new1_d1be13bf77c84f1886c5a79cdb692816';
 const API_BASE_URL = 'https://api.twitterapi.io/twitter';
 
-// List of all 19 startups (Twitter handles) - ALL VERIFIED
-const STARTUPS = [
-    'OpenAI',        // @OpenAI
-    'AnthropicAI',   // @AnthropicAI
-    'stripe',        // @stripe
-    'Rippling',      // @Rippling
-    'deel',          // @deel
-    'brexHQ',        // @brexHQ
-    'mercury',       // @mercury
-    'tryramp',       // @tryramp
-    'retool',        // @retool
-    'vercel',        // @vercel
-    'linear',        // @linear
-    'NotionHQ',      // @NotionHQ
-    'figma',         // @figma
-    'airtable',      // @airtable
-    'Superhuman',    // @Superhuman
-    'scale_AI',      // @scale_AI
-    'Instacart',     // @Instacart
-    'DoorDash',      // @DoorDash
-    'coinbase'       // @coinbase
-];
+// Twitter handle -> game startup name
+const STARTUP_MAPPING = {
+    'openclaw': 'Openclaw',
+    'lovable_dev': 'Lovable',
+    'cursor_ai': 'Cursor',
+    'OpenAI': 'OpenAI',
+    'AnthropicAI': 'Anthropic',
+    'browser_use': 'Browser Use',
+    'dedaluslabs': 'Dedalus Labs',
+    'autumnpricing': 'Autumn',
+    'axiom_xyz': 'Axiom',
+    'MultifactorCOM': 'Multifactor',
+    'getdomeapi': 'Dome',
+    'GrazeMate': 'GrazeMate',
+    'tornyolsystems': 'Tornyol Systems',
+    'heypocket': 'Pocket',
+    'Caretta': 'Caretta',
+    'axionorbital': 'AxionOrbital Space',
+    'freeportmrkts': 'Freeport Markets',
+    'ruvopay': 'Ruvo',
+    'lightberryai': 'Lightberry'
+};
 
-// Event scoring rules with comprehensive synonyms
+// Event scoring rules
 const EVENT_SCORES = {
     FUNDING: {
         base: 500,
@@ -116,7 +109,7 @@ const EVENT_SCORES = {
             'launched', 'launch', 'live', 'beta', 'announcing', 'released',
             'introducing', 'new feature', 'now available', 'shipping',
             'rollout', 'rolling out', 'unveiling', 'debut', 'going live',
-            'available now', 'just shipped', 'excited to share', 'introducing'
+            'available now', 'just shipped', 'excited to share'
         ]
     },
     ACQUISITION: {
@@ -155,207 +148,123 @@ const EVENT_SCORES = {
     }
 };
 
-/**
- * Fetch latest tweets for a user
- */
-async function fetchUserTweets(userName, limit = 3) {
-    try {
-        const url = `${API_BASE_URL}/user/last_tweets?userName=${userName}&includeReplies=false`;
-        console.log(`   → Fetching: ${url}`);
+// ============ Helper functions ============
 
-        const response = await fetch(url, {
-            headers: {
-                'X-API-Key': API_KEY
-            }
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log(`   → API Response status:`, data.status);
-
-        if (data.status !== 'success') {
-            throw new Error(`API returned error: ${data.msg || data.message || 'Unknown error'}`);
-        }
-
-        // API returns tweets in data.data.tweets structure
-        const tweets = data.data?.tweets || [];
-
-        if (!Array.isArray(tweets) || tweets.length === 0) {
-            console.warn(`   ⚠️  No tweets found for @${userName}`);
-            return [];
-        }
-
-        // Return only the requested number of tweets
-        return tweets.slice(0, limit);
-    } catch (error) {
-        console.error(`Error fetching tweets for @${userName}:`, error.message);
-        return [];
-    }
-}
-
-/**
- * Check if text contains any of the keywords
- */
 function containsKeywords(text, keywords) {
     const lowerText = text.toLowerCase();
     return keywords.some(keyword => lowerText.includes(keyword.toLowerCase()));
 }
 
-/**
- * Extract dollar amount from text (e.g., "$4.1M", "$10M", "$1.5B")
- */
 function extractAmount(text) {
     const patterns = [
-        /\$(\d+\.?\d*)\s*([MB])/i,  // $4.1M, $10M, $1.5B
-        /(\d+\.?\d*)\s*million/i,   // 4.1 million
-        /(\d+\.?\d*)\s*billion/i    // 1.5 billion
+        /\$(\d+\.?\d*)\s*([MB])/i,
+        /(\d+\.?\d*)\s*million/i,
+        /(\d+\.?\d*)\s*billion/i
     ];
-
     for (const pattern of patterns) {
         const match = text.match(pattern);
         if (match) {
             const value = parseFloat(match[1]);
             const unit = match[2] || (text.toLowerCase().includes('billion') ? 'B' : 'M');
-            return unit.toUpperCase() === 'B' ? value * 1000 : value; // Convert to millions
+            return unit.toUpperCase() === 'B' ? value * 1000 : value;
         }
     }
     return 0;
 }
 
-/**
- * Extract growth percentage from text (e.g., "10x growth", "100% increase")
- */
 function extractGrowth(text) {
     const patterns = [
         /(\d+)x\s*growth/i,
         /(\d+)%\s*(increase|growth)/i
     ];
-
     for (const pattern of patterns) {
         const match = text.match(pattern);
-        if (match) {
-            return parseInt(match[1]);
-        }
+        if (match) return parseInt(match[1]);
     }
     return 0;
 }
 
-/**
- * Analyze a single tweet and calculate points
- */
+// ============ Tweet analysis ============
+
 function analyzeTweet(tweet) {
     const text = tweet.text;
-    const points = {
-        total: 0,
-        events: []
-    };
+    const points = { total: 0, events: [] };
 
-    // Funding
     if (containsKeywords(text, EVENT_SCORES.FUNDING.keywords)) {
         const amount = extractAmount(text);
         let score = EVENT_SCORES.FUNDING.base;
-
         if (amount > 0) {
             score += Math.floor(amount) * EVENT_SCORES.FUNDING.perMillion;
-
-            // Apply caps
             if (text.toLowerCase().includes('seed')) {
                 score = Math.min(score, EVENT_SCORES.FUNDING.seedMax);
             } else if (text.toLowerCase().match(/series [a-z]/)) {
                 score = Math.min(score, EVENT_SCORES.FUNDING.seriesAPlus);
             }
         }
-
         points.events.push({ type: 'FUNDING', score, details: `Amount: $${amount}M` });
         points.total += score;
     }
 
-    // Partnership
     if (containsKeywords(text, EVENT_SCORES.PARTNERSHIP.keywords)) {
         let score = EVENT_SCORES.PARTNERSHIP.base;
-        const foundPartners = EVENT_SCORES.PARTNERSHIP.majorPartners.filter(partner =>
-            text.toLowerCase().includes(partner)
+        const foundPartners = EVENT_SCORES.PARTNERSHIP.majorPartners.filter(p =>
+            text.toLowerCase().includes(p)
         );
         score += foundPartners.length * EVENT_SCORES.PARTNERSHIP.perMajorPartner;
-
         points.events.push({ type: 'PARTNERSHIP', score, details: `Partners: ${foundPartners.join(', ') || 'generic'}` });
         points.total += score;
     }
 
-    // Key Hire
     if (containsKeywords(text, EVENT_SCORES.KEY_HIRE.keywords)) {
         let score = EVENT_SCORES.KEY_HIRE.base;
-        const isCLevel = EVENT_SCORES.KEY_HIRE.titles.some(title =>
-            text.toLowerCase().includes(title)
-        );
+        const isCLevel = EVENT_SCORES.KEY_HIRE.titles.some(t => text.toLowerCase().includes(t));
         if (isCLevel) score += EVENT_SCORES.KEY_HIRE.cLevel;
-
         points.events.push({ type: 'KEY_HIRE', score, details: isCLevel ? 'C-level' : 'Regular' });
         points.total += score;
     }
 
-    // Revenue
     if (containsKeywords(text, EVENT_SCORES.REVENUE.keywords)) {
         const amount = extractAmount(text);
         let score = EVENT_SCORES.REVENUE.base;
-        if (amount > 0) {
-            score += Math.floor(amount) * EVENT_SCORES.REVENUE.perMillion;
-        }
-
+        if (amount > 0) score += Math.floor(amount) * EVENT_SCORES.REVENUE.perMillion;
         points.events.push({ type: 'REVENUE', score, details: `Amount: $${amount}M` });
         points.total += score;
     }
 
-    // Product Launch
     if (containsKeywords(text, EVENT_SCORES.PRODUCT_LAUNCH.keywords)) {
         let score = EVENT_SCORES.PRODUCT_LAUNCH.base;
         if (tweet.likeCount >= EVENT_SCORES.PRODUCT_LAUNCH.viralThreshold) {
             score += EVENT_SCORES.PRODUCT_LAUNCH.viral;
         }
-
         points.events.push({ type: 'PRODUCT_LAUNCH', score, details: `Likes: ${tweet.likeCount}` });
         points.total += score;
     }
 
-    // Acquisition
     if (containsKeywords(text, EVENT_SCORES.ACQUISITION.keywords)) {
         const score = EVENT_SCORES.ACQUISITION.base;
         points.events.push({ type: 'ACQUISITION', score, details: 'Acquisition event' });
         points.total += score;
     }
 
-    // Media Mention
     if (containsKeywords(text, EVENT_SCORES.MEDIA_MENTION.keywords)) {
         let score = EVENT_SCORES.MEDIA_MENTION.base;
-        const majorOutlet = EVENT_SCORES.MEDIA_MENTION.majorOutlets.some(outlet =>
-            text.toLowerCase().includes(outlet)
-        );
+        const majorOutlet = EVENT_SCORES.MEDIA_MENTION.majorOutlets.some(o => text.toLowerCase().includes(o));
         if (majorOutlet) score += EVENT_SCORES.MEDIA_MENTION.major;
-
         points.events.push({ type: 'MEDIA_MENTION', score, details: majorOutlet ? 'Major outlet' : 'General' });
         points.total += score;
     }
 
-    // Growth
     if (containsKeywords(text, EVENT_SCORES.GROWTH.keywords)) {
         const growthRate = extractGrowth(text);
         let score = EVENT_SCORES.GROWTH.base;
-        if (growthRate >= 10) {
-            score += Math.floor(growthRate / 10) * EVENT_SCORES.GROWTH.per10x;
-        }
-
+        if (growthRate >= 10) score += Math.floor(growthRate / 10) * EVENT_SCORES.GROWTH.per10x;
         points.events.push({ type: 'GROWTH', score, details: `Growth: ${growthRate}x` });
         points.total += score;
     }
 
-    // Engagement (calculated from tweet metrics)
     let engagementScore = EVENT_SCORES.ENGAGEMENT.base;
-    engagementScore += Math.floor(tweet.likeCount / 1000) * EVENT_SCORES.ENGAGEMENT.perThousandLikes;
-    engagementScore += tweet.retweetCount * EVENT_SCORES.ENGAGEMENT.perRetweet;
+    engagementScore += Math.floor((tweet.likeCount || 0) / 1000) * EVENT_SCORES.ENGAGEMENT.perThousandLikes;
+    engagementScore += (tweet.retweetCount || 0) * EVENT_SCORES.ENGAGEMENT.perRetweet;
     engagementScore += Math.floor((tweet.viewCount || 0) / 1000) * EVENT_SCORES.ENGAGEMENT.perThousandViews;
     engagementScore = Math.min(engagementScore, EVENT_SCORES.ENGAGEMENT.maxDaily);
 
@@ -367,54 +276,109 @@ function analyzeTweet(tweet) {
     return points;
 }
 
-/**
- * Process a startup and return scoring results
- */
-async function processStartup(userName, isRealData = true) {
-    console.log(`\n📊 Processing @${userName}...`);
+// ============ API functions ============
 
-    if (!isRealData) {
-        // Return stub data (only if explicitly disabled)
-        return {
-            userName,
-            tweets: [],
-            totalPoints: 0,
-            isStub: true,
-            message: 'Disabled - skipped'
-        };
+/**
+ * Fetch all tweets from a user for a specific date (YYYY-MM-DD).
+ * Uses advanced_search with from: since: until: operators.
+ * Paginates through all pages (20 tweets per page).
+ */
+async function fetchTweetsByDate(userName, date) {
+    const nextDate = getNextDate(date);
+    const query = `from:${userName} since:${date}_00:00:00_UTC until:${nextDate}_00:00:00_UTC`;
+    const allTweets = [];
+    let cursor = '';
+    let page = 0;
+    const MAX_PAGES = 5; // safety limit
+
+    while (page < MAX_PAGES) {
+        const params = new URLSearchParams({
+            query,
+            queryType: 'Latest',
+        });
+        if (cursor) params.set('cursor', cursor);
+
+        const url = `${API_BASE_URL}/tweet/advanced_search?${params}`;
+        console.log(`   Fetching page ${page + 1}: ${userName} (${date})`);
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-API-Key': API_KEY }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`   API error: ${response.status} - ${errorText}`);
+                break;
+            }
+
+            const data = await response.json();
+
+            // advanced_search returns { tweets: [...], has_next_page, next_cursor }
+            // No "status" field - presence of tweets array means success
+            if (!data.tweets && data.status !== 'success') {
+                console.error(`   API returned: ${data.msg || data.message || 'Unknown error'}`);
+                break;
+            }
+
+            const tweets = data.tweets || data.data?.tweets || [];
+            allTweets.push(...tweets);
+
+            if (!data.has_next_page || !data.next_cursor) break;
+            cursor = data.next_cursor;
+            page++;
+
+            // rate limit between pages
+            await new Promise(r => setTimeout(r, 1000));
+        } catch (error) {
+            console.error(`   Fetch error: ${error.message}`);
+            break;
+        }
     }
 
-    const tweets = await fetchUserTweets(userName, 3);
+    return allTweets;
+}
+
+/**
+ * Get the next date string (YYYY-MM-DD) after the given date.
+ */
+function getNextDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().split('T')[0];
+}
+
+/**
+ * Process a startup's tweets for a specific date.
+ * Returns scoring result with all analyzed tweets.
+ */
+async function processStartupForDate(userName, date) {
+    const tweets = await fetchTweetsByDate(userName, date);
 
     if (tweets.length === 0) {
         return {
             userName,
+            date,
             tweets: [],
             totalPoints: 0,
-            error: 'No tweets found or API error'
+            tweetCount: 0
         };
     }
 
-    console.log(`   ✓ Fetched ${tweets.length} tweets`);
+    console.log(`   Found ${tweets.length} tweets for @${userName} on ${date}`);
 
     const results = tweets.map(tweet => {
         const analysis = analyzeTweet(tweet);
-
-        // Log tweet analysis to file
-        logTweet(userName, tweet, {
-            points: analysis.total,
-            events: analysis.events,
-            details: analysis.details
-        });
+        logTweet(userName, tweet, { points: analysis.total, events: analysis.events });
 
         return {
             id: tweet.id,
-            text: tweet.text.substring(0, 100) + '...',
+            text: (tweet.text || '').substring(0, 200),
             createdAt: tweet.createdAt,
             metrics: {
-                likes: tweet.likeCount,
-                retweets: tweet.retweetCount,
-                replies: tweet.replyCount
+                likes: tweet.likeCount || 0,
+                retweets: tweet.retweetCount || 0,
+                replies: tweet.replyCount || 0
             },
             points: analysis.total,
             events: analysis.events
@@ -425,70 +389,11 @@ async function processStartup(userName, isRealData = true) {
 
     return {
         userName,
+        date,
         tweets: results,
         totalPoints,
-        isStub: false
+        tweetCount: tweets.length
     };
 }
 
-/**
- * Main function - process all startups
- */
-async function main() {
-    console.log('🚀 Twitter League Scorer Started');
-    console.log('━'.repeat(60));
-
-    const results = [];
-
-    for (const startup of STARTUPS) {
-        // Fetch real data for ALL startups (set to false to disable specific ones)
-        const isRealData = true;
-        const result = await processStartup(startup, isRealData);
-        results.push(result);
-
-        // Add delay to respect rate limits (5 seconds for free tier)
-        console.log(`   ⏳ Waiting 5 seconds (API rate limit)...`);
-        await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-
-    console.log('\n\n📈 FINAL RESULTS');
-    console.log('━'.repeat(60));
-
-    // Sort by points
-    results.sort((a, b) => b.totalPoints - a.totalPoints);
-
-    results.forEach((result, index) => {
-        console.log(`\n${index + 1}. @${result.userName}`);
-        console.log(`   Total Points: ${result.totalPoints}`);
-
-        if (result.isStub) {
-            console.log(`   Status: ${result.message}`);
-        } else if (result.error) {
-            console.log(`   Error: ${result.error}`);
-        } else {
-            console.log(`   Tweets analyzed: ${result.tweets.length}`);
-            result.tweets.forEach((tweet, i) => {
-                console.log(`\n   Tweet ${i + 1}: ${tweet.points} points`);
-                console.log(`   "${tweet.text}"`);
-                if (tweet.events.length > 0) {
-                    tweet.events.forEach(event => {
-                        console.log(`      → ${event.type}: +${event.score} (${event.details})`);
-                    });
-                }
-            });
-        }
-    });
-
-    console.log('\n\n✅ Processing complete!');
-    console.log('━'.repeat(60));
-
-    // Return results for potential database storage
-    return results;
-}
-
-// Run the script
-if (require.main === module) {
-    main().catch(console.error);
-}
-
-module.exports = { main, processStartup, analyzeTweet };
+export { processStartupForDate, analyzeTweet, STARTUP_MAPPING };

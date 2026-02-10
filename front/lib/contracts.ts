@@ -10,10 +10,10 @@ export const METADATA_API = 'http://localhost:3001';
 
 // ============ Contract Addresses ============
 export const CONTRACTS = {
-    UnicornX_NFT: '0x757e1f6f8c52Cd367fa42cb305de227CDC308140',
-    PackOpener: '0x638B92a58a8317e5f47247B5bD47cb16faA87eD9',
-    TournamentManager: '0x6036a89aE64cd3A1404E0e093A80622E949942d0',
-    MarketplaceV2: '0x8F4F994431d82D759D997c06bF0fa03aB7106B94',
+    UnicornX_NFT: '0xD3C4633257733dA9597b193cDaAA06bCBCbA0BF0',
+    PackOpener: '0x8A35cbe95CD07321CE4f0C73dC2518AAc5b28554',
+    TournamentManager: '0xfF528538033a55C7b9C23608eB3d15e2387E0d61',
+    MarketplaceV2: '0xEca397fB26dbBf5A6FaB976028E7D6B37961a8Bd',
 } as const;
 
 // ============ ABIs (minimal for frontend) ============
@@ -53,11 +53,10 @@ export const PACK_OPENER_ABI = [
     'function getReferralStats(address referrer) view returns (uint256 count, uint256 totalEarned)',
     'function referralEarnings(address referrer) view returns (uint256)',
     'function referralCount(address referrer) view returns (uint256)',
-    // Write functions
-    'function buyPack() payable returns (uint256)',
-    'function buyAndOpenPack() payable returns (uint256[5], uint256[5])',
+    // Write functions - referrer is passed directly in buy functions
+    'function buyPack(address referrer) payable returns (uint256)',
+    'function buyAndOpenPack(address referrer) payable returns (uint256[5], uint256[5])',
     'function openPack(uint256 packId) returns (uint256[5], uint256[5])',
-    'function setReferrer(address referrer)',
     // Admin functions
     'function withdraw()',
     'function setPackPrice(uint256 newPrice)',

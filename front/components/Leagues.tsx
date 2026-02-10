@@ -6,6 +6,7 @@ import { useNFT } from '../hooks/useNFT';
 import { useTournament, Tournament } from '../hooks/useTournament';
 import { useLeaderboard, usePlayerRank } from '../hooks/useLeaderboard';
 import { formatXTZ } from '../lib/contracts';
+import { generatePixelAvatar } from '../lib/pixelAvatar';
 import gsap from 'gsap';
 
 const Leagues: React.FC = () => {
@@ -462,7 +463,7 @@ const Leagues: React.FC = () => {
                                 <CheckCircle className="w-5 h-5 mr-2" /> You're registered for this tournament
                             </span>
                         </div>
-                    ) : phase === 'registration' ? (
+                    ) : (phase === 'registration' || phase === 'active') ? (
                         <button
                             onClick={() => setIsJoining(true)}
                             className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-yc-orange hover:text-white px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wide transition-all flex items-center shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(242,101,34,0.4)]"
@@ -471,8 +472,6 @@ const Leagues: React.FC = () => {
                         </button>
                     ) : phase === 'upcoming' ? (
                         <span className="text-purple-500 dark:text-purple-400 font-bold">Registration opens soon</span>
-                    ) : phase === 'active' ? (
-                        <span className="text-gray-500 dark:text-gray-400 font-bold">Registration closed - Tournament in progress</span>
                     ) : (
                         <span className="text-gray-500 dark:text-gray-500 font-bold">Tournament ended</span>
                     )}
@@ -535,14 +534,21 @@ const Leagues: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-[#333] mr-3 border border-gray-300 dark:border-gray-700"></div>
+                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-[#333] mr-3 border border-gray-300 dark:border-gray-700 overflow-hidden">
+                                                        <img
+                                                            src={player.avatar || generatePixelAvatar(player.address, 64)}
+                                                            alt=""
+                                                            className="w-full h-full object-cover"
+                                                            style={{ imageRendering: player.avatar ? 'auto' : 'pixelated' }}
+                                                        />
+                                                    </div>
                                                     <div className="flex flex-col">
                                                         <span className={`font-bold group-hover:text-yc-orange transition-colors ${isCurrentUser ? 'text-yc-orange' : 'text-yc-text-primary dark:text-white'}`}>
-                                                            {formatAddress(player.address)}
+                                                            {player.username || formatAddress(player.address)}
                                                         </span>
-                                                        {isCurrentUser && (
-                                                            <span className="text-[10px] text-yc-orange font-bold uppercase">You</span>
-                                                        )}
+                                                        <span className={`text-[10px] font-mono ${isCurrentUser ? 'text-yc-orange font-bold' : 'text-gray-400'}`}>
+                                                            {isCurrentUser ? 'You' : formatAddress(player.address)}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </td>

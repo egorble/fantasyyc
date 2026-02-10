@@ -1,18 +1,49 @@
-import React, { useState } from 'react';
-import { Clock, Gift, UserPlus, ChevronRight, Copy, Check, Users, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { UserPlus, Copy, Check, TrendingUp } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useReferral } from '../hooks/useReferral';
+
+interface TopStartup {
+  name: string;
+  points: number;
+}
 
 interface RightPanelProps {
   onOpenPack: () => void;
 }
 
+const API_BASE = 'http://localhost:3003/api';
+
 const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
-  const { isConnected, address, formatAddress } = useWalletContext();
+  const { isConnected } = useWalletContext();
   const { getReferralLink, referralStats } = useReferral();
   const [copied, setCopied] = useState(false);
+  const [topStartups, setTopStartups] = useState<TopStartup[]>([]);
 
   const referralLink = getReferralLink();
+
+  // Fetch top startups
+  useEffect(() => {
+    const fetchTopStartups = async () => {
+      try {
+        const tourRes = await fetch(`${API_BASE}/tournaments/active`);
+        const tourData = await tourRes.json();
+        if (!tourData.success) return;
+
+        const res = await fetch(`${API_BASE}/top-startups/${tourData.data.id}?limit=5`);
+        const data = await res.json();
+        if (data.success) {
+          setTopStartups(data.data);
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+
+    fetchTopStartups();
+    const interval = setInterval(fetchTopStartups, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleCopy = () => {
     if (!referralLink) return;
@@ -22,109 +53,121 @@ const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
   };
 
   return (
-    <aside className="w-80 h-screen fixed right-0 top-0 bg-white dark:bg-yc-dark-panel border-l border-gray-200 dark:border-yc-dark-border p-6 hidden xl:flex flex-col space-y-6 z-40 overflow-y-auto transition-colors duration-300">
+    <aside className="w-64 h-screen fixed right-0 top-0 bg-white dark:bg-yc-dark-panel border-l border-gray-200 dark:border-yc-dark-border p-3 hidden xl:flex flex-col space-y-3 z-40 overflow-y-auto transition-colors duration-300">
 
-      {/* Daily Reward / Free Pack */}
-      <div className="bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-5 relative overflow-hidden group shadow-sm dark:shadow-none">
-        <div className="absolute top-0 right-0 p-2 opacity-10 text-gray-900 dark:text-white">
-            <Gift size={64} />
-        </div>
-        <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-1">Daily Reward</h3>
-        <p className="text-gray-500 dark:text-[#888888] text-xs mb-4">Claim your free common pack.</p>
+      {/* Buy Pack CTA */}
+      <div className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl p-4 relative overflow-hidden shadow-lg flex-1 flex flex-col justify-between min-h-[200px]">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full translate-y-6 -translate-x-6" />
 
-        <div className="flex items-center justify-between bg-white dark:bg-[#050505] rounded-lg p-3 border border-gray-200 dark:border-[#2A2A2A] mb-4">
-            <span className="text-xs text-gray-500 dark:text-[#888888] font-mono uppercase">Next drop</span>
-            <div className="flex items-center text-yc-orange font-mono font-bold text-sm">
-                <Clock className="w-3 h-3 mr-1.5" />
-                04:23:12
-            </div>
+        <div className="relative z-10">
+          <h3 className="text-white font-black text-base mb-1">Card Packs</h3>
+          <p className="text-white/70 text-[11px] leading-tight">
+            Open a pack and get 5 random startup NFT cards to compete in tournaments
+          </p>
         </div>
 
-        <button
-          onClick={onOpenPack}
-          className="w-full bg-gray-900 dark:bg-[#1A1A1A] hover:bg-yc-orange text-white border border-transparent dark:border-yc-orange py-3 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 flex items-center justify-center"
-        >
-          Open Pack
-        </button>
-      </div>
-
-      {/* Top Gainers */}
-      <div className="bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-5 shadow-sm dark:shadow-none">
-        <div className="flex items-center justify-between mb-4">
-             <h3 className="text-gray-900 dark:text-white font-bold text-sm uppercase tracking-wide">Top Gainers</h3>
-             <button className="text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
-                <ChevronRight className="w-4 h-4" />
-             </button>
-        </div>
-
-        <div className="space-y-3">
-            {[
-                { name: 'Rippling', val: '+12.4%', price: '$42.50' },
-                { name: 'Deel', val: '+8.2%', price: '$31.20' },
-                { name: 'Brex', val: '+5.1%', price: '$55.00' }
-            ].map((stock, i) => (
-                <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 p-1 rounded transition-colors">
-                    <div className="flex items-center">
-                        <div className="w-8 h-8 rounded bg-white dark:bg-[#1A1A1A] flex items-center justify-center text-[10px] font-bold text-gray-500 dark:text-[#888888] border border-gray-200 dark:border-[#2A2A2A] mr-3">
-                            {stock.name[0]}
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-yc-orange transition-colors">{stock.name}</p>
-                            <p className="text-[10px] text-gray-500 dark:text-[#888888]">Saas / B2B</p>
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-xs font-bold text-green-500 font-mono">{stock.val}</p>
-                        <p className="text-[10px] text-gray-500 dark:text-[#888888] font-mono">{stock.price}</p>
-                    </div>
+        {/* Card fan */}
+        <div className="relative z-10 flex justify-center my-3">
+          <div className="relative w-32 h-20">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute left-1/2 bottom-0 w-10 h-14 rounded-md border-2 border-white/30 bg-gradient-to-b from-white/20 to-white/5 backdrop-blur-sm"
+                style={{
+                  transform: `translateX(-50%) rotate(${(i - 2) * 12}deg)`,
+                  transformOrigin: 'bottom center',
+                  zIndex: i,
+                }}
+              >
+                <div className="w-full h-full flex items-center justify-center text-white/50 text-[8px] font-bold">
+                  NFT
                 </div>
+              </div>
             ))}
+          </div>
+        </div>
+
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white/60 text-[10px] font-medium">5 cards per pack</span>
+            <span className="text-white font-mono font-black text-lg">5 XTZ</span>
+          </div>
+          <button
+            onClick={onOpenPack}
+            className="w-full bg-white hover:bg-gray-100 text-orange-600 py-2.5 rounded-lg font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center active:scale-95 shadow-md"
+          >
+            Buy Pack
+          </button>
         </div>
       </div>
 
-      {/* Referral Program */}
-      <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-gray-900 dark:to-black border border-orange-200 dark:border-gray-800 rounded-xl p-5 relative shadow-lg">
-        <div className="flex items-center justify-between mb-3">
-            <h3 className="text-gray-900 dark:text-white font-bold text-md">Referral Program</h3>
-            <UserPlus className="w-5 h-5 text-yc-orange" />
+      {/* Top Startups by Points */}
+      <div className="bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg p-3 shadow-sm dark:shadow-none">
+        <div className="flex items-center justify-between mb-2">
+             <h3 className="text-gray-900 dark:text-white font-bold text-[11px] uppercase tracking-wide">Top Startups</h3>
+             <TrendingUp className="w-3 h-3 text-yc-orange" />
         </div>
-        <p className="text-gray-600 dark:text-gray-400 text-xs mb-4 leading-relaxed">
+
+        <div className="space-y-1">
+            {topStartups.length > 0 ? (
+              topStartups.map((startup, i) => (
+                <div key={startup.name} className="flex items-center justify-between group hover:bg-gray-100 dark:hover:bg-white/5 px-1 py-1 rounded transition-colors">
+                    <div className="flex items-center min-w-0">
+                        <span className={`text-[10px] font-black shrink-0 mr-2 w-4 text-center ${
+                          i === 0 ? 'text-yc-orange' : 'text-gray-400'
+                        }`}>
+                            {i + 1}
+                        </span>
+                        <p className="text-[11px] font-semibold text-gray-900 dark:text-white group-hover:text-yc-orange transition-colors truncate">
+                          {startup.name}
+                        </p>
+                    </div>
+                    <span className="text-[10px] font-bold text-green-500 font-mono shrink-0 ml-1">
+                      +{Math.round(startup.points)}
+                    </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-[10px] text-gray-400 text-center py-2">No scores yet</p>
+            )}
+        </div>
+      </div>
+
+      {/* Referral */}
+      <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-gray-900 dark:to-black border border-orange-200 dark:border-gray-800 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-1.5">
+            <h3 className="text-gray-900 dark:text-white font-bold text-xs">Referral Program</h3>
+            <UserPlus className="w-3.5 h-3.5 text-yc-orange" />
+        </div>
+        <p className="text-gray-600 dark:text-gray-400 text-[10px] mb-2">
             Earn <span className="text-yc-orange font-bold">10%</span> from every pack your friends buy.
-            Share your link below!
         </p>
 
-        {/* Referral Stats */}
         {isConnected && (
-            <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="bg-white/80 dark:bg-black/50 rounded-lg p-2.5 border border-orange-200/50 dark:border-gray-700">
-                    <div className="flex items-center gap-1 mb-1">
-                        <Users className="w-3 h-3 text-gray-400" />
-                        <span className="text-[10px] text-gray-500 uppercase font-bold">Referrals</span>
-                    </div>
-                    <p className="text-gray-900 dark:text-white font-bold font-mono">{referralStats.count}</p>
+            <div className="flex gap-2 mb-2">
+                <div className="flex-1 bg-white/80 dark:bg-black/50 rounded p-1.5 border border-orange-200/50 dark:border-gray-700 text-center">
+                    <p className="text-[9px] text-gray-500 uppercase font-bold">Refs</p>
+                    <p className="text-gray-900 dark:text-white font-bold font-mono text-xs">{referralStats.count}</p>
                 </div>
-                <div className="bg-white/80 dark:bg-black/50 rounded-lg p-2.5 border border-orange-200/50 dark:border-gray-700">
-                    <div className="flex items-center gap-1 mb-1">
-                        <DollarSign className="w-3 h-3 text-gray-400" />
-                        <span className="text-[10px] text-gray-500 uppercase font-bold">Earned</span>
-                    </div>
-                    <p className="text-yc-orange font-bold font-mono">{referralStats.totalEarned} XTZ</p>
+                <div className="flex-1 bg-white/80 dark:bg-black/50 rounded p-1.5 border border-orange-200/50 dark:border-gray-700 text-center">
+                    <p className="text-[9px] text-gray-500 uppercase font-bold">Earned</p>
+                    <p className="text-yc-orange font-bold font-mono text-xs">{referralStats.totalEarned}</p>
                 </div>
             </div>
         )}
 
-        {/* Referral Link */}
         <div className="relative">
             <input
                 type="text"
                 value={isConnected ? referralLink : 'Connect wallet first'}
                 readOnly
-                className="w-full bg-white/80 dark:bg-black/50 border border-orange-200/50 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-xs px-3 py-2 pr-16 rounded font-mono focus:outline-none truncate"
+                className="w-full bg-white/80 dark:bg-black/50 border border-orange-200/50 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-[9px] px-2 py-1.5 pr-12 rounded font-mono focus:outline-none truncate"
             />
             <button
                 onClick={handleCopy}
                 disabled={!isConnected}
-                className={`absolute right-1 top-1/2 -translate-y-1/2 text-white text-xs font-bold px-2.5 py-1 rounded transition-all flex items-center gap-1 ${
+                className={`absolute right-0.5 top-1/2 -translate-y-1/2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded transition-all flex items-center gap-0.5 ${
                     copied
                         ? 'bg-green-500'
                         : isConnected
@@ -132,15 +175,9 @@ const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
                             : 'bg-gray-400 cursor-not-allowed'
                 }`}
             >
-                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                {copied ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
                 {copied ? 'OK' : 'Copy'}
             </button>
-        </div>
-
-        {/* Distribution Info */}
-        <div className="mt-3 text-[10px] text-gray-500 dark:text-gray-500 space-y-0.5">
-            <p>10% to referrer | 10% platform | 80% prize pool</p>
-            <p>No referrer: 10% platform | 90% prize pool</p>
         </div>
       </div>
 

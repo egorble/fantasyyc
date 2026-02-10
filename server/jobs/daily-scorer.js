@@ -1,10 +1,19 @@
 /**
  * Daily Tournament Scorer
- * Fetches Twitter data, calculates points with card multipliers, updates leaderboard
+ *
+ * Game logic:
+ * 1. Reads active tournament from blockchain (PackOpener.activeTournamentId)
+ * 2. Only scores if tournament status is "active"
+ * 3. Fetches ALL tweets from the scoring day for each startup (via advanced_search)
+ * 4. Calculates base points per startup from tweet analysis
+ * 5. For each participant: multiplies startup base points by their card rarity
+ * 6. Updates leaderboard with cumulative scores
+ *
+ * Designed to run daily at 00:00 UTC via server scheduler.
+ * Scores the PREVIOUS day (yesterday UTC).
  */
 
 import { ethers } from 'ethers';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as db from '../db/database.js';
@@ -14,15 +23,15 @@ const __dirname = dirname(__filename);
 
 // Import Twitter scorer
 const twitterScorerPath = join(__dirname, '../../scripts/twitter-league-scorer.js');
-const { processStartup } = await import(`file:///${twitterScorerPath.replace(/\\/g, '/')}`);
+const { processStartupForDate, STARTUP_MAPPING } = await import(`file:///${twitterScorerPath.replace(/\\/g, '/')}`);
 
-// Blockchain configuration
-const RPC_URL = 'https://node.shadownet.etherlink.com'; // Etherlink Shadownet Testnet
-const PACK_OPENER_ADDRESS = '0x638B92a58a8317e5f47247B5bD47cb16faA87eD9';
-const TOURNAMENT_ADDRESS = '0x6036a89aE64cd3A1404E0e093A80622E949942d0';
-const NFT_ADDRESS = '0x757e1f6f8c52Cd367fa42cb305de227CDC308140';
+// ============ Blockchain config ============
+// These are read once at import. If contracts change, restart the server.
+const RPC_URL = 'https://node.shadownet.etherlink.com';
+const PACK_OPENER_ADDRESS = '0x8A35cbe95CD07321CE4f0C73dC2518AAc5b28554';
+const TOURNAMENT_ADDRESS = '0xfF528538033a55C7b9C23608eB3d15e2387E0d61';
+const NFT_ADDRESS = '0xD3C4633257733dA9597b193cDaAA06bCBCbA0BF0';
 
-// ABIs (minimal needed for scoring)
 const packOpenerABI = [
     'function activeTournamentId() view returns (uint256)'
 ];
@@ -31,163 +40,97 @@ const tournamentABI = [
     'function getTournament(uint256 tournamentId) view returns (tuple(uint256 id, uint256 registrationStart, uint256 startTime, uint256 endTime, uint256 prizePool, uint256 entryCount, uint8 status))',
     'function getTournamentParticipants(uint256 tournamentId) view returns (address[])',
     'function getUserLineup(uint256 tournamentId, address user) view returns (tuple(uint256[5] cardIds, address owner, uint256 timestamp, bool cancelled, bool claimed))',
-    'function nextTournamentId() view returns (uint256)'
 ];
 
 const nftABI = [
     'function getCardInfo(uint256 tokenId) view returns (tuple(uint256 startupId, uint256 edition, uint8 rarity, uint256 multiplier, bool isLocked, string name))',
-    'function startups(uint256 id) view returns (tuple(string name, uint8 rarity, uint256 multiplier))'
 ];
 
-// Rarity multipliers
-const RARITY_MULTIPLIERS = {
-    'Common': 1,
-    'Rare': 2,
-    'Epic': 3,
-    'EpicRare': 4,
-    'Legendary': 5
-};
+const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
+const RARITY_MULTIPLIERS = { Common: 1, Rare: 2, Epic: 3, EpicRare: 4, Legendary: 5 };
 
-// Startup name mapping (Twitter handle -> Startup name)
-const STARTUP_MAPPING = {
-    'OpenAI': 'OpenAI',
-    'AnthropicAI': 'Anthropic',
-    'stripe': 'Stripe',
-    'Rippling': 'Rippling',
-    'deel': 'Deel',
-    'brexHQ': 'Brex',
-    'mercury': 'Mercury',
-    'tryramp': 'Ramp',
-    'retool': 'Retool',
-    'vercel': 'Vercel',
-    'linear': 'Linear',
-    'NotionHQ': 'Notion',
-    'figma': 'Figma',
-    'airtable': 'Airtable',
-    'Superhuman': 'Superhuman',
-    'scale_AI': 'Scale AI',
-    'Instacart': 'Instacart',
-    'DoorDash': 'DoorDash',
-    'coinbase': 'Coinbase'
-};
+// ============ Blockchain reads ============
 
-/**
- * Get active tournament from blockchain
- */
-async function getActiveTournamentFromBlockchain() {
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
+function getProvider() {
+    return new ethers.JsonRpcProvider(RPC_URL);
+}
+
+async function getActiveTournament() {
+    const provider = getProvider();
     const packOpener = new ethers.Contract(PACK_OPENER_ADDRESS, packOpenerABI, provider);
     const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
 
-    try {
-        // Get active tournament ID from PackOpener
-        const tournamentId = await packOpener.activeTournamentId();
+    const tournamentId = await packOpener.activeTournamentId();
+    if (tournamentId == 0) return null;
 
-        if (tournamentId == 0) {
-            console.log('No active tournament set');
-            return null;
-        }
+    const t = await tournament.getTournament(tournamentId);
+    const now = Math.floor(Date.now() / 1000);
+    const regStart = Number(t.registrationStart);
+    const start = Number(t.startTime);
+    const end = Number(t.endTime);
 
-        // Get tournament details
-        const tournamentData = await tournament.getTournament(tournamentId);
+    let status = 'upcoming';
+    if (now < regStart) status = 'upcoming';
+    else if (now >= regStart && now < start) status = 'registration';
+    else if (now >= start && now < end) status = 'active';
+    else if (now >= end) status = 'ended';
 
-        const currentTime = Math.floor(Date.now() / 1000);
-        const startTime = Number(tournamentData.startTime);
-        const endTime = Number(tournamentData.endTime);
-        const registrationStart = Number(tournamentData.registrationStart);
-
-        let status = 'upcoming';
-        if (currentTime < registrationStart) status = 'upcoming';
-        else if (currentTime >= registrationStart && currentTime < startTime) status = 'registration';
-        else if (currentTime >= startTime && currentTime < endTime) status = 'active';
-        else if (currentTime >= endTime) status = 'ended';
-
-        return {
-            id: Number(tournamentId),
-            startTime,
-            endTime,
-            registrationStart,
-            prizePool: ethers.formatEther(tournamentData.prizePool),
-            entryCount: Number(tournamentData.entryCount),
-            status
-        };
-    } catch (error) {
-        console.error('Error fetching tournament:', error);
-        return null;
-    }
+    return {
+        id: Number(tournamentId),
+        startTime: start,
+        endTime: end,
+        registrationStart: regStart,
+        prizePool: ethers.formatEther(t.prizePool),
+        entryCount: Number(t.entryCount),
+        status
+    };
 }
 
-/**
- * Get tournament entries from blockchain
- */
-async function getTournamentEntriesFromBlockchain(tournamentId) {
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
+async function getParticipants(tournamentId) {
+    const provider = getProvider();
     const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
-
-    try {
-        const participants = await tournament.getTournamentParticipants(tournamentId);
-        return participants.map(addr => addr.toLowerCase());
-    } catch (error) {
-        console.error('Error fetching entries:', error);
-        return [];
-    }
+    const participants = await tournament.getTournamentParticipants(tournamentId);
+    return participants.map(addr => addr.toLowerCase());
 }
 
-/**
- * Get player's locked cards from blockchain
- */
 async function getPlayerCards(tournamentId, playerAddress) {
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const provider = getProvider();
     const tournament = new ethers.Contract(TOURNAMENT_ADDRESS, tournamentABI, provider);
     const nft = new ethers.Contract(NFT_ADDRESS, nftABI, provider);
 
-    try {
-        const lineup = await tournament.getUserLineup(tournamentId, playerAddress);
-        const cardIds = lineup.cardIds;
+    const lineup = await tournament.getUserLineup(tournamentId, playerAddress);
+    const cards = [];
 
-        const cards = [];
-        for (const tokenId of cardIds) {
-            if (tokenId == 0) continue; // Skip empty slots
-
-            const cardInfo = await nft.getCardInfo(tokenId);
-            cards.push({
-                tokenId: Number(tokenId),
-                name: cardInfo.name,
-                rarity: getRarityName(cardInfo.rarity),
-                multiplier: Number(cardInfo.multiplier)
-            });
-        }
-
-        return cards;
-    } catch (error) {
-        console.error(`Error fetching cards for ${playerAddress}:`, error);
-        return [];
+    for (const tokenId of lineup.cardIds) {
+        if (tokenId == 0) continue;
+        const info = await nft.getCardInfo(tokenId);
+        cards.push({
+            tokenId: Number(tokenId),
+            name: info.name,
+            rarity: RARITY_NAMES[info.rarity] || 'Common',
+            multiplier: Number(info.multiplier)
+        });
     }
+
+    return cards;
 }
 
-// Helper function to convert rarity number to name
-function getRarityName(rarityNum) {
-    const rarities = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
-    return rarities[rarityNum] || 'Common';
-}
+// ============ Scoring logic ============
 
-/**
- * Calculate player score for the day
- */
-function calculatePlayerScore(playerCards, dailyScores) {
+function calculatePlayerScore(playerCards, startupBaseScores) {
     let totalPoints = 0;
     const breakdown = {};
 
     for (const card of playerCards) {
-        const startupScore = dailyScores[card.name] || 0;
-        const rarityMultiplier = RARITY_MULTIPLIERS[card.rarity] || 1;
-        const cardPoints = startupScore * rarityMultiplier;
+        const baseScore = startupBaseScores[card.name] || 0;
+        const multiplier = RARITY_MULTIPLIERS[card.rarity] || 1;
+        const cardPoints = baseScore * multiplier;
 
         totalPoints += cardPoints;
         breakdown[card.name] = {
-            basePoints: startupScore,
+            basePoints: baseScore,
             rarity: card.rarity,
-            multiplier: rarityMultiplier,
+            multiplier,
             totalPoints: cardPoints
         };
     }
@@ -196,161 +139,167 @@ function calculatePlayerScore(playerCards, dailyScores) {
 }
 
 /**
- * Main scoring function
+ * Get yesterday's date string in UTC (YYYY-MM-DD).
+ * Since this runs at 00:00 UTC, "yesterday" is the day we're scoring.
  */
-async function runDailyScoring() {
-    console.log('🚀 Daily Tournament Scorer Started');
-    console.log('━'.repeat(60));
-    console.log(`📅 Date: ${new Date().toISOString().split('T')[0]}`);
+function getYesterdayUTC() {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().split('T')[0];
+}
 
-    // Initialize database
-    await db.initDatabase();
+// ============ Main scoring function ============
 
-    // 1. Get active tournament
-    console.log('\n📊 Step 1: Fetching active tournament...');
-    const tournament = await getActiveTournamentFromBlockchain();
+/**
+ * Run daily scoring for the active tournament.
+ * @param {string} [dateOverride] - Optional date to score (YYYY-MM-DD). Defaults to yesterday UTC.
+ */
+async function runDailyScoring(dateOverride) {
+    const scoringDate = dateOverride || getYesterdayUTC();
+    console.log(`\n--- Daily Scorer ---`);
+    console.log(`Scoring date: ${scoringDate}`);
+
+    // 1. Get active tournament from blockchain
+    console.log('\n[1] Fetching active tournament from chain...');
+    let tournament;
+    try {
+        tournament = await getActiveTournament();
+    } catch (error) {
+        console.error('Failed to read tournament from chain:', error.message);
+        return;
+    }
 
     if (!tournament) {
-        console.log('❌ No active tournament found');
+        console.log('No active tournament found on chain. Skipping.');
         return;
     }
 
     if (tournament.status !== 'active') {
-        console.log(`⚠️  Tournament status is "${tournament.status}", not "active". Skipping scoring.`);
+        console.log(`Tournament #${tournament.id} status is "${tournament.status}". Scoring only runs for "active" tournaments. Skipping.`);
         return;
     }
 
-    console.log(`✅ Found active tournament #${tournament.id}`);
-    console.log(`   Participants: ${tournament.entryCount}`);
+    console.log(`Tournament #${tournament.id} | status=${tournament.status} | players=${tournament.entryCount} | pool=${tournament.prizePool} XTZ`);
 
-    // Save tournament to DB
+    // Sync tournament to DB
     db.saveTournament(tournament);
 
-    // 2. Get tournament participants
-    console.log('\n👥 Step 2: Fetching tournament participants...');
-    const participants = await getTournamentEntriesFromBlockchain(tournament.id);
-    console.log(`✅ Found ${participants.length} participants`);
-
-    // Save entries to DB
-    for (const participant of participants) {
-        db.saveTournamentEntry(tournament.id, participant);
+    // Check if this date was already scored (prevent double scoring)
+    const existingScores = db.getDailyScores(tournament.id, scoringDate);
+    if (existingScores.length > 0) {
+        console.log(`Date ${scoringDate} already has ${existingScores.length} startup scores for tournament #${tournament.id}. Skipping to avoid duplicates.`);
+        return;
     }
 
-    // 3. Fetch Twitter scores for all startups
-    console.log('\n🐦 Step 3: Fetching Twitter scores...');
-    const dailyScores = {};
-    const startupNames = Object.keys(STARTUP_MAPPING);
+    // 2. Get participants from blockchain
+    console.log('\n[2] Fetching participants from chain...');
+    let participants;
+    try {
+        participants = await getParticipants(tournament.id);
+    } catch (error) {
+        console.error('Failed to read participants:', error.message);
+        participants = [];
+    }
+    console.log(`Found ${participants.length} participants`);
 
-    for (let i = 0; i < startupNames.length; i++) {
-        const twitterHandle = startupNames[i];
-        const startupName = STARTUP_MAPPING[twitterHandle];
+    for (const p of participants) {
+        db.saveTournamentEntry(tournament.id, p);
+    }
 
-        console.log(`\n   [${i + 1}/${startupNames.length}] Processing @${twitterHandle} (${startupName})...`);
+    // 3. Fetch & score tweets for all startups
+    console.log('\n[3] Scoring startups from Twitter...');
+    const startupBaseScores = {};
+    const handles = Object.keys(STARTUP_MAPPING);
 
-        const result = await processStartup(twitterHandle, true);
+    for (let i = 0; i < handles.length; i++) {
+        const handle = handles[i];
+        const name = STARTUP_MAPPING[handle];
+        console.log(`\n  [${i + 1}/${handles.length}] @${handle} (${name})`);
 
-        if (result.isStub || result.error) {
-            console.log(`   ⚠️  Skipped (${result.message || result.error})`);
-            dailyScores[startupName] = 0;
-        } else {
-            dailyScores[startupName] = result.totalPoints;
-            console.log(`   ✅ Score: ${result.totalPoints} points`);
+        try {
+            const result = await processStartupForDate(handle, scoringDate);
+            startupBaseScores[name] = result.totalPoints;
 
-            // Save to daily_scores table
-            const today = new Date().toISOString().split('T')[0];
+            console.log(`  -> ${result.tweetCount} tweets, ${result.totalPoints} pts`);
+
+            // Save daily score
             db.saveDailyScore(
                 tournament.id,
-                startupName,
-                today,
+                name,
+                scoringDate,
                 result.totalPoints,
-                result.tweets.length,
+                result.tweetCount,
                 result.tweets.flatMap(t => t.events)
             );
 
             // Save events to live feed
-            if (result.tweets && result.tweets.length > 0) {
-                for (const tweet of result.tweets) {
-                    if (tweet.events && tweet.events.length > 0) {
-                        for (const event of tweet.events) {
-                            const description = tweet.text
-                                ? tweet.text.substring(0, 200)
-                                : `${startupName}: ${event} detected`;
-                            db.saveLiveFeedEvent(
-                                startupName,
-                                event,
-                                description,
-                                tweet.points || result.totalPoints,
-                                tweet.id || null,
-                                today
-                            );
-                        }
-                    }
+            for (const tweet of result.tweets) {
+                for (const event of (tweet.events || [])) {
+                    db.saveLiveFeedEvent(
+                        name,
+                        event.type,
+                        tweet.text ? tweet.text.substring(0, 200) : `${name}: ${event.type}`,
+                        event.score || 0,
+                        tweet.id || null,
+                        scoringDate
+                    );
                 }
             }
+        } catch (error) {
+            console.error(`  Error scoring ${name}: ${error.message}`);
+            startupBaseScores[name] = 0;
         }
 
-        // Delay for rate limiting
-        if (i < startupNames.length - 1) {
-            console.log('   ⏳ Waiting 5 seconds...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
+        // Rate limit between startups
+        if (i < handles.length - 1) {
+            await new Promise(r => setTimeout(r, 5000));
         }
     }
 
-    // 4. Calculate scores for all participants
-    console.log('\n🎯 Step 4: Calculating participant scores...');
-    const today = new Date().toISOString().split('T')[0];
+    // 4. Calculate player scores
+    console.log('\n[4] Calculating player scores...');
 
     for (const participant of participants) {
-        console.log(`\n   Player: ${participant}`);
+        try {
+            const cards = await getPlayerCards(tournament.id, participant);
 
-        // Get player's cards
-        const cards = await getPlayerCards(tournament.id, participant);
-        console.log(`   Cards: ${cards.length}`);
+            if (cards.length === 0) {
+                console.log(`  ${participant.substring(0, 10)}... - no cards, skipping`);
+                continue;
+            }
 
-        if (cards.length === 0) {
-            console.log('   ⚠️  No cards found, skipping');
-            continue;
+            // Save cards to DB
+            db.savePlayerCards(tournament.id, participant, cards);
+
+            // Calculate today's score
+            const { totalPoints, breakdown } = calculatePlayerScore(cards, startupBaseScores);
+
+            // Save daily score history
+            db.saveScoreHistory(tournament.id, participant, scoringDate, totalPoints, breakdown);
+
+            // Recalculate total from all days
+            const history = db.getPlayerScoreHistory(tournament.id, participant);
+            const totalScore = history.reduce((sum, h) => sum + h.points_earned, 0);
+            db.updateLeaderboard(tournament.id, participant, totalScore);
+
+            console.log(`  ${participant.substring(0, 10)}... - today: ${totalPoints.toFixed(1)} | total: ${totalScore.toFixed(1)}`);
+        } catch (error) {
+            console.error(`  Error for ${participant.substring(0, 10)}...: ${error.message}`);
         }
-
-        // Save cards to DB
-        db.saveTournamentCards(tournament.id, participant, cards);
-
-        // Calculate score
-        const { totalPoints, breakdown } = calculatePlayerScore(cards, dailyScores);
-        console.log(`   Points earned today: ${totalPoints.toFixed(2)}`);
-
-        // Save score history
-        db.saveScoreHistory(tournament.id, participant, today, totalPoints, breakdown);
-
-        // Update total score in leaderboard
-        const history = db.getPlayerScoreHistory(tournament.id, participant);
-        const totalScore = history.reduce((sum, h) => sum + h.points_earned, 0);
-
-        db.updateLeaderboard(tournament.id, participant, totalScore);
-        console.log(`   Total score: ${totalScore.toFixed(2)}`);
     }
 
-    // 5. Display leaderboard
-    console.log('\n\n🏆 LEADERBOARD');
-    console.log('━'.repeat(60));
+    // 5. Print leaderboard
     const leaderboard = db.getLeaderboard(tournament.id, 10);
-
-    leaderboard.forEach((entry, index) => {
-        console.log(`${index + 1}. ${entry.player_address.substring(0, 10)}... - ${entry.total_score.toFixed(2)} pts`);
-    });
-
-    console.log('\n✅ Daily scoring complete!');
-    console.log('━'.repeat(60));
-}
-
-// Run if called directly
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
-    runDailyScoring()
-        .then(() => process.exit(0))
-        .catch(error => {
-            console.error('Fatal error:', error);
-            process.exit(1);
+    if (leaderboard.length > 0) {
+        console.log('\n[5] Leaderboard:');
+        leaderboard.forEach((entry, i) => {
+            console.log(`  ${i + 1}. ${entry.address.substring(0, 10)}... - ${entry.score.toFixed(1)} pts`);
         });
+    }
+
+    // Save to disk
+    db.saveDatabase();
+    console.log('\nScoring complete. DB saved.');
 }
 
 export { runDailyScoring };

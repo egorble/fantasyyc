@@ -110,15 +110,31 @@ export function usePacks() {
         try {
             const packContract = getPackOpenerContract(signer);
             const nftContract = getNFTContract(signer);
+            const signerAddress = await signer.getAddress();
+
+            // Get referrer from localStorage or URL params
+            let referrer = localStorage.getItem('fantasyyc_referrer');
+            if (!referrer) {
+                const params = new URLSearchParams(window.location.search);
+                const ref = params.get('ref');
+                if (ref && ref.startsWith('0x') && ref.length === 42) {
+                    referrer = ref.toLowerCase();
+                }
+            }
+            // Don't refer yourself
+            if (referrer && referrer.toLowerCase() === signerAddress.toLowerCase()) {
+                referrer = null;
+            }
+
+            const referrerAddress = referrer || ethers.ZeroAddress;
             const price = await packContract.currentPackPrice();
 
             console.log('📦 Buying and opening pack...');
             console.log('   Price:', ethers.formatEther(price), 'XTZ');
-            console.log('   Price (wei):', price.toString());
+            if (referrer) console.log('   Referrer:', referrer);
 
-            // Single transaction: buy and open pack
-            // Pass value explicitly to ensure wallet displays it
-            const tx = await packContract.buyAndOpenPack({
+            // Single transaction: buy, set referrer, and open pack
+            const tx = await packContract.buyAndOpenPack(referrerAddress, {
                 value: BigInt(price.toString())
             });
             console.log('   TX sent:', tx.hash);
@@ -140,7 +156,6 @@ export function usePacks() {
             console.log('   Minted token IDs:', tokenIds);
 
             // Invalidate cache after purchase
-            const signerAddress = await signer.getAddress();
             blockchainCache.invalidate(CacheKeys.packsSold());
             blockchainCache.invalidatePrefix(`nft:owned:${signerAddress}`);
             blockchainCache.invalidatePrefix(`nft:cards:${signerAddress}`);

@@ -7,6 +7,8 @@ export interface LeaderboardEntry {
     address: string;
     score: number;
     lastUpdated: string;
+    username?: string | null;
+    avatar?: string | null;
 }
 
 export interface PlayerRank {

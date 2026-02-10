@@ -58,12 +58,7 @@ function aggregateStartupPoints(tournamentId) {
     const points = new Array(19).fill(0);
 
     // Get all daily scores for this tournament
-    const dailyScores = db.all(`
-        SELECT startup_name, SUM(base_points) as total_points
-        FROM daily_scores
-        WHERE tournament_id = ?
-        GROUP BY startup_name
-    `, [tournamentId]);
+    const dailyScores = db.getAggregatedStartupScores(tournamentId);
 
     console.log(`\n📊 Aggregated Scores:`);
 

@@ -123,7 +123,6 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     error WithdrawFailed();
     error InvalidPrice();
     error CannotReferSelf();
-    error AlreadyHasReferrer();
 
     // ============ Constructor ============
 
@@ -144,21 +143,6 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     // ============ Referral Functions ============
 
     /**
-     * @notice Register a referrer for the caller
-     * @param referrer Address of the person who referred
-     */
-    function setReferrer(address referrer) external {
-        if (referrer == msg.sender) revert CannotReferSelf();
-        if (referrer == address(0)) revert ZeroAddress();
-        if (referrers[msg.sender] != address(0)) revert AlreadyHasReferrer();
-
-        referrers[msg.sender] = referrer;
-        referralCount[referrer]++;
-
-        emit ReferralRegistered(msg.sender, referrer);
-    }
-
-    /**
      * @notice Get referrer for a user
      */
     function getReferrer(address user) external view returns (address) {
@@ -175,14 +159,31 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         return (referralCount[referrer], referralEarnings[referrer]);
     }
 
+    /**
+     * @dev Auto-register referrer if buyer doesn't have one yet
+     */
+    function _trySetReferrer(address buyer, address referrer) internal {
+        if (referrer == address(0)) return;
+        if (referrer == buyer) return;
+        if (referrers[buyer] != address(0)) return; // already has referrer
+
+        referrers[buyer] = referrer;
+        referralCount[referrer]++;
+        emit ReferralRegistered(buyer, referrer);
+    }
+
     // ============ Pack Purchase Functions ============
 
     /**
-     * @notice Purchase a pack (checks for referrer automatically)
+     * @notice Purchase a pack with optional referrer
+     * @param referrer Address of referrer (pass address(0) if none)
      */
-    function buyPack() external payable whenNotPaused nonReentrant returns (uint256 packId) {
+    function buyPack(address referrer) external payable whenNotPaused nonReentrant returns (uint256 packId) {
         if (msg.value < currentPackPrice) revert InsufficientPayment();
         if (packsSold >= MAX_PACKS) revert MaxPacksReached();
+
+        // Auto-register referrer on first purchase
+        _trySetReferrer(msg.sender, referrer);
 
         packId = packsSold + 1;
         packsSold++;
@@ -209,14 +210,18 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Purchase and immediately open a pack
+     * @notice Purchase and immediately open a pack with optional referrer
+     * @param referrer Address of referrer (pass address(0) if none)
      */
-    function buyAndOpenPack() external payable whenNotPaused nonReentrant returns (
+    function buyAndOpenPack(address referrer) external payable whenNotPaused nonReentrant returns (
         uint256[5] memory cardIds,
         uint256[5] memory startupIds
     ) {
         if (msg.value < currentPackPrice) revert InsufficientPayment();
         if (packsSold >= MAX_PACKS) revert MaxPacksReached();
+
+        // Auto-register referrer on first purchase
+        _trySetReferrer(msg.sender, referrer);
 
         uint256 packId = packsSold + 1;
         packsSold++;

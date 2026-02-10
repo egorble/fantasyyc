@@ -463,7 +463,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
         if (tournament.status == TournamentStatus.Finalized) revert TournamentAlreadyFinalized();
         if (tournament.status == TournamentStatus.Cancelled) revert TournamentCancelledError();
         if (block.timestamp < tournament.registrationStart) revert RegistrationNotOpen();
-        if (block.timestamp >= tournament.startTime) revert TournamentAlreadyStarted();
+        if (block.timestamp >= tournament.endTime) revert TournamentAlreadyStarted();
         if (hasEntered[tournamentId][msg.sender]) revert AlreadyEntered();
         
         // Verify ownership and not already locked
@@ -643,7 +643,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
         if (tournament.id == 0) return false;
         if (tournament.status != TournamentStatus.Created) return false;
         if (block.timestamp < tournament.registrationStart) return false;
-        if (block.timestamp >= tournament.startTime) return false;
+        if (block.timestamp >= tournament.endTime) return false;
         if (hasEntered[tournamentId][user]) return false;
         return true;
     }

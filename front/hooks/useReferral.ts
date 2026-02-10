@@ -3,15 +3,15 @@ import { useWalletContext } from '../context/WalletContext';
 import { getPackOpenerContract, formatXTZ } from '../lib/contracts';
 
 const REFERRAL_STORAGE_KEY = 'fantasyyc_referrer';
+const API_BASE = 'http://localhost:3003/api';
 
 export function useReferral() {
-    const { address, isConnected, getSigner } = useWalletContext();
+    const { address, isConnected } = useWalletContext();
     const [referralStats, setReferralStats] = useState<{ count: number; totalEarned: string }>({
         count: 0,
         totalEarned: '0',
     });
     const [myReferrer, setMyReferrer] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
 
     // Generate referral link
     const getReferralLink = useCallback(() => {
@@ -19,12 +19,11 @@ export function useReferral() {
         return `${window.location.origin}?ref=${address}`;
     }, [address]);
 
-    // Check URL for referral code on page load
+    // Check URL for referral code on page load and store in localStorage
     const checkReferralFromURL = useCallback(() => {
         const params = new URLSearchParams(window.location.search);
         const ref = params.get('ref');
         if (ref && ref.startsWith('0x') && ref.length === 42) {
-            // Store referrer locally
             const stored = localStorage.getItem(REFERRAL_STORAGE_KEY);
             if (!stored) {
                 localStorage.setItem(REFERRAL_STORAGE_KEY, ref.toLowerCase());
@@ -34,48 +33,31 @@ export function useReferral() {
         return localStorage.getItem(REFERRAL_STORAGE_KEY);
     }, []);
 
-    // Register referrer on-chain
-    const registerReferrer = useCallback(async (referrerAddress: string) => {
-        if (!isConnected || !address) return false;
-        if (referrerAddress.toLowerCase() === address.toLowerCase()) return false;
-
-        try {
-            setLoading(true);
-            const signer = await getSigner();
-            if (!signer) return false;
-
-            const contract = getPackOpenerContract(signer);
-            const tx = await contract.setReferrer(referrerAddress);
-            await tx.wait();
-
-            setMyReferrer(referrerAddress);
-            localStorage.removeItem(REFERRAL_STORAGE_KEY); // Clear after registering
-            return true;
-        } catch (error: any) {
-            // AlreadyHasReferrer is expected if already registered
-            if (error.message?.includes('AlreadyHasReferrer')) {
-                console.log('Referrer already set');
-            } else {
-                console.error('Failed to register referrer:', error);
-            }
-            return false;
-        } finally {
-            setLoading(false);
-        }
-    }, [isConnected, address, getSigner]);
-
-    // Fetch referral stats from contract
+    // Fetch referral stats - on-chain + backend
     const fetchReferralStats = useCallback(async () => {
         if (!address) return;
 
         try {
             const contract = getPackOpenerContract();
-
-            // Get stats
             const [count, totalEarned] = await contract.getReferralStats(address);
+            const onChainCount = Number(count);
+            const onChainEarned = formatXTZ(totalEarned);
+
+            // Also fetch backend stats
+            let backendCount = 0;
+            try {
+                const res = await fetch(`${API_BASE}/referrals/${address}`);
+                const data = await res.json();
+                if (data.success) {
+                    backendCount = data.data.totalReferrals || 0;
+                }
+            } catch {
+                // Backend unavailable
+            }
+
             setReferralStats({
-                count: Number(count),
-                totalEarned: formatXTZ(totalEarned),
+                count: Math.max(onChainCount, backendCount),
+                totalEarned: onChainEarned,
             });
 
             // Get my referrer
@@ -83,19 +65,19 @@ export function useReferral() {
             if (referrer !== '0x0000000000000000000000000000000000000000') {
                 setMyReferrer(referrer);
             }
-        } catch (error) {
-            // Contract might not be deployed yet, use backend fallback
+        } catch {
+            // On-chain failed, try backend only
             try {
-                const res = await fetch(`http://localhost:3003/api/referrals/${address}`);
+                const res = await fetch(`${API_BASE}/referrals/${address}`);
                 const data = await res.json();
                 if (data.success) {
                     setReferralStats({
-                        count: data.data.totalReferrals,
-                        totalEarned: String(data.data.totalEarned),
+                        count: data.data.totalReferrals || 0,
+                        totalEarned: String(data.data.totalEarned || 0),
                     });
                 }
             } catch {
-                // Silently fail
+                // Both failed
             }
         }
     }, [address]);
@@ -105,25 +87,16 @@ export function useReferral() {
         if (isConnected && address) {
             checkReferralFromURL();
             fetchReferralStats();
+
+            const interval = setInterval(fetchReferralStats, 30000);
+            return () => clearInterval(interval);
         }
     }, [isConnected, address, checkReferralFromURL, fetchReferralStats]);
-
-    // Auto-register referrer when connected
-    useEffect(() => {
-        if (isConnected && address && !myReferrer) {
-            const storedReferrer = localStorage.getItem(REFERRAL_STORAGE_KEY);
-            if (storedReferrer && storedReferrer !== address.toLowerCase()) {
-                registerReferrer(storedReferrer);
-            }
-        }
-    }, [isConnected, address, myReferrer, registerReferrer]);
 
     return {
         getReferralLink,
         referralStats,
         myReferrer,
-        registerReferrer,
         fetchReferralStats,
-        loading,
     };
 }

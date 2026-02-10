@@ -11,12 +11,18 @@ import Leagues from './components/Leagues';
 import Analytics from './components/Analytics';
 import AdminPanel from './components/AdminPanel';
 import CardDetailModal, { CardDetailData } from './components/CardDetailModal';
+import ProfileSetupModal from './components/ProfileSetupModal';
+import ProfileEditModal from './components/ProfileEditModal';
+import TournamentCTA from './components/TournamentCTA';
+import DashboardLeaderboard from './components/DashboardLeaderboard';
 import { NavSection, UserProfile, Startup, Rarity, CardData } from './types';
 import { Filter, Search, Wallet, Menu, Loader2 } from 'lucide-react';
 import { ThemeProvider } from './context/ThemeContext';
 import { WalletProvider, useWalletContext } from './context/WalletContext';
 import { formatXTZ, CHAIN_NAME } from './lib/contracts';
 import { isAdmin } from './hooks/useAdmin';
+import { useUser } from './hooks/useUser';
+import { generatePixelAvatar } from './lib/pixelAvatar';
 import { ethers } from 'ethers';
 import { useMarketplaceV2, Listing } from './hooks/useMarketplaceV2';
 import { useNFT } from './hooks/useNFT';
@@ -50,18 +56,28 @@ const AppContent: React.FC = () => {
         isConnecting
     } = useWalletContext();
 
+    // User profile hook
+    const { profile, needsRegistration, isNewUser, registerUser, updateProfile } = useUser();
+
+    // Profile edit modal state
+    const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
+
     // Marketplace hook
     const { getActiveListings } = useMarketplaceV2();
 
     // NFT hook
     const { getCardMetadata } = useNFT();
 
-    // Dynamic user from wallet
+    // Dynamic user from wallet + profile
     const user: UserProfile = {
-        name: isConnected ? formatAddress(address!) : 'Not Connected',
+        name: isConnected
+            ? (profile?.username || formatAddress(address!))
+            : 'Not Connected',
         handle: isConnected ? `@${address?.slice(2, 8)}` : '@connect',
         balanceXTZ: isConnected ? Number(ethers.formatEther(balance)) : 0,
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
+        avatar: isConnected
+            ? (profile?.avatar || generatePixelAvatar(address || ''))
+            : generatePixelAvatar(''),
         address: address || undefined,
     };
 
@@ -175,114 +191,129 @@ const AppContent: React.FC = () => {
             default:
                 return (
                     <div className="animate-[fadeIn_0.3s_ease-out]">
+                        {/* 1. Hero Banner */}
                         <div className="mb-6 md:mb-10">
                             <HeroBanner />
                         </div>
 
+                        {/* 2. Live Feed Marquee */}
                         <LiveFeed />
 
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 md:gap-6">
-                            <div className="w-full md:w-auto">
-                                <div className="flex items-center flex-wrap gap-2">
-                                    {['all', 'legendary', 'epic', 'rare', 'common'].map((filter) => (
-                                        <button
-                                            key={filter}
-                                            onClick={() => setActiveFilter(filter)}
-                                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 transform active:scale-95 ${activeFilter === filter
-                                                ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30 scale-105'
-                                                : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
-                                                }`}
-                                        >
-                                            {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                        {/* 3. Tournament CTA */}
+                        <TournamentCTA onNavigate={handleSectionChange} />
 
-                            <div className="flex items-center space-x-3 self-end md:self-auto">
-                                <span className="text-xs font-bold text-gray-400 uppercase">Sort by:</span>
-                                <div className="relative group">
-                                    <button className="flex items-center text-sm font-bold text-yc-text-primary dark:text-white hover:text-yc-orange transition-colors">
-                                        {sortBy === 'price' ? 'Price' : sortBy === 'rarity' ? 'Rarity' : 'Recent'}
-                                        <Filter className="w-3 h-3 ml-1 text-gray-400 group-hover:text-yc-orange transition-colors" />
-                                    </button>
-                                    <div className="absolute right-0 top-full mt-2 bg-white dark:bg-[#09090b] border border-gray-200 dark:border-[#27272a] rounded-lg shadow-lg py-2 min-w-[120px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                                        <button
-                                            onClick={() => setSortBy('recent')}
-                                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
-                                        >
-                                            Recent
+                        {/* 4. Leaderboard */}
+                        <DashboardLeaderboard onNavigate={handleSectionChange} />
+
+                        {/* 5. NFT Marketplace */}
+                        <div className="mt-8">
+                            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4 flex items-center">
+                                <span className="w-1.5 h-5 bg-yc-orange rounded-full mr-2"></span>
+                                NFT Marketplace
+                            </h3>
+
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4 md:gap-6">
+                                <div className="w-full md:w-auto">
+                                    <div className="flex items-center flex-wrap gap-2">
+                                        {['all', 'legendary', 'epic', 'rare', 'common'].map((filter) => (
+                                            <button
+                                                key={filter}
+                                                onClick={() => setActiveFilter(filter)}
+                                                className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 transform active:scale-95 ${activeFilter === filter
+                                                    ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30 scale-105'
+                                                    : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
+                                                    }`}
+                                            >
+                                                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center space-x-3 self-end md:self-auto">
+                                    <span className="text-xs font-bold text-gray-400 uppercase">Sort by:</span>
+                                    <div className="relative group">
+                                        <button className="flex items-center text-sm font-bold text-yc-text-primary dark:text-white hover:text-yc-orange transition-colors">
+                                            {sortBy === 'price' ? 'Price' : sortBy === 'rarity' ? 'Rarity' : 'Recent'}
+                                            <Filter className="w-3 h-3 ml-1 text-gray-400 group-hover:text-yc-orange transition-colors" />
                                         </button>
-                                        <button
-                                            onClick={() => setSortBy('price')}
-                                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
-                                        >
-                                            Price
-                                        </button>
-                                        <button
-                                            onClick={() => setSortBy('rarity')}
-                                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
-                                        >
-                                            Rarity
-                                        </button>
+                                        <div className="absolute right-0 top-full mt-2 bg-white dark:bg-[#09090b] border border-gray-200 dark:border-[#27272a] rounded-lg shadow-lg py-2 min-w-[120px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                            <button
+                                                onClick={() => setSortBy('recent')}
+                                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
+                                            >
+                                                Recent
+                                            </button>
+                                            <button
+                                                onClick={() => setSortBy('price')}
+                                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
+                                            >
+                                                Price
+                                            </button>
+                                            <button
+                                                onClick={() => setSortBy('rarity')}
+                                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#18181b] text-gray-900 dark:text-white"
+                                            >
+                                                Rarity
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
+                            {isLoadingDashboard ? (
+                                <div className="flex items-center justify-center py-20">
+                                    <Loader2 className="w-8 h-8 animate-spin text-yc-orange" />
+                                    <span className="ml-3 text-lg font-bold text-gray-400">Loading marketplace...</span>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                                    {filteredAndSortedListings.length > 0 ? (
+                                        filteredAndSortedListings.map(({ listing, card }) => {
+                                            const startupData: Startup = {
+                                                id: card.tokenId.toString(),
+                                                name: card.name,
+                                                batch: `Edition ${card.edition}`,
+                                                description: card.description || `${card.rarity} rarity NFT card with ${card.multiplier}x multiplier`,
+                                                value: Number(ethers.formatEther(listing.price)),
+                                                change: card.multiplier * 10,
+                                                logo: card.image,
+                                                coverImage: card.image,
+                                                stage: card.rarity,
+                                                score: card.multiplier * 10,
+                                                trend: [0, 0, 0, 0, 0, Number(ethers.formatEther(listing.price))],
+                                            };
+
+                                            return (
+                                                <StartupCard
+                                                    key={`${listing.listingId}-${card.tokenId}`}
+                                                    startup={startupData}
+                                                    onClick={() => {
+                                                        setDashboardSelectedCard(card);
+                                                        setDashboardSelectedStartup({
+                                                            id: card.tokenId.toString(),
+                                                            image: card.image,
+                                                            name: card.name,
+                                                            value: Number(ethers.formatEther(listing.price)),
+                                                            rarity: card.rarity,
+                                                            multiplier: `${card.multiplier}x`,
+                                                            batch: `Edition ${card.edition}`,
+                                                            stage: card.rarity
+                                                        });
+                                                    }}
+                                                />
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-4 text-center py-20">
+                                            <p className="text-xl font-bold text-gray-400">
+                                                {searchQuery ? `No NFTs found matching "${searchQuery}"` : 'No NFTs listed on marketplace'}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
-
-                        {isLoadingDashboard ? (
-                            <div className="flex items-center justify-center py-20">
-                                <Loader2 className="w-8 h-8 animate-spin text-yc-orange" />
-                                <span className="ml-3 text-lg font-bold text-gray-400">Loading marketplace...</span>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-                                {filteredAndSortedListings.length > 0 ? (
-                                    filteredAndSortedListings.map(({ listing, card }) => {
-                                        // Convert CardData to Startup format for StartupCard component
-                                        const startupData: Startup = {
-                                            id: card.tokenId.toString(),
-                                            name: card.name,
-                                            batch: `Edition ${card.edition}`,
-                                            description: card.description || `${card.rarity} rarity NFT card with ${card.multiplier}x multiplier`,
-                                            value: Number(ethers.formatEther(listing.price)),
-                                            change: card.multiplier * 10, // Use multiplier for change percentage
-                                            logo: card.image,
-                                            coverImage: card.image,
-                                            stage: card.rarity,
-                                            score: card.multiplier * 10,
-                                            trend: [0, 0, 0, 0, 0, Number(ethers.formatEther(listing.price))],
-                                        };
-
-                                        return (
-                                            <StartupCard
-                                                key={`${listing.listingId}-${card.tokenId}`}
-                                                startup={startupData}
-                                                onClick={() => {
-                                                    setDashboardSelectedCard(card);
-                                                    setDashboardSelectedStartup({
-                                                        id: card.tokenId.toString(),
-                                                        image: card.image,
-                                                        name: card.name,
-                                                        value: Number(ethers.formatEther(listing.price)),
-                                                        rarity: card.rarity,
-                                                        multiplier: `${card.multiplier}x`,
-                                                        batch: `Edition ${card.edition}`,
-                                                        stage: card.rarity
-                                                    });
-                                                }}
-                                            />
-                                        );
-                                    })
-                                ) : (
-                                    <div className="col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-4 text-center py-20">
-                                        <p className="text-xl font-bold text-gray-400">
-                                            {searchQuery ? `No NFTs found matching "${searchQuery}"` : 'No NFTs listed on marketplace'}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
                 );
         }
@@ -306,10 +337,11 @@ const AppContent: React.FC = () => {
                 user={user}
                 isOpen={isMobileMenuOpen}
                 onClose={() => setIsMobileMenuOpen(false)}
+                onSettingsClick={() => isConnected && profile && setIsProfileEditOpen(true)}
             />
 
             {/* Main Content Area */}
-            <main className="w-full md:pl-72 xl:pr-80 min-h-screen transition-all duration-300">
+            <main className="w-full md:pl-72 xl:pr-64 min-h-screen transition-all duration-300">
                 <div className="w-full mx-auto p-4 md:p-6">
 
                     {/* Top Bar */}
@@ -402,6 +434,23 @@ const AppContent: React.FC = () => {
                     setDashboardSelectedStartup(null);
                     setDashboardSelectedCard(null);
                 }}
+            />
+
+            {/* Profile Setup Modal - shown on first wallet connection */}
+            <ProfileSetupModal
+                isOpen={isConnected && needsRegistration}
+                address={address || ''}
+                onComplete={registerUser}
+            />
+
+            {/* Profile Edit Modal - shown when clicking gear icon */}
+            <ProfileEditModal
+                isOpen={isProfileEditOpen}
+                onClose={() => setIsProfileEditOpen(false)}
+                address={address || ''}
+                currentUsername={profile?.username || ''}
+                currentAvatar={profile?.avatar || null}
+                onSave={updateProfile}
             />
 
         </div>

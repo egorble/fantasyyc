@@ -11,9 +11,10 @@ interface SidebarProps {
   user: UserProfile;
   isOpen?: boolean;
   onClose?: () => void;
+  onSettingsClick?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user, isOpen = false, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user, isOpen = false, onClose, onSettingsClick }) => {
   const { theme, toggleTheme } = useTheme();
   const { disconnect, isConnected } = useWalletContext();
   const userIsAdmin = isAdmin(user.address || null);
@@ -80,15 +81,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
       <div className="p-6 border-t border-yc-light-border dark:border-yc-dark-border space-y-6 bg-gray-50/50 dark:bg-black/20">
 
         {/* User Profile - Large Card Style */}
-        <div className="flex items-center p-3 rounded-xl bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] shadow-sm cursor-pointer hover:border-yc-orange transition-colors group">
+        <div
+          className="flex items-center p-3 rounded-xl bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] shadow-sm cursor-pointer hover:border-yc-orange transition-colors group"
+          onClick={onSettingsClick}
+        >
           <div className="w-10 h-10 rounded-lg bg-gray-200 dark:bg-[#333] overflow-hidden shrink-0">
-            <img src={user.avatar} alt="User" className="w-full h-full object-cover" />
+            <img
+              src={user.avatar}
+              alt="User"
+              className="w-full h-full object-cover"
+              style={{ imageRendering: user.avatar?.startsWith('data:') ? 'pixelated' : 'auto' }}
+            />
           </div>
           <div className="ml-3 flex-1 min-w-0">
             <p className="text-sm font-bold text-yc-text-primary dark:text-white truncate group-hover:text-yc-orange transition-colors">{user.name}</p>
             <p className="text-xs text-gray-400 font-mono font-medium">Pro League</p>
           </div>
-          <Settings className="w-5 h-5 text-gray-300 hover:text-yc-text-primary transition-colors shrink-0" />
+          <Settings className="w-5 h-5 text-gray-300 group-hover:text-yc-orange transition-colors shrink-0" />
         </div>
 
         {/* Theme Toggle - Minimal */}

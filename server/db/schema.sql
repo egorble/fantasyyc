@@ -98,6 +98,16 @@ CREATE TABLE IF NOT EXISTS live_feed (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- User profiles
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    address TEXT NOT NULL UNIQUE,
+    username TEXT NOT NULL,
+    avatar_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Referrals tracking
 CREATE TABLE IF NOT EXISTS referrals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,6 +117,12 @@ CREATE TABLE IF NOT EXISTS referrals (
     amount_earned TEXT DEFAULT '0',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(referred_address)
+);
+
+-- Key-value store for server config tracking
+CREATE TABLE IF NOT EXISTS kv_store (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
 
 -- Indexes for performance
@@ -120,3 +136,5 @@ CREATE INDEX IF NOT EXISTS idx_score_history_player ON score_history(tournament_
 CREATE INDEX IF NOT EXISTS idx_live_feed_date ON live_feed(date);
 CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_address);
 CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals(referred_address);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_address ON user_profiles(address);
+CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments(status);

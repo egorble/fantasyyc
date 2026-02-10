@@ -40,7 +40,7 @@ export async function initDatabase(forceReload = false) {
 /**
  * Save database to disk
  */
-function saveDatabase() {
+export function saveDatabase() {
     if (!db) return;
     const data = db.export();
     const buffer = Buffer.from(data);
@@ -53,7 +53,6 @@ function saveDatabase() {
 function exec(sql, params = []) {
     if (!db) throw new Error('Database not initialized');
     db.run(sql, params);
-    saveDatabase();
 }
 
 /**
@@ -83,6 +82,33 @@ function all(sql, params = []) {
     return results;
 }
 
+// ============ KV Store Functions ============
+
+export function getConfig(key) {
+    const row = get('SELECT value FROM kv_store WHERE key = ?', [key]);
+    return row ? row.value : null;
+}
+
+export function setConfig(key, value) {
+    exec('INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)', [key, value]);
+}
+
+/**
+ * Wipe all tournament-related data (scores, leaderboard, entries, etc.)
+ * Called when contract addresses change to start fresh.
+ * Preserves: user_profiles, referrals, players.
+ */
+export function wipeTournamentData() {
+    exec('DELETE FROM tournaments');
+    exec('DELETE FROM tournament_entries');
+    exec('DELETE FROM tournament_cards');
+    exec('DELETE FROM daily_scores');
+    exec('DELETE FROM leaderboard');
+    exec('DELETE FROM score_history');
+    exec('DELETE FROM live_feed');
+    console.log('   Wiped all tournament data (contract change detected)');
+}
+
 // ============ Tournament Functions ============
 
 export function saveTournament(tournament) {
@@ -105,6 +131,8 @@ export function getTournament(blockchainId) {
     return get('SELECT * FROM tournaments WHERE blockchain_id = ?', [blockchainId]);
 }
 
+export const getTournamentById = getTournament;
+
 export function getAllTournaments() {
     return all('SELECT * FROM tournaments ORDER BY blockchain_id DESC');
 }
@@ -112,10 +140,18 @@ export function getAllTournaments() {
 export function getActiveTournament() {
     return get(`
         SELECT * FROM tournaments
-        WHERE status = 'active'
+        WHERE status IN ('active', 'registration')
         ORDER BY blockchain_id DESC
         LIMIT 1
     `);
+}
+
+export function deactivateOtherTournaments(activeBlockchainId) {
+    exec(
+        `UPDATE tournaments SET status = 'ended', updated_at = CURRENT_TIMESTAMP
+         WHERE blockchain_id != ? AND status IN ('active', 'registration')`,
+        [activeBlockchainId]
+    );
 }
 
 export function updateTournamentStatus(blockchainId, status) {
@@ -160,13 +196,15 @@ export function hasPlayerEntered(tournamentId, playerAddress) {
 // ============ Tournament Cards Functions ============
 
 export function savePlayerCards(tournamentId, playerAddress, cards) {
+    if (!db) throw new Error('Database not initialized');
+
     // First delete existing cards for this player in this tournament
-    exec('DELETE FROM tournament_cards WHERE tournament_id = ? AND player_address = ?',
+    db.run('DELETE FROM tournament_cards WHERE tournament_id = ? AND player_address = ?',
         [tournamentId, playerAddress]);
 
-    // Insert new cards
+    // Insert new cards in batch (no save between each)
     for (const card of cards) {
-        exec(`
+        db.run(`
             INSERT INTO tournament_cards
             (tournament_id, player_address, token_id, startup_name, rarity, multiplier)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -238,9 +276,9 @@ function updateRanks(tournamentId) {
         ORDER BY total_score DESC
     `, [tournamentId]);
 
-    // Update each player's rank
+    // Update each player's rank in batch
     players.forEach((player, index) => {
-        exec(
+        db.run(
             'UPDATE leaderboard SET rank = ? WHERE tournament_id = ? AND player_address = ?',
             [index + 1, tournamentId, player.player_address]
         );
@@ -320,6 +358,64 @@ export function getPlayerScoreHistory(tournamentId, playerAddress) {
         ...row,
         breakdown: row.breakdown ? JSON.parse(row.breakdown) : {}
     }));
+}
+
+// ============ User Profile Functions ============
+
+export function saveUserProfile(address, username, avatarUrl = null) {
+    exec(`
+        INSERT OR REPLACE INTO user_profiles
+        (address, username, avatar_url, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    `, [address.toLowerCase(), username, avatarUrl]);
+}
+
+export function getUserProfile(address) {
+    return get('SELECT * FROM user_profiles WHERE address = ?', [address.toLowerCase()]);
+}
+
+export function isUserRegistered(address) {
+    const result = get('SELECT COUNT(*) as count FROM user_profiles WHERE address = ?', [address.toLowerCase()]);
+    return result && result.count > 0;
+}
+
+export function getUserProfiles(addresses) {
+    if (!addresses || addresses.length === 0) return [];
+    const placeholders = addresses.map(() => '?').join(',');
+    return all(
+        `SELECT * FROM user_profiles WHERE address IN (${placeholders})`,
+        addresses.map(a => a.toLowerCase())
+    );
+}
+
+export function updateUserProfile(address, username, avatarUrl) {
+    exec(`
+        UPDATE user_profiles
+        SET username = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE address = ?
+    `, [username, avatarUrl, address.toLowerCase()]);
+}
+
+// ============ Aggregated Scores (for finalization) ============
+
+export function getAggregatedStartupScores(tournamentId) {
+    return all(`
+        SELECT startup_name, SUM(base_points) as total_points
+        FROM daily_scores
+        WHERE tournament_id = ?
+        GROUP BY startup_name
+    `, [tournamentId]);
+}
+
+export function getTopStartups(tournamentId, limit = 5) {
+    return all(`
+        SELECT startup_name, SUM(base_points) as total_points
+        FROM daily_scores
+        WHERE tournament_id = ?
+        GROUP BY startup_name
+        ORDER BY total_points DESC
+        LIMIT ?
+    `, [tournamentId, limit]);
 }
 
 // ============ Live Feed Functions ============
