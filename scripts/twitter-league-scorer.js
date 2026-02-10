@@ -4,6 +4,39 @@
  * API: https://docs.twitterapi.io/
  */
 
+import { appendFileSync } from 'fs';
+import { join } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const LOG_DIR = join(__dirname, '../server/logs');
+const TWEET_LOG_FILE = join(LOG_DIR, `tweets-${new Date().toISOString().split('T')[0]}.log`);
+
+// Create logs directory if it doesn't exist
+import { mkdirSync, existsSync } from 'fs';
+if (!existsSync(LOG_DIR)) {
+    mkdirSync(LOG_DIR, { recursive: true });
+}
+
+/**
+ * Log tweet data to file
+ */
+function logTweet(userName, tweet, analysis) {
+    const logEntry = {
+        timestamp: new Date().toISOString(),
+        userName,
+        tweetId: tweet.id,
+        tweetText: tweet.text,
+        likes: tweet.public_metrics?.like_count || 0,
+        retweets: tweet.public_metrics?.retweet_count || 0,
+        analysis
+    };
+
+    appendFileSync(TWEET_LOG_FILE, JSON.stringify(logEntry) + '\n');
+}
+
 const API_KEY = 'new1_d1be13bf77c84f1886c5a79cdb692816';
 const API_BASE_URL = 'https://api.twitterapi.io/twitter';
 
@@ -30,52 +63,88 @@ const STARTUPS = [
     'coinbase'       // @coinbase
 ];
 
-// Event scoring rules
+// Event scoring rules with comprehensive synonyms
 const EVENT_SCORES = {
     FUNDING: {
         base: 500,
         perMillion: 100,
         seedMax: 800,
         seriesAPlus: 1500,
-        keywords: ['raised', 'funding', 'seed', 'series a', 'series b', 'series c', 'round', 'investment']
+        keywords: [
+            'raised', 'funding', 'seed', 'series a', 'series b', 'series c', 'series d',
+            'round', 'investment', 'investors', 'backed by', 'led by', 'capital',
+            'venture', 'financing', 'fundraise', 'fundraising', 'raise', 'closed',
+            'pre-seed', 'angel', 'vc', 'valuation', 'invested', 'funding round'
+        ]
     },
     PARTNERSHIP: {
         base: 300,
         perMajorPartner: 50,
-        majorPartners: ['aws', 'amazon', 'google', 'microsoft', 'meta', 'apple'],
-        keywords: ['partner', 'partnership', 'collaboration', 'collab', 'integrated with', 'integration']
+        majorPartners: ['aws', 'amazon', 'google', 'microsoft', 'meta', 'apple', 'nvidia', 'ibm', 'oracle', 'salesforce'],
+        keywords: [
+            'partner', 'partnership', 'collaboration', 'collab', 'integrated with',
+            'integration', 'teaming up', 'team up', 'working with', 'partnering',
+            'joined forces', 'alliance', 'strategic', 'cooperate', 'cooperation',
+            'working together', 'announce partnership', 'proud to partner'
+        ]
     },
     KEY_HIRE: {
         base: 150,
         cLevel: 50,
-        titles: ['cto', 'ceo', 'cpo', 'cfo', 'vp', 'chief'],
-        keywords: ['hired', 'joined', 'welcome', 'joining', 'new hire']
+        titles: ['cto', 'ceo', 'cpo', 'cfo', 'vp', 'chief', 'head of', 'director', 'lead'],
+        keywords: [
+            'hired', 'joined', 'welcome', 'joining', 'new hire', 'joins',
+            'welcoming', 'onboarding', 'brought on', 'appointed', 'promoting',
+            'excited to announce', 'thrilled to have', 'joins the team',
+            'new team member', 'joining our team', 'pleased to announce'
+        ]
     },
     REVENUE: {
         base: 400,
         perMillion: 100,
-        keywords: ['arr', 'mrr', 'revenue', 'sales']
+        keywords: [
+            'arr', 'mrr', 'revenue', 'sales', 'annual recurring revenue',
+            'monthly recurring revenue', 'run rate', 'bookings', 'billing',
+            'profitable', 'profitability', 'earnings', 'income'
+        ]
     },
     PRODUCT_LAUNCH: {
         base: 250,
         viral: 100,
         viralThreshold: 1000,
-        keywords: ['launched', 'launch', 'live', 'beta', 'announcing', 'released']
+        keywords: [
+            'launched', 'launch', 'live', 'beta', 'announcing', 'released',
+            'introducing', 'new feature', 'now available', 'shipping',
+            'rollout', 'rolling out', 'unveiling', 'debut', 'going live',
+            'available now', 'just shipped', 'excited to share', 'introducing'
+        ]
     },
     ACQUISITION: {
         base: 2000,
-        keywords: ['acquired', 'acquisition', 'merger', 'acquired by']
+        keywords: [
+            'acquired', 'acquisition', 'merger', 'acquired by', 'merge',
+            'acquiring', 'bought', 'purchase', 'purchasing', 'takeover',
+            'join forces', 'combining with', 'merging with'
+        ]
     },
     MEDIA_MENTION: {
         base: 200,
         major: 100,
-        majorOutlets: ['techcrunch', 'forbes', 'wsj', 'nytimes', 'bloomberg'],
-        keywords: ['featured', 'covered', 'article']
+        majorOutlets: ['techcrunch', 'forbes', 'wsj', 'wall street journal', 'nytimes', 'new york times', 'bloomberg', 'cnbc', 'reuters', 'wired', 'verge'],
+        keywords: [
+            'featured', 'covered', 'article', 'mentioned', 'press',
+            'interview', 'story', 'spotlight', 'highlighted', 'profiled',
+            'wrote about', 'coverage', 'appeared on', 'featured in'
+        ]
     },
     GROWTH: {
         base: 200,
         per10x: 50,
-        keywords: ['users', 'signups', 'growth', 'milestone', 'customers']
+        keywords: [
+            'users', 'signups', 'growth', 'milestone', 'customers', 'reached',
+            'surpassed', 'hit', 'crossed', 'achieved', 'grown to',
+            'doubled', 'tripled', '10x', '100x', 'scale', 'scaling'
+        ]
     },
     ENGAGEMENT: {
         base: 50,
@@ -330,6 +399,14 @@ async function processStartup(userName, isRealData = true) {
 
     const results = tweets.map(tweet => {
         const analysis = analyzeTweet(tweet);
+
+        // Log tweet analysis to file
+        logTweet(userName, tweet, {
+            points: analysis.total,
+            events: analysis.events,
+            details: analysis.details
+        });
+
         return {
             id: tweet.id,
             text: tweet.text.substring(0, 100) + '...',

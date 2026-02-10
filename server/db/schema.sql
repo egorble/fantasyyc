@@ -86,6 +86,29 @@ CREATE TABLE IF NOT EXISTS score_history (
     FOREIGN KEY (player_address) REFERENCES players(address)
 );
 
+-- Live feed events (from tweet analysis)
+CREATE TABLE IF NOT EXISTS live_feed (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    startup_name TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    points INTEGER DEFAULT 0,
+    tweet_id TEXT,
+    date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Referrals tracking
+CREATE TABLE IF NOT EXISTS referrals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_address TEXT NOT NULL,
+    referred_address TEXT NOT NULL,
+    pack_id INTEGER,
+    amount_earned TEXT DEFAULT '0',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(referred_address)
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_tournament_entries_tournament ON tournament_entries(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_tournament_entries_player ON tournament_entries(player_address);
@@ -94,3 +117,6 @@ CREATE INDEX IF NOT EXISTS idx_tournament_cards_player ON tournament_cards(tourn
 CREATE INDEX IF NOT EXISTS idx_daily_scores_tournament ON daily_scores(tournament_id, date);
 CREATE INDEX IF NOT EXISTS idx_leaderboard_tournament ON leaderboard(tournament_id, rank);
 CREATE INDEX IF NOT EXISTS idx_score_history_player ON score_history(tournament_id, player_address);
+CREATE INDEX IF NOT EXISTS idx_live_feed_date ON live_feed(date);
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_address);
+CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals(referred_address);

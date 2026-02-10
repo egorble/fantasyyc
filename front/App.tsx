@@ -182,53 +182,20 @@ const AppContent: React.FC = () => {
                         <LiveFeed />
 
                         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 md:gap-6">
-                            <div className="w-full md:w-auto overflow-x-auto pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
-                                <div className="flex items-center space-x-2 min-w-max">
-                                    <button
-                                        onClick={() => setActiveFilter('all')}
-                                        className={`px-6 py-2 rounded-full text-sm font-black shadow-lg transform transition-all hover:scale-105 active:scale-95 ${activeFilter === 'all'
-                                            ? 'bg-black dark:bg-white text-yc-orange shadow-yc-orange/10'
-                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
-                                            }`}
-                                    >
-                                        All
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveFilter('legendary')}
-                                        className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeFilter === 'legendary'
-                                            ? 'bg-black dark:bg-white text-yc-orange'
-                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
-                                            }`}
-                                    >
-                                        Legendary
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveFilter('epic')}
-                                        className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeFilter === 'epic'
-                                            ? 'bg-black dark:bg-white text-yc-orange'
-                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
-                                            }`}
-                                    >
-                                        Epic
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveFilter('rare')}
-                                        className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeFilter === 'rare'
-                                            ? 'bg-black dark:bg-white text-yc-orange'
-                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
-                                            }`}
-                                    >
-                                        Rare
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveFilter('common')}
-                                        className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeFilter === 'common'
-                                            ? 'bg-black dark:bg-white text-yc-orange'
-                                            : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
-                                            }`}
-                                    >
-                                        Common
-                                    </button>
+                            <div className="w-full md:w-auto">
+                                <div className="flex items-center flex-wrap gap-2">
+                                    {['all', 'legendary', 'epic', 'rare', 'common'].map((filter) => (
+                                        <button
+                                            key={filter}
+                                            onClick={() => setActiveFilter(filter)}
+                                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 transform active:scale-95 ${activeFilter === filter
+                                                ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30 scale-105'
+                                                : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
+                                                }`}
+                                        >
+                                            {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 

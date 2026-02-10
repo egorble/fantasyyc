@@ -497,7 +497,7 @@ const Marketplace: React.FC = () => {
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-4">
                     {/* Rarity tabs */}
-                    <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                    <div className="flex items-center flex-wrap gap-2">
                         {rarityTabs.map((tab) => (
                             <button
                                 key={tab}

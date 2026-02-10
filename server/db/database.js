@@ -322,6 +322,67 @@ export function getPlayerScoreHistory(tournamentId, playerAddress) {
     }));
 }
 
+// ============ Live Feed Functions ============
+
+export function saveLiveFeedEvent(startupName, eventType, description, points, tweetId, date) {
+    exec(`
+        INSERT INTO live_feed
+        (startup_name, event_type, description, points, tweet_id, date)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `, [startupName, eventType, description, points, tweetId || null, date]);
+}
+
+export function getLiveFeed(limit = 20) {
+    return all(`
+        SELECT * FROM live_feed
+        ORDER BY created_at DESC
+        LIMIT ?
+    `, [limit]);
+}
+
+export function getLiveFeedByDate(date) {
+    return all(`
+        SELECT * FROM live_feed
+        WHERE date = ?
+        ORDER BY points DESC
+    `, [date]);
+}
+
+// ============ Referral Functions ============
+
+export function saveReferral(referrerAddress, referredAddress, packId, amountEarned) {
+    exec(`
+        INSERT OR IGNORE INTO referrals
+        (referrer_address, referred_address, pack_id, amount_earned)
+        VALUES (?, ?, ?, ?)
+    `, [referrerAddress, referredAddress, packId || null, amountEarned || '0']);
+}
+
+export function getReferralsByReferrer(referrerAddress) {
+    return all(`
+        SELECT * FROM referrals
+        WHERE referrer_address = ?
+        ORDER BY created_at DESC
+    `, [referrerAddress]);
+}
+
+export function getReferrer(referredAddress) {
+    return get(`
+        SELECT * FROM referrals
+        WHERE referred_address = ?
+    `, [referredAddress]);
+}
+
+export function getReferralStats(referrerAddress) {
+    return get(`
+        SELECT
+            COUNT(*) as total_referrals,
+            SUM(CAST(amount_earned AS REAL)) as total_earned
+        FROM referrals
+        WHERE referrer_address = ?
+    `, [referrerAddress]);
+}
+
 // Auto-save database every 5 seconds if there were changes
 setInterval(() => {
     if (db) {

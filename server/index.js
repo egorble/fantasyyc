@@ -236,6 +236,99 @@ app.get('/api/daily-scores/:tournamentId/:date', (req, res) => {
 });
 
 /**
+ * GET /api/live-feed
+ * Get latest live feed events from tweet analysis
+ */
+app.get('/api/live-feed', (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 20;
+        const events = db.getLiveFeed(limit);
+
+        return res.json({
+            success: true,
+            data: events.map(e => ({
+                id: e.id,
+                startup: e.startup_name,
+                eventType: e.event_type,
+                description: e.description,
+                points: e.points,
+                date: e.date,
+                createdAt: e.created_at
+            }))
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/referrals/:address
+ * Get referral stats for a user
+ */
+app.get('/api/referrals/:address', (req, res) => {
+    try {
+        const address = req.params.address.toLowerCase();
+        const stats = db.getReferralStats(address);
+        const referrals = db.getReferralsByReferrer(address);
+
+        return res.json({
+            success: true,
+            data: {
+                totalReferrals: stats?.total_referrals || 0,
+                totalEarned: stats?.total_earned || 0,
+                referrals: referrals.map(r => ({
+                    referred: r.referred_address,
+                    earned: r.amount_earned,
+                    date: r.created_at
+                }))
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/referrals/track
+ * Track a referral from pack purchase
+ */
+app.post('/api/referrals/track', (req, res) => {
+    try {
+        const { referrer, referred, packId, amount } = req.body;
+
+        if (!referrer || !referred) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing referrer or referred address'
+            });
+        }
+
+        db.saveReferral(
+            referrer.toLowerCase(),
+            referred.toLowerCase(),
+            packId,
+            amount || '0'
+        );
+
+        return res.json({
+            success: true,
+            message: 'Referral tracked'
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
  * GET /health
  * Health check endpoint
  */
@@ -304,6 +397,9 @@ async function startServer() {
             console.log(`   GET /api/player/:address/cards/:tournamentId`);
             console.log(`   GET /api/stats/:tournamentId`);
             console.log(`   GET /api/daily-scores/:tournamentId/:date`);
+            console.log(`   GET /api/live-feed`);
+            console.log(`   GET /api/referrals/:address`);
+            console.log(`   POST /api/referrals/track`);
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);

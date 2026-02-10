@@ -41,6 +41,7 @@
               'spin-slow': 'spin 10s linear infinite',
               'spin-reverse-slow': 'spin-reverse 12s linear infinite',
               'pulse-fast': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'marquee': 'marquee 30s linear infinite',
             },
             keyframes: {
               float: {
@@ -50,6 +51,10 @@
               'spin-reverse': {
                 from: { transform: 'rotate(360deg)' },
                 to: { transform: 'rotate(0deg)' },
+              },
+              marquee: {
+                '0%': { transform: 'translateX(0%)' },
+                '100%': { transform: 'translateX(-50%)' },
               }
             }
           }
@@ -91,6 +96,10 @@
       }
       .rotate-y-180 {
         transform: rotateY(180deg);
+      }
+      /* Marquee pause on hover */
+      .animate-marquee:hover {
+        animation-play-state: paused;
       }
     </style>
   <script type="importmap">

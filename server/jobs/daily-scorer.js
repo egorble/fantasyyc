@@ -18,9 +18,9 @@ const { processStartup } = await import(`file:///${twitterScorerPath.replace(/\\
 
 // Blockchain configuration
 const RPC_URL = 'https://node.shadownet.etherlink.com'; // Etherlink Shadownet Testnet
-const PACK_OPENER_ADDRESS = '0x61DB1b7c89F2e5a7DAD55d5e108974d7174A4648';
-const TOURNAMENT_ADDRESS = '0xbB93dd51cF212D439638DB91A51BB54a550a50e8';
-const NFT_ADDRESS = '0x4032B143CEF318ED8bED214cAA2218C95BD462bC';
+const PACK_OPENER_ADDRESS = '0x638B92a58a8317e5f47247B5bD47cb16faA87eD9';
+const TOURNAMENT_ADDRESS = '0x6036a89aE64cd3A1404E0e093A80622E949942d0';
+const NFT_ADDRESS = '0x757e1f6f8c52Cd367fa42cb305de227CDC308140';
 
 // ABIs (minimal needed for scoring)
 const packOpenerABI = [
@@ -266,6 +266,27 @@ async function runDailyScoring() {
                 result.tweets.length,
                 result.tweets.flatMap(t => t.events)
             );
+
+            // Save events to live feed
+            if (result.tweets && result.tweets.length > 0) {
+                for (const tweet of result.tweets) {
+                    if (tweet.events && tweet.events.length > 0) {
+                        for (const event of tweet.events) {
+                            const description = tweet.text
+                                ? tweet.text.substring(0, 200)
+                                : `${startupName}: ${event} detected`;
+                            db.saveLiveFeedEvent(
+                                startupName,
+                                event,
+                                description,
+                                tweet.points || result.totalPoints,
+                                tweet.id || null,
+                                today
+                            );
+                        }
+                    }
+                }
+            }
         }
 
         // Delay for rate limiting

@@ -10,10 +10,10 @@ export const METADATA_API = 'http://localhost:3001';
 
 // ============ Contract Addresses ============
 export const CONTRACTS = {
-    UnicornX_NFT: '0x4032B143CEF318ED8bED214cAA2218C95BD462bC',
-    PackOpener: '0x61DB1b7c89F2e5a7DAD55d5e108974d7174A4648',
-    TournamentManager: '0xbB93dd51cF212D439638DB91A51BB54a550a50e8',
-    MarketplaceV2: '0x20C31b9d5a983183a1927b3786bcb977e7135Af3',
+    UnicornX_NFT: '0x757e1f6f8c52Cd367fa42cb305de227CDC308140',
+    PackOpener: '0x638B92a58a8317e5f47247B5bD47cb16faA87eD9',
+    TournamentManager: '0x6036a89aE64cd3A1404E0e093A80622E949942d0',
+    MarketplaceV2: '0x8F4F994431d82D759D997c06bF0fa03aB7106B94',
 } as const;
 
 // ============ ABIs (minimal for frontend) ============
@@ -48,19 +48,29 @@ export const PACK_OPENER_ABI = [
     'function getPackInfo(uint256 packId) view returns (tuple(address buyer, uint256 purchaseTime, bool opened, uint256[5] cardIds))',
     'function getUnopenedPackCount(address user) view returns (uint256)',
     'function activeTournamentId() view returns (uint256)',
+    'function pendingPrizePool() view returns (uint256)',
+    'function getReferrer(address user) view returns (address)',
+    'function getReferralStats(address referrer) view returns (uint256 count, uint256 totalEarned)',
+    'function referralEarnings(address referrer) view returns (uint256)',
+    'function referralCount(address referrer) view returns (uint256)',
     // Write functions
     'function buyPack() payable returns (uint256)',
     'function buyAndOpenPack() payable returns (uint256[5], uint256[5])',
     'function openPack(uint256 packId) returns (uint256[5], uint256[5])',
+    'function setReferrer(address referrer)',
     // Admin functions
     'function withdraw()',
     'function setPackPrice(uint256 newPrice)',
     'function setActiveTournament(uint256 tournamentId)',
+    'function forwardPendingFunds()',
     'function pause()',
     'function unpause()',
     // Events
     'event PackPurchased(address indexed buyer, uint256 indexed packId, uint256 price, uint256 timestamp)',
     'event PackOpened(address indexed opener, uint256 indexed packId, uint256[5] cardIds, uint256[5] startupIds)',
+    'event ReferralRegistered(address indexed user, address indexed referrer)',
+    'event ReferralRewardPaid(address indexed referrer, address indexed buyer, uint256 amount)',
+    'event FundsDistributed(uint256 prizePoolAmount, uint256 platformAmount, uint256 referralAmount)',
 ];
 
 export const TOURNAMENT_ABI = [
