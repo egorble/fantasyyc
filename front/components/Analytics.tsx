@@ -105,7 +105,7 @@ const Analytics: React.FC = () => {
     // Not connected state
     if (!isConnected) {
         return (
-            <div className="animate-[fadeInUp_0.5s_ease-out]">
+            <div className="overflow-x-hidden">
                 <h2 className="text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight mb-8">Analytics</h2>
                 <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-12 text-center">
                     <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -139,7 +139,7 @@ const Analytics: React.FC = () => {
     const worstPerformer = sortedAnalytics.length > 1 ? sortedAnalytics[sortedAnalytics.length - 1] : null;
 
     return (
-        <div className="animate-[fadeInUp_0.5s_ease-out]">
+        <div className="overflow-x-hidden">
             <div className="flex items-center justify-between mb-8">
                 <h2 className="text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight">Analytics</h2>
                 <button

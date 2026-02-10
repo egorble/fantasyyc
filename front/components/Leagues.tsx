@@ -260,7 +260,7 @@ const Leagues: React.FC = () => {
 
     if (isJoining) {
         return (
-            <div ref={containerRef} className="animate-[fadeIn_0.3s_ease-out] relative">
+            <div ref={containerRef} className="relative overflow-x-hidden">
 
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
@@ -430,8 +430,8 @@ const Leagues: React.FC = () => {
     }
 
     return (
-        <div className="animate-[fadeInUp_0.5s_ease-out]">
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-black dark:to-[#121212] border border-gray-300 dark:border-[#2A2A2A] rounded-2xl p-8 mb-8 relative overflow-hidden group">
+        <div className="overflow-x-hidden">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-black dark:to-[#121212] border border-gray-300 dark:border-[#2A2A2A] rounded-2xl p-4 md:p-8 mb-8 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none text-gray-900 dark:text-white">
                     <Trophy size={200} />
                 </div>

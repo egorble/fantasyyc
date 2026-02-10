@@ -13,10 +13,12 @@ import AdminPanel from './components/AdminPanel';
 import CardDetailModal, { CardDetailData } from './components/CardDetailModal';
 import ProfileSetupModal from './components/ProfileSetupModal';
 import ProfileEditModal from './components/ProfileEditModal';
+import BottomNav from './components/BottomNav';
 import TournamentCTA from './components/TournamentCTA';
 import DashboardLeaderboard from './components/DashboardLeaderboard';
 import { NavSection, UserProfile, Startup, Rarity, CardData } from './types';
-import { Filter, Search, Wallet, Menu, Loader2 } from 'lucide-react';
+import { Filter, Search, Wallet, Loader2, Sun, Moon, LogOut, User } from 'lucide-react';
+import { useTheme } from './context/ThemeContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { WalletProvider, useWalletContext } from './context/WalletContext';
 import { formatXTZ, CHAIN_NAME } from './lib/contracts';
@@ -32,7 +34,6 @@ const AppContent: React.FC = () => {
     const [activeSection, setActiveSection] = useState<NavSection>(NavSection.HOME);
     const [isPackModalOpen, setIsPackModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [dashboardSelectedStartup, setDashboardSelectedStartup] = useState<CardDetailData | null>(null);
     const [dashboardSelectedCard, setDashboardSelectedCard] = useState<CardData | null>(null);
 
@@ -51,6 +52,7 @@ const AppContent: React.FC = () => {
         balance,
         isCorrectChain,
         connect,
+        disconnect,
         switchChain,
         formatAddress,
         isConnecting
@@ -61,6 +63,10 @@ const AppContent: React.FC = () => {
 
     // Profile edit modal state
     const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
+
+    // Mobile menu state
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { theme, toggleTheme } = useTheme();
 
     // Marketplace hook
     const { getActiveListings } = useMarketplaceV2();
@@ -164,7 +170,6 @@ const AppContent: React.FC = () => {
 
     const handleSectionChange = (section: NavSection) => {
         setActiveSection(section);
-        setIsMobileMenuOpen(false);
     };
 
     const handleWalletClick = async () => {
@@ -190,7 +195,7 @@ const AppContent: React.FC = () => {
             case NavSection.HOME:
             default:
                 return (
-                    <div className="animate-[fadeIn_0.3s_ease-out]">
+                    <div>
                         {/* 1. Hero Banner */}
                         <div className="mb-6 md:mb-10">
                             <HeroBanner />
@@ -267,7 +272,7 @@ const AppContent: React.FC = () => {
                                     <span className="ml-3 text-lg font-bold text-gray-400">Loading marketplace...</span>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
                                     {filteredAndSortedListings.length > 0 ? (
                                         filteredAndSortedListings.map(({ listing, card }) => {
                                             const startupData: Startup = {
@@ -305,7 +310,7 @@ const AppContent: React.FC = () => {
                                             );
                                         })
                                     ) : (
-                                        <div className="col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-4 text-center py-20">
+                                        <div className="col-span-2 sm:col-span-3 lg:col-span-4 xl:col-span-5 text-center py-20">
                                             <p className="text-xl font-bold text-gray-400">
                                                 {searchQuery ? `No NFTs found matching "${searchQuery}"` : 'No NFTs listed on marketplace'}
                                             </p>
@@ -320,40 +325,22 @@ const AppContent: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-white dark:bg-[#050505] text-yc-text-primary dark:text-white font-sans selection:bg-yc-orange selection:text-white transition-colors duration-300">
+        <div className="bg-white dark:bg-[#050505] text-yc-text-primary dark:text-white font-sans">
 
-            {/* Mobile Backdrop */}
-            {isMobileMenuOpen && (
-                <div
-                    className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm animate-[fadeIn_0.2s]"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                />
-            )}
-
-            {/* Sidebar Navigation */}
+            {/* Sidebar Navigation (desktop only) */}
             <Sidebar
                 activeSection={activeSection}
                 setActiveSection={handleSectionChange}
                 user={user}
-                isOpen={isMobileMenuOpen}
-                onClose={() => setIsMobileMenuOpen(false)}
                 onSettingsClick={() => isConnected && profile && setIsProfileEditOpen(true)}
             />
 
             {/* Main Content Area */}
-            <main className="w-full md:pl-72 xl:pr-64 min-h-screen transition-all duration-300">
-                <div className="w-full mx-auto p-4 md:p-6">
+            <main className="w-full md:pl-72 xl:pr-64 min-h-screen pb-24 md:pb-6 overflow-x-hidden">
+                <div className="w-full mx-auto p-4 md:p-6 max-w-full overflow-hidden">
 
                     {/* Top Bar */}
-                    <div className="flex items-center justify-between mb-6 md:mb-8 sticky top-0 bg-white/95 dark:bg-[#050505]/95 backdrop-blur-lg z-30 py-3 md:py-4 -mt-4 border-b border-gray-100 dark:border-gray-900 md:border-transparent">
-
-                        {/* Mobile Menu Button */}
-                        <button
-                            onClick={() => setIsMobileMenuOpen(true)}
-                            className="mr-3 md:hidden text-gray-500 hover:text-yc-orange p-1"
-                        >
-                            <Menu className="w-6 h-6" />
-                        </button>
+                    <div className="flex items-center justify-between mb-4 md:mb-8 py-2 md:py-4">
 
                         <div className="relative flex-1 max-w-md">
                             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
@@ -366,8 +353,8 @@ const AppContent: React.FC = () => {
                             />
                         </div>
 
-                        <div className="flex items-center space-x-3 md:space-x-6 ml-3 md:ml-6">
-                            {/* Balance Display */}
+                        <div className="flex items-center space-x-2 md:space-x-6 ml-2 md:ml-6">
+                            {/* Balance Display - desktop */}
                             {isConnected && (
                                 <>
                                     <div className="text-right hidden lg:block">
@@ -387,27 +374,136 @@ const AppContent: React.FC = () => {
                                 </>
                             )}
 
-                            {/* Wallet Button */}
+                            {/* Wallet Button - desktop */}
                             <button
                                 onClick={handleWalletClick}
                                 disabled={isConnecting}
                                 className={`
-                        flex items-center p-2 md:px-6 md:py-3 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95
-                        ${isConnected
+                                    hidden md:flex items-center px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95
+                                    ${isConnected
                                         ? isCorrectChain
                                             ? 'bg-yc-green/20 text-yc-green border border-yc-green/30 hover:bg-yc-green/30'
                                             : 'bg-yc-orange hover:bg-orange-600 text-white shadow-orange-500/20'
                                         : 'bg-yc-orange hover:bg-orange-600 text-white shadow-orange-500/20'
                                     }
-                      `}
+                                `}
                             >
-                                <Wallet className="w-4 h-4 md:mr-2" />
-                                <span className="hidden md:inline">
-                                    {isConnecting ? 'Connecting...' :
-                                        isConnected ? (isCorrectChain ? formatAddress(address!) : 'Switch Network') :
-                                            'Connect'}
-                                </span>
+                                <Wallet className="w-4 h-4 mr-2" />
+                                {isConnecting ? 'Connecting...' :
+                                    isConnected ? (isCorrectChain ? formatAddress(address!) : 'Switch Network') :
+                                        'Connect'}
                             </button>
+
+                            {/* Mobile: Profile avatar button */}
+                            <div className="relative md:hidden">
+                                <button
+                                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                                    className="w-9 h-9 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-700 active:scale-95 transition-transform"
+                                >
+                                    {isConnected ? (
+                                        <img
+                                            src={user.avatar}
+                                            alt="Profile"
+                                            className="w-full h-full object-cover"
+                                            style={{ imageRendering: user.avatar?.startsWith('data:') ? 'pixelated' : 'auto' }}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                            <User className="w-4 h-4 text-gray-400" />
+                                        </div>
+                                    )}
+                                </button>
+
+                                {/* Mobile dropdown */}
+                                {isMobileMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setIsMobileMenuOpen(false)} />
+                                        <div className="absolute right-0 top-12 z-50 w-64 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a] rounded-2xl shadow-2xl p-4 space-y-3">
+
+                                            {/* User info */}
+                                            {isConnected && (
+                                                <div
+                                                    className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 dark:bg-[#121212] cursor-pointer active:scale-[0.98] transition-transform"
+                                                    onClick={() => { setIsMobileMenuOpen(false); if (profile) setIsProfileEditOpen(true); }}
+                                                >
+                                                    <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-gray-700">
+                                                        <img
+                                                            src={user.avatar}
+                                                            alt="Avatar"
+                                                            className="w-full h-full object-cover"
+                                                            style={{ imageRendering: user.avatar?.startsWith('data:') ? 'pixelated' : 'auto' }}
+                                                        />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{user.name}</p>
+                                                        <p className="text-[10px] text-gray-400 font-mono">{formatAddress(address!)}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Balance */}
+                                            {isConnected && (
+                                                <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-[#121212]">
+                                                    <span className="text-xs font-bold text-gray-400">Balance</span>
+                                                    <span className="text-sm font-black font-mono text-gray-900 dark:text-white">
+                                                        <span className="text-yc-orange mr-1">◈</span>
+                                                        {Number(ethers.formatEther(balance)).toFixed(2)} XTZ
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Connect / Switch */}
+                                            {!isConnected ? (
+                                                <button
+                                                    onClick={() => { setIsMobileMenuOpen(false); connect(); }}
+                                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-yc-orange text-white font-bold text-sm active:scale-95 transition-transform"
+                                                >
+                                                    <Wallet className="w-4 h-4" />
+                                                    Connect Wallet
+                                                </button>
+                                            ) : !isCorrectChain ? (
+                                                <button
+                                                    onClick={() => { setIsMobileMenuOpen(false); switchChain(); }}
+                                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-yc-orange text-white font-bold text-sm active:scale-95 transition-transform"
+                                                >
+                                                    <Wallet className="w-4 h-4" />
+                                                    Switch Network
+                                                </button>
+                                            ) : null}
+
+                                            {/* Theme toggle */}
+                                            <div className="flex items-center justify-between p-2">
+                                                <span className="text-xs font-bold text-gray-400 uppercase">Theme</span>
+                                                <div className="flex bg-gray-200 dark:bg-[#121212] rounded-full p-0.5">
+                                                    <button
+                                                        onClick={() => theme === 'dark' && toggleTheme()}
+                                                        className={`p-1.5 rounded-full transition-all ${theme === 'light' ? 'bg-white shadow text-orange-500' : 'text-gray-400'}`}
+                                                    >
+                                                        <Sun size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => theme === 'light' && toggleTheme()}
+                                                        className={`p-1.5 rounded-full transition-all ${theme === 'dark' ? 'bg-gray-700 text-white shadow' : 'text-gray-400'}`}
+                                                    >
+                                                        <Moon size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Disconnect */}
+                                            {isConnected && (
+                                                <button
+                                                    onClick={() => { setIsMobileMenuOpen(false); disconnect(); }}
+                                                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 text-red-500 font-bold text-sm active:scale-95 transition-transform"
+                                                >
+                                                    <LogOut size={14} />
+                                                    Disconnect
+                                                </button>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -452,6 +548,9 @@ const AppContent: React.FC = () => {
                 currentAvatar={profile?.avatar || null}
                 onSave={updateProfile}
             />
+
+            {/* Bottom Navigation (mobile only) */}
+            <BottomNav activeSection={activeSection} onNavigate={handleSectionChange} />
 
         </div>
     );

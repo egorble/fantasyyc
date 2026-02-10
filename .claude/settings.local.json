@@ -45,7 +45,8 @@
       "Bash(docker:*)",
       "Bash(docker-compose:*)",
       "WebFetch(domain:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)"
     ]
   }
 }

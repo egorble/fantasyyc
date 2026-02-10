@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavSection, UserProfile } from '../types';
-import { LayoutGrid, ShoppingBag, PieChart, Trophy, BarChart2, Settings, Sun, Moon, X, Shield, LogOut } from 'lucide-react';
+import { LayoutGrid, ShoppingBag, PieChart, Trophy, BarChart2, Settings, Sun, Moon, Shield, LogOut } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { isAdmin } from '../hooks/useAdmin';
 import { useWalletContext } from '../context/WalletContext';
@@ -31,25 +31,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
 
   return (
     <aside
-      className={`
-        w-72 h-screen fixed top-0 left-0 bg-yc-light-panel dark:bg-yc-dark-panel border-r border-yc-light-border dark:border-yc-dark-border flex flex-col z-50 transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
-      `}
+      className="w-72 h-screen fixed top-0 left-0 bg-yc-light-panel dark:bg-yc-dark-panel border-r border-yc-light-border dark:border-yc-dark-border hidden md:flex flex-col z-50"
     >
       {/* Logo Area */}
       <div className="px-8 py-10 flex items-center justify-between">
         <div className="flex items-center gap-3 text-yc-text-primary dark:text-white">
-          <div className="w-8 h-8 bg-yc-orange rounded flex items-center justify-center shadow-[0_0_10px_rgba(242,101,34,0.5)]">
-            <span className="text-white font-bold text-lg">U</span>
-          </div>
+          <img src="/unicornx.png" alt="UnicornX" className="h-9 w-auto" />
           <h1 className="text-2xl font-black tracking-tighter">
             UnicornX
           </h1>
         </div>
-        {/* Mobile Close Button */}
-        <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white">
-          <X size={24} />
-        </button>
       </div>
 
       {/* Navigation */}

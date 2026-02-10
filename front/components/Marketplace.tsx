@@ -436,66 +436,67 @@ const Marketplace: React.FC = () => {
         });
 
     return (
-        <div className="animate-[fadeIn_0.3s_ease-out]">
+        <div className="overflow-x-hidden">
 
             {/* Header */}
-            <div className="flex flex-col space-y-6 mb-8">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl md:text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight">Marketplace</h2>
-                        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            <div className="flex flex-col space-y-4 md:space-y-6 mb-6 md:mb-8">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <h2 className="text-xl md:text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight">Marketplace</h2>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm mt-1">
                             Buy, bid, and auction NFT cards.
                         </p>
                     </div>
                     {isConnected && (
                         <button
                             onClick={openListModal}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-yc-orange hover:bg-yc-orange/80 text-white rounded-lg font-bold transition-all"
+                            className="flex items-center gap-1.5 px-3 py-2 md:px-4 md:py-2.5 bg-yc-orange hover:bg-yc-orange/80 text-white rounded-lg font-bold text-xs md:text-sm transition-all shrink-0"
                         >
                             <Plus className="w-4 h-4" />
-                            List NFT
+                            <span className="hidden sm:inline">List NFT</span>
+                            <span className="sm:hidden">List</span>
                         </button>
                     )}
                 </div>
 
                 {/* Tab navigation */}
-                <div className="flex items-center space-x-1 bg-gray-100 dark:bg-[#1a1a1a] p-1 rounded-lg w-fit">
+                <div className="flex items-center space-x-1 bg-gray-100 dark:bg-[#1a1a1a] p-1 rounded-lg w-full md:w-fit overflow-x-auto">
                     <button
                         onClick={() => setActiveTab('listings')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'listings'
+                        className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'listings'
                             ? 'bg-yc-orange text-white'
                             : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
                             }`}
                     >
-                        <Tag className="w-4 h-4" />
+                        <Tag className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         Buy Now
-                        {listings.length > 0 && <span className="bg-black/30 dark:bg-black/30 px-1.5 py-0.5 rounded text-xs">{listings.length}</span>}
+                        {listings.length > 0 && <span className="bg-black/30 px-1.5 py-0.5 rounded text-[10px] md:text-xs">{listings.length}</span>}
                     </button>
                     <button
                         onClick={() => setActiveTab('auctions')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'auctions'
+                        className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'auctions'
                             ? 'bg-yc-orange text-white'
                             : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
                             }`}
                     >
-                        <Gavel className="w-4 h-4" />
+                        <Gavel className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         Auctions
-                        {auctions.length > 0 && <span className="bg-black/30 dark:bg-black/30 px-1.5 py-0.5 rounded text-xs">{auctions.length}</span>}
+                        {auctions.length > 0 && <span className="bg-black/30 px-1.5 py-0.5 rounded text-[10px] md:text-xs">{auctions.length}</span>}
                     </button>
                     <button
                         onClick={() => setActiveTab('activity')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'activity'
+                        className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'activity'
                             ? 'bg-yc-orange text-white'
                             : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
                             }`}
                     >
-                        <User className="w-4 h-4" />
-                        My Activity
+                        <User className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        Activity
                     </button>
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-col gap-3">
                     {/* Rarity tabs */}
                     <div className="flex items-center flex-wrap gap-2">
                         {rarityTabs.map((tab) => (
@@ -503,7 +504,7 @@ const Marketplace: React.FC = () => {
                                 key={tab}
                                 onClick={() => setRarityFilter(tab)}
                                 className={`
-                                    whitespace-nowrap px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 transform active:scale-95
+                                    whitespace-nowrap px-4 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold transition-all duration-300 transform active:scale-95
                                     ${rarityFilter === tab
                                         ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30 scale-105'
                                         : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'}
@@ -515,25 +516,25 @@ const Marketplace: React.FC = () => {
                     </div>
 
                     {/* Search & Sort */}
-                    <div className="flex items-center gap-3 flex-1">
-                        <div className="relative flex-1 min-w-[200px] group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-yc-orange transition-colors" />
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <div className="relative flex-1 min-w-0 group">
+                            <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-yc-orange transition-colors" />
                             <input
                                 type="text"
                                 placeholder="Search cards..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full pl-10 pr-4 py-2.5 text-sm font-medium text-yc-text-primary dark:text-white focus:outline-none focus:border-yc-orange focus:ring-1 focus:ring-yc-orange transition-all placeholder-gray-400 shadow-sm"
+                                className="w-full bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full pl-9 md:pl-10 pr-3 md:pr-4 py-2 md:py-2.5 text-sm font-medium text-yc-text-primary dark:text-white focus:outline-none focus:border-yc-orange focus:ring-1 focus:ring-yc-orange transition-all placeholder-gray-400 shadow-sm"
                             />
                         </div>
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as any)}
-                            className="flex items-center justify-center px-5 py-2.5 bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full text-sm font-bold text-yc-text-primary dark:text-white hover:border-yc-orange transition-all shadow-sm cursor-pointer"
+                            className="px-3 md:px-5 py-2 md:py-2.5 bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full text-xs md:text-sm font-bold text-yc-text-primary dark:text-white hover:border-yc-orange transition-all shadow-sm cursor-pointer shrink-0"
                         >
-                            <option value="recent">Recently Listed</option>
-                            <option value="price_asc">Price: Low to High</option>
-                            <option value="price_desc">Price: High to Low</option>
+                            <option value="recent">Recent</option>
+                            <option value="price_asc">Price ↑</option>
+                            <option value="price_desc">Price ↓</option>
                         </select>
                     </div>
                 </div>
@@ -562,7 +563,7 @@ const Marketplace: React.FC = () => {
                     )}
 
                     {!loadingListings && filteredListings.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
                             {filteredListings.map((listing) => (
                                 <div
                                     key={listing.listingId}
@@ -578,57 +579,42 @@ const Marketplace: React.FC = () => {
                                             className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
                                         />
                                     </div>
-                                    <div className="p-4">
-                                        <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">
-                                            Token #{String(listing.tokenId)} · Seller: {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
-                                        </p>
-                                        <div className="mb-3">
-                                            <p className="text-gray-400 dark:text-gray-400 text-xs">Price</p>
-                                            <p className="text-gray-900 dark:text-white font-bold text-lg">{listing.priceFormatted} XTZ</p>
-                                        </div>
+                                    <div className="p-1.5 md:p-4">
+                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-lg leading-tight">{listing.priceFormatted} XTZ</p>
                                         {listing.seller.toLowerCase() === address?.toLowerCase() ? (
                                             <button
                                                 onClick={() => handleCancelListing(listing)}
                                                 disabled={cancellingId === Number(listing.listingId)}
                                                 className={`
-                                                    w-full px-4 py-2 rounded-lg font-bold text-sm transition-all
+                                                    w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all
                                                     ${cancellingId === Number(listing.listingId)
                                                         ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                                         : 'bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white active:scale-95'}
                                                 `}
                                             >
                                                 {cancellingId === Number(listing.listingId) ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
                                                 ) : (
                                                     'Cancel'
                                                 )}
                                             </button>
                                         ) : (
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleBuy(listing)}
-                                                    disabled={buyingId === Number(listing.listingId) || !isConnected}
-                                                    className={`
-                                                        flex-1 px-4 py-2 rounded-lg font-bold text-sm transition-all
-                                                        ${buyingId === Number(listing.listingId)
-                                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                                            : 'bg-yc-orange text-white hover:bg-yc-orange/80 active:scale-95'}
-                                                    `}
-                                                >
-                                                    {buyingId === Number(listing.listingId) ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : (
-                                                        'Buy Now'
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => { setBidModal({ listing }); setBidAmount(''); }}
-                                                    disabled={!isConnected}
-                                                    className="flex-1 px-4 py-2 rounded-lg font-bold text-sm bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-400 transition-all active:scale-95"
-                                                >
-                                                    Make Offer
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => handleBuy(listing)}
+                                                disabled={buyingId === Number(listing.listingId) || !isConnected}
+                                                className={`
+                                                    w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all
+                                                    ${buyingId === Number(listing.listingId)
+                                                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                                        : 'bg-yc-orange text-white hover:bg-yc-orange/80 active:scale-95'}
+                                                `}
+                                            >
+                                                {buyingId === Number(listing.listingId) ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                    'Buy'
+                                                )}
+                                            </button>
                                         )}
                                     </div>
                                 </div>
@@ -659,7 +645,7 @@ const Marketplace: React.FC = () => {
                     )}
 
                     {!loadingAuctions && filteredAuctions.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
                             {filteredAuctions.map((auction) => (
                                 <div
                                     key={auction.auctionId}
@@ -680,39 +666,28 @@ const Marketplace: React.FC = () => {
                                             {auction.timeLeft}
                                         </div>
                                     </div>
-                                    <div className="p-4">
-
-                                        <div className="grid grid-cols-2 gap-2 mb-3">
-                                            <div>
-                                                <p className="text-gray-400 dark:text-gray-400 text-xs">Current Bid</p>
-                                                <p className="text-gray-900 dark:text-white font-bold">{formatXTZ(auction.highestBid)} XTZ</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-gray-400 dark:text-gray-400 text-xs">Reserve</p>
-                                                <p className="text-gray-600 dark:text-gray-300 font-medium">{formatXTZ(auction.reservePrice)} XTZ</p>
-                                            </div>
-                                        </div>
-
+                                    <div className="p-1.5 md:p-4">
+                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-base leading-tight">{formatXTZ(auction.highestBid)} XTZ</p>
                                         {auction.isEnded ? (
                                             <button
                                                 onClick={() => handleFinalizeAuction(auction)}
                                                 disabled={biddingId === Number(auction.auctionId)}
-                                                className="w-full px-4 py-2 rounded-lg font-bold text-sm bg-green-600 text-white hover:bg-green-700 transition-all"
+                                                className="w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm bg-green-600 text-white hover:bg-green-700 transition-all"
                                             >
                                                 {biddingId === Number(auction.auctionId) ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                                                ) : 'Finalize Auction'}
+                                                    <Loader2 className="w-3 h-3 animate-spin mx-auto" />
+                                                ) : 'Finalize'}
                                             </button>
                                         ) : (
                                             <button
                                                 onClick={() => { setBidModal({ auction }); setBidAmount(''); }}
                                                 disabled={auction.seller.toLowerCase() === address?.toLowerCase()}
-                                                className={`w-full px-4 py-2 rounded-lg font-bold text-sm transition-all ${auction.seller.toLowerCase() === address?.toLowerCase()
+                                                className={`w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all ${auction.seller.toLowerCase() === address?.toLowerCase()
                                                     ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                                     : 'bg-yc-orange text-white hover:bg-yc-orange/80'
                                                     }`}
                                             >
-                                                {auction.seller.toLowerCase() === address?.toLowerCase() ? 'Your Auction' : 'Place Bid'}
+                                                {auction.seller.toLowerCase() === address?.toLowerCase() ? 'Yours' : 'Bid'}
                                             </button>
                                         )}
                                     </div>

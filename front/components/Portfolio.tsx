@@ -400,7 +400,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     };
 
     return (
-        <div className="animate-[fadeInUp_0.5s_ease-out] relative min-h-[80vh]">
+        <div className="relative min-h-[80vh] overflow-x-hidden">
 
             {/* Not Connected State */}
             {!isConnected && (
@@ -420,8 +420,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             {isConnected && (
                 <>
                     {/* Header Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="col-span-2 p-6 bg-gradient-to-r from-yc-orange to-red-600 rounded-2xl text-white shadow-xl relative overflow-hidden">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+                        <div className="col-span-1 md:col-span-2 p-4 md:p-6 bg-gradient-to-r from-yc-orange to-red-600 rounded-2xl text-white shadow-xl relative overflow-hidden">
                             <div className="relative z-10">
                                 <p className="text-white/80 text-sm font-bold uppercase tracking-widest mb-1">Total Cards</p>
                                 <h2 className="text-4xl font-black font-mono">{myCards.length}</h2>
@@ -526,7 +526,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
                     {/* Grid */}
                     {myCards.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pb-24">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 md:gap-4 pb-24">
                             {myCards.map((card) => {
                                 const isSelected = selectedCardIds.includes(card.tokenId);
                                 const isDimmed = isMergeMode && !isSelected && (selectedCardIds.length >= 3 || !getAvailableForMerge(card));
@@ -569,7 +569,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             {!isMergeMode && (
                                 <button
                                     onClick={onBuyPack}
-                                    className="border-2 border-dashed border-gray-300 dark:border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center p-6 text-gray-400 hover:text-yc-orange hover:border-yc-orange transition-colors min-h-[280px]"
+                                    className="border-2 border-dashed border-gray-300 dark:border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center p-4 md:p-6 text-gray-400 hover:text-yc-orange hover:border-yc-orange transition-colors min-h-[120px] md:min-h-[280px]"
                                 >
                                     <Plus className="w-8 h-8 mb-2" />
                                     <span className="font-bold text-sm">Add Asset</span>
