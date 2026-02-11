@@ -43,7 +43,7 @@ const STARTUP_MAPPING = {
     'browser_use': 'Browser Use',
     'dedaluslabs': 'Dedalus Labs',
     'autumnpricing': 'Autumn',
-    'axiom_xyz': 'Axiom',
+    'AxiomExchange': 'Axiom',
     'MultifactorCOM': 'Multifactor',
     'getdomeapi': 'Dome',
     'GrazeMate': 'GrazeMate',
@@ -67,7 +67,10 @@ const EVENT_SCORES = {
             'raised', 'funding', 'seed', 'series a', 'series b', 'series c', 'series d',
             'round', 'investment', 'investors', 'backed by', 'led by', 'capital',
             'venture', 'financing', 'fundraise', 'fundraising', 'raise', 'closed',
-            'pre-seed', 'angel', 'vc', 'valuation', 'invested', 'funding round'
+            'pre-seed', 'angel', 'vc', 'valuation', 'invested', 'funding round',
+            // Portuguese
+            'investimento', 'investidores', 'rodada', 'captação', 'financiamento',
+            'levantou', 'aporte', 'capitalização', 'investiu'
         ]
     },
     PARTNERSHIP: {
@@ -78,7 +81,10 @@ const EVENT_SCORES = {
             'partner', 'partnership', 'collaboration', 'collab', 'integrated with',
             'integration', 'teaming up', 'team up', 'working with', 'partnering',
             'joined forces', 'alliance', 'strategic', 'cooperate', 'cooperation',
-            'working together', 'announce partnership', 'proud to partner'
+            'working together', 'announce partnership', 'proud to partner',
+            // Portuguese
+            'parceria', 'parceiro', 'colaboração', 'integração', 'integrado com',
+            'aliança', 'cooperação', 'trabalhando com', 'juntos'
         ]
     },
     KEY_HIRE: {
@@ -89,7 +95,10 @@ const EVENT_SCORES = {
             'hired', 'joined', 'welcome', 'joining', 'new hire', 'joins',
             'welcoming', 'onboarding', 'brought on', 'appointed', 'promoting',
             'excited to announce', 'thrilled to have', 'joins the team',
-            'new team member', 'joining our team', 'pleased to announce'
+            'new team member', 'joining our team', 'pleased to announce',
+            // Portuguese
+            'contratou', 'contratação', 'bem-vindo', 'novo membro', 'entrou para',
+            'nomeado', 'promovido', 'equipe', 'time'
         ]
     },
     REVENUE: {
@@ -98,7 +107,9 @@ const EVENT_SCORES = {
         keywords: [
             'arr', 'mrr', 'revenue', 'sales', 'annual recurring revenue',
             'monthly recurring revenue', 'run rate', 'bookings', 'billing',
-            'profitable', 'profitability', 'earnings', 'income'
+            'profitable', 'profitability', 'earnings', 'income',
+            // Portuguese
+            'receita', 'faturamento', 'vendas', 'lucrativo', 'lucro', 'renda'
         ]
     },
     PRODUCT_LAUNCH: {
@@ -109,7 +120,10 @@ const EVENT_SCORES = {
             'launched', 'launch', 'live', 'beta', 'announcing', 'released',
             'introducing', 'new feature', 'now available', 'shipping',
             'rollout', 'rolling out', 'unveiling', 'debut', 'going live',
-            'available now', 'just shipped', 'excited to share'
+            'available now', 'just shipped', 'excited to share',
+            // Portuguese
+            'lançamento', 'lançou', 'lançamos', 'disponível', 'nova funcionalidade',
+            'novidade', 'apresentando', 'estreia', 'ao vivo'
         ]
     },
     ACQUISITION: {
@@ -117,7 +131,9 @@ const EVENT_SCORES = {
         keywords: [
             'acquired', 'acquisition', 'merger', 'acquired by', 'merge',
             'acquiring', 'bought', 'purchase', 'purchasing', 'takeover',
-            'join forces', 'combining with', 'merging with'
+            'join forces', 'combining with', 'merging with',
+            // Portuguese
+            'adquiriu', 'aquisição', 'fusão', 'compra', 'comprou'
         ]
     },
     MEDIA_MENTION: {
@@ -127,7 +143,10 @@ const EVENT_SCORES = {
         keywords: [
             'featured', 'covered', 'article', 'mentioned', 'press',
             'interview', 'story', 'spotlight', 'highlighted', 'profiled',
-            'wrote about', 'coverage', 'appeared on', 'featured in'
+            'wrote about', 'coverage', 'appeared on', 'featured in',
+            // Portuguese
+            'destaque', 'matéria', 'artigo', 'mencionado', 'entrevista',
+            'imprensa', 'reportagem', 'cobertura'
         ]
     },
     GROWTH: {
@@ -136,7 +155,10 @@ const EVENT_SCORES = {
         keywords: [
             'users', 'signups', 'growth', 'milestone', 'customers', 'reached',
             'surpassed', 'hit', 'crossed', 'achieved', 'grown to',
-            'doubled', 'tripled', '10x', '100x', 'scale', 'scaling'
+            'doubled', 'tripled', '10x', '100x', 'scale', 'scaling',
+            // Portuguese
+            'usuários', 'clientes', 'crescimento', 'marco', 'alcançou',
+            'superou', 'atingiu', 'dobrou', 'triplicou', 'escala'
         ]
     },
     ENGAGEMENT: {

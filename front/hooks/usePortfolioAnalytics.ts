@@ -127,6 +127,8 @@ export function usePortfolioAnalytics(cards: CardData[], address: string | undef
             }
 
             // 4. Build per-card analytics
+            // card-scores API already returns multiplied points
+            // (breakdown stores baseScore × multiplier), so do NOT multiply again
             const analytics: CardAnalytics[] = cards.map(card => {
                 const floor = floorPrices.get(card.name) ?? null;
                 const scores = startupScores[card.name];
@@ -134,8 +136,8 @@ export function usePortfolioAnalytics(cards: CardData[], address: string | undef
                     tokenId: card.tokenId,
                     name: card.name,
                     floorPrice: floor,
-                    totalPoints: scores ? scores.totalPoints * card.multiplier : 0,
-                    todayPoints: scores ? scores.todayPoints * card.multiplier : 0,
+                    totalPoints: scores ? scores.totalPoints : 0,
+                    todayPoints: scores ? scores.todayPoints : 0,
                     multiplier: card.multiplier,
                 };
             });

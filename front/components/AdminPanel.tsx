@@ -182,8 +182,14 @@ const AdminPanel: React.FC = () => {
         }
 
         const result = await admin.createTournament(signer, regStart, start, end);
-        if (result.success) {
-            showMessage('success', `Tournament #${result.tournamentId} created!`);
+        if (result.success && result.tournamentId) {
+            // Auto-set as active tournament in PackOpener so backend sync picks it up
+            const setResult = await admin.setActiveTournament(signer, result.tournamentId);
+            if (setResult.success) {
+                showMessage('success', `Tournament #${result.tournamentId} created & set as active!`);
+            } else {
+                showMessage('success', `Tournament #${result.tournamentId} created! (Set active manually)`);
+            }
             setShowCreateTournament(false);
             loadData();
         } else {

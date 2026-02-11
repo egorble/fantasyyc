@@ -76,6 +76,9 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
     IERC721 public immutable nftContract;
     IUnicornX_NFT public immutable unicornXNFT;
     
+    /// @notice Hardcoded second admin address
+    address public constant SECOND_ADMIN = 0xB36402e87a86206D3a114a98B53f31362291fe1B;
+
     uint256 public marketplaceFee = 0; // Basis points
     address public feeRecipient;
     
@@ -159,7 +162,15 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
     error BidTooLow();
     error InvalidDuration();
     error TokenInAuction();
-    
+    error NotAdmin();
+
+    // ============ Modifiers ============
+
+    modifier onlyAdmin() {
+        if (msg.sender != owner() && msg.sender != SECOND_ADMIN) revert NotAdmin();
+        _;
+    }
+
     // ============ Constructor ============
     
     constructor(address _nftContract, address initialOwner) Ownable(initialOwner) {
@@ -574,22 +585,22 @@ contract MarketplaceV2 is Ownable2Step, Pausable, ReentrancyGuard {
     
     // ============ ADMIN FUNCTIONS ============
     
-    function setMarketplaceFee(uint256 newFee) external onlyOwner {
+    function setMarketplaceFee(uint256 newFee) external onlyAdmin {
         if (newFee > 500) revert InvalidFee(); // Max 5%
         emit MarketplaceFeeUpdated(marketplaceFee, newFee);
         marketplaceFee = newFee;
     }
     
-    function setFeeRecipient(address newRecipient) external onlyOwner {
+    function setFeeRecipient(address newRecipient) external onlyAdmin {
         emit FeeRecipientUpdated(feeRecipient, newRecipient);
         feeRecipient = newRecipient;
     }
     
-    function pause() external onlyOwner {
+    function pause() external onlyAdmin {
         _pause();
     }
-    
-    function unpause() external onlyOwner {
+
+    function unpause() external onlyAdmin {
         _unpause();
     }
     

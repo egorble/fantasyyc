@@ -5,12 +5,15 @@
 
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ethers } from 'ethers';
 import * as db from './db/database.js';
 import { CHAIN, CONTRACTS } from './config.js';
+import { verifyWalletSignature, requireAdmin, isValidAddress, isValidTournamentId, isValidDate } from './middleware/auth.js';
+import { computeLeaderboardHmac, verifyHmac } from './middleware/integrity.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,6 +24,28 @@ const PORT = process.env.PORT || 3003;
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
+
+// Rate limiting
+const globalLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many requests, please try again later' }
+});
+app.use(globalLimiter);
+
+const writeLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: { success: false, error: 'Too many write requests' }
+});
+
+const adminLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    message: { success: false, error: 'Admin rate limit exceeded' }
+});
 
 // ============= API ROUTES =============
 
@@ -64,6 +89,9 @@ app.get('/api/tournaments/active', (req, res) => {
  */
 app.get('/api/tournaments/:id', (req, res) => {
     try {
+        if (!isValidTournamentId(req.params.id)) {
+            return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
+        }
         const tournament = db.getTournament(parseInt(req.params.id));
 
         if (!tournament) {
@@ -98,22 +126,39 @@ app.get('/api/tournaments/:id', (req, res) => {
  */
 app.get('/api/leaderboard/:tournamentId', (req, res) => {
     try {
+        if (!isValidTournamentId(req.params.tournamentId)) {
+            return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
+        }
         const tournamentId = parseInt(req.params.tournamentId);
-        const limit = parseInt(req.query.limit) || 100;
+        const limit = Math.min(parseInt(req.query.limit) || 100, 500);
 
         const leaderboard = db.getLeaderboard(tournamentId, limit);
 
-        // Enrich with user profile data
+        // Enrich with user profile data + HMAC integrity verification
         const addresses = leaderboard.map(e => e.address);
         const profiles = db.getUserProfiles(addresses);
         const profileMap = {};
         profiles.forEach(p => { profileMap[p.address] = p; });
 
-        const enriched = leaderboard.map(entry => ({
-            ...entry,
-            username: profileMap[entry.address]?.username || null,
-            avatar: profileMap[entry.address]?.avatar_url || null,
-        }));
+        const enriched = leaderboard.map(entry => {
+            let integrityVerified = null;
+            if (entry.hmac) {
+                integrityVerified = verifyHmac(computeLeaderboardHmac, {
+                    tournamentId,
+                    playerAddress: entry.address,
+                    totalScore: entry.score
+                }, entry.hmac);
+            }
+            return {
+                rank: entry.rank,
+                address: entry.address,
+                score: entry.score,
+                lastUpdated: entry.lastUpdated,
+                username: profileMap[entry.address]?.username || null,
+                avatar: profileMap[entry.address]?.avatar_url || null,
+                integrityVerified,
+            };
+        });
 
         return res.json({
             success: true,
@@ -134,6 +179,8 @@ app.get('/api/leaderboard/:tournamentId', (req, res) => {
 app.get('/api/player/:address/rank/:tournamentId', (req, res) => {
     try {
         const { address, tournamentId } = req.params;
+        if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
+        if (!isValidTournamentId(tournamentId)) return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
         const rank = db.getPlayerRank(parseInt(tournamentId), address.toLowerCase());
 
         if (!rank) {
@@ -163,6 +210,8 @@ app.get('/api/player/:address/rank/:tournamentId', (req, res) => {
 app.get('/api/player/:address/history/:tournamentId', (req, res) => {
     try {
         const { address, tournamentId } = req.params;
+        if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
+        if (!isValidTournamentId(tournamentId)) return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
         const history = db.getPlayerScoreHistory(parseInt(tournamentId), address.toLowerCase());
 
         return res.json({
@@ -188,6 +237,8 @@ app.get('/api/player/:address/history/:tournamentId', (req, res) => {
 app.get('/api/player/:address/cards/:tournamentId', (req, res) => {
     try {
         const { address, tournamentId } = req.params;
+        if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
+        if (!isValidTournamentId(tournamentId)) return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
         const cards = db.getPlayerCards(parseInt(tournamentId), address.toLowerCase());
 
         return res.json({
@@ -215,6 +266,8 @@ app.get('/api/player/:address/cards/:tournamentId', (req, res) => {
 app.get('/api/player/:address/card-scores/:tournamentId', (req, res) => {
     try {
         const { address, tournamentId } = req.params;
+        if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
+        if (!isValidTournamentId(tournamentId)) return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
         const history = db.getPlayerScoreHistory(parseInt(tournamentId), address.toLowerCase());
 
         const aggregated = {};
@@ -257,6 +310,9 @@ app.get('/api/player/:address/card-scores/:tournamentId', (req, res) => {
  */
 app.get('/api/stats/:tournamentId', (req, res) => {
     try {
+        if (!isValidTournamentId(req.params.tournamentId)) {
+            return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
+        }
         const stats = db.getTournamentStats(parseInt(req.params.tournamentId));
 
         return res.json({
@@ -278,6 +334,8 @@ app.get('/api/stats/:tournamentId', (req, res) => {
 app.get('/api/daily-scores/:tournamentId/:date', (req, res) => {
     try {
         const { tournamentId, date } = req.params;
+        if (!isValidTournamentId(tournamentId)) return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
+        if (!isValidDate(date)) return res.status(400).json({ success: false, error: 'Invalid date format (YYYY-MM-DD)' });
         const scores = db.getDailyScores(parseInt(tournamentId), date);
 
         return res.json({
@@ -303,8 +361,11 @@ app.get('/api/daily-scores/:tournamentId/:date', (req, res) => {
  */
 app.get('/api/top-startups/:tournamentId', (req, res) => {
     try {
+        if (!isValidTournamentId(req.params.tournamentId)) {
+            return res.status(400).json({ success: false, error: 'Invalid tournament ID' });
+        }
         const tournamentId = parseInt(req.params.tournamentId);
-        const limit = parseInt(req.query.limit) || 5;
+        const limit = Math.min(parseInt(req.query.limit) || 5, 50);
         const startups = db.getTopStartups(tournamentId, limit);
 
         return res.json({
@@ -356,14 +417,15 @@ app.get('/api/live-feed', (req, res) => {
  * POST /api/users/register
  * Register a new user profile
  */
-app.post('/api/users/register', (req, res) => {
+app.post('/api/users/register', writeLimiter, verifyWalletSignature, (req, res) => {
     try {
-        const { address, username, avatar, referrer } = req.body;
+        const address = req.verifiedAddress; // From verified signature
+        const { username, avatar, referrer } = req.body;
 
-        if (!address || !username) {
+        if (!username) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing address or username'
+                error: 'Missing username'
             });
         }
 
@@ -447,10 +509,15 @@ app.get('/api/users/:address', (req, res) => {
  * PUT /api/users/:address
  * Update user profile
  */
-app.put('/api/users/:address', (req, res) => {
+app.put('/api/users/:address', writeLimiter, verifyWalletSignature, (req, res) => {
     try {
         const address = req.params.address.toLowerCase();
         const { username, avatar } = req.body;
+
+        // Verify the signer owns this address
+        if (address !== req.verifiedAddress) {
+            return res.status(403).json({ success: false, error: 'Cannot modify another user\'s profile' });
+        }
 
         if (!username || username.length < 3 || username.length > 20) {
             return res.status(400).json({
@@ -502,7 +569,9 @@ app.post('/api/users/bulk', (req, res) => {
             });
         }
 
-        const profiles = db.getUserProfiles(addresses);
+        // Limit to prevent abuse
+        const limitedAddresses = addresses.slice(0, 100);
+        const profiles = db.getUserProfiles(limitedAddresses);
 
         return res.json({
             success: true,
@@ -526,6 +595,7 @@ app.post('/api/users/bulk', (req, res) => {
  */
 app.get('/api/referrals/:address', (req, res) => {
     try {
+        if (!isValidAddress(req.params.address)) return res.status(400).json({ success: false, error: 'Invalid address' });
         const address = req.params.address.toLowerCase();
         const stats = db.getReferralStats(address);
         const referrals = db.getReferralsByReferrer(address);
@@ -554,20 +624,25 @@ app.get('/api/referrals/:address', (req, res) => {
  * POST /api/referrals/track
  * Track a referral from pack purchase
  */
-app.post('/api/referrals/track', (req, res) => {
+app.post('/api/referrals/track', writeLimiter, verifyWalletSignature, (req, res) => {
     try {
-        const { referrer, referred, packId, amount } = req.body;
+        const referred = req.verifiedAddress; // The signer is the referred user
+        const { referrer, packId, amount } = req.body;
 
-        if (!referrer || !referred) {
+        if (!referrer) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing referrer or referred address'
+                error: 'Missing referrer address'
             });
+        }
+
+        if (!isValidAddress(referrer)) {
+            return res.status(400).json({ success: false, error: 'Invalid referrer address' });
         }
 
         db.saveReferral(
             referrer.toLowerCase(),
-            referred.toLowerCase(),
+            referred,
             packId,
             amount || '0'
         );
@@ -614,7 +689,7 @@ app.get('/health', (req, res) => {
  * Trigger daily scoring (runs within server process to share DB).
  * Body: { date?: "YYYY-MM-DD" } - optional, defaults to yesterday UTC.
  */
-app.post('/api/run-scorer', async (req, res) => {
+app.post('/api/run-scorer', adminLimiter, requireAdmin, async (req, res) => {
     try {
         const { runDailyScoring } = await import('./jobs/daily-scorer.js');
         const date = req.body?.date || undefined;
@@ -636,7 +711,7 @@ app.post('/api/run-scorer', async (req, res) => {
  * POST /api/finalize
  * Manually trigger tournament finalization check.
  */
-app.post('/api/finalize', async (req, res) => {
+app.post('/api/finalize', adminLimiter, requireAdmin, async (req, res) => {
     try {
         const { checkAndFinalize } = await import('./jobs/finalize-tournament.js');
         console.log('Finalization triggered via API');
@@ -655,18 +730,36 @@ async function syncTournamentFromBlockchain() {
         const packOpener = new ethers.Contract(CONTRACTS.PackOpener, [
             'function activeTournamentId() view returns (uint256)',
         ], provider);
-        const tournament = new ethers.Contract(CONTRACTS.TournamentManager, [
+        const tournamentContract = new ethers.Contract(CONTRACTS.TournamentManager, [
             'function getTournament(uint256 id) view returns (tuple(uint256 id, uint256 registrationStart, uint256 startTime, uint256 endTime, uint256 prizePool, uint256 entryCount, uint8 status))',
             'function nextTournamentId() view returns (uint256)',
         ], provider);
 
-        const activeId = Number(await packOpener.activeTournamentId());
+        // Check PackOpener active tournament first
+        let activeId = Number(await packOpener.activeTournamentId());
+
+        // If PackOpener has no active tournament, check TournamentManager directly
+        // (tournament may exist but not yet set as active in PackOpener)
+        if (activeId === 0) {
+            const nextId = Number(await tournamentContract.nextTournamentId());
+            if (nextId > 1) {
+                // Check the latest tournament
+                const latestId = nextId - 1;
+                const t = await tournamentContract.getTournament(latestId);
+                // status 0=Created, 1=Active — both are valid for sync
+                if (Number(t.status) <= 1 && Number(t.id) > 0) {
+                    activeId = latestId;
+                    console.log(`   PackOpener has no active tournament, found Tournament #${activeId} in TournamentManager`);
+                }
+            }
+        }
+
         if (activeId === 0) {
             console.log('   No active tournament on chain');
             return;
         }
 
-        const t = await tournament.getTournament(activeId);
+        const t = await tournamentContract.getTournament(activeId);
         const currentTime = Math.floor(Date.now() / 1000);
         const startTime = Number(t.startTime);
         const endTime = Number(t.endTime);
@@ -768,6 +861,10 @@ async function startServer() {
         });
         db.saveDatabase();
         console.log('✅ Schema applied');
+
+        // Run HMAC column migrations (idempotent)
+        db.runHmacMigrations();
+        console.log('✅ HMAC migrations applied');
 
         // Detect contract changes → wipe stale tournament data
         const contractHash = JSON.stringify(CONTRACTS);

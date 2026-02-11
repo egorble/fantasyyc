@@ -36,6 +36,9 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     uint256 public constant PLATFORM_PERCENT = 10;
     // Tournament gets remainder (80% with referral, 90% without)
 
+    /// @notice Hardcoded second admin address
+    address public constant SECOND_ADMIN = 0xB36402e87a86206D3a114a98B53f31362291fe1B;
+
     // Rarity Distribution
     uint256 private constant COMMON_THRESHOLD = 70;
     uint256 private constant RARE_THRESHOLD = 95;
@@ -123,6 +126,14 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     error WithdrawFailed();
     error InvalidPrice();
     error CannotReferSelf();
+    error NotAdmin();
+
+    // ============ Modifiers ============
+
+    modifier onlyAdmin() {
+        if (msg.sender != owner() && msg.sender != SECOND_ADMIN) revert NotAdmin();
+        _;
+    }
 
     // ============ Constructor ============
 
@@ -393,7 +404,7 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     /**
      * @notice Forward pending prize pool to active tournament
      */
-    function forwardPendingFunds() external onlyOwner nonReentrant {
+    function forwardPendingFunds() external onlyAdmin nonReentrant {
         require(address(tournamentManager) != address(0), "No tournament manager");
         require(activeTournamentId > 0, "No active tournament");
         require(pendingPrizePool > 0, "No pending funds");
@@ -405,7 +416,7 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         emit PendingFundsForwarded(activeTournamentId, amount);
     }
 
-    function withdraw() external onlyOwner nonReentrant {
+    function withdraw() external onlyAdmin nonReentrant {
         // Only withdraw platform fees (not pending prize pool)
         uint256 platformBalance = address(this).balance - pendingPrizePool;
         if (platformBalance == 0) revert WithdrawFailed();
@@ -416,26 +427,26 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         emit FundsWithdrawn(treasury, platformBalance);
     }
 
-    function setPackPrice(uint256 newPrice) external onlyOwner {
+    function setPackPrice(uint256 newPrice) external onlyAdmin {
         if (newPrice == 0) revert InvalidPrice();
         uint256 oldPrice = currentPackPrice;
         currentPackPrice = newPrice;
         emit PackPriceUpdated(oldPrice, newPrice);
     }
 
-    function setTreasury(address newTreasury) external onlyOwner {
+    function setTreasury(address newTreasury) external onlyAdmin {
         if (newTreasury == address(0)) revert ZeroAddress();
         address oldTreasury = treasury;
         treasury = newTreasury;
         emit TreasuryUpdated(oldTreasury, newTreasury);
     }
 
-    function setNftContract(address newNftContract) external onlyOwner {
+    function setNftContract(address newNftContract) external onlyAdmin {
         if (newNftContract == address(0)) revert ZeroAddress();
         nftContract = IUnicornX_NFT(newNftContract);
     }
 
-    function setTournamentManager(address newTournamentManager) external onlyOwner {
+    function setTournamentManager(address newTournamentManager) external onlyAdmin {
         address oldTM = address(tournamentManager);
         tournamentManager = ITournamentManager(newTournamentManager);
         emit TournamentManagerUpdated(oldTM, newTournamentManager);
@@ -444,7 +455,7 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     /**
      * @notice Set active tournament. Auto-forwards pending funds if any.
      */
-    function setActiveTournament(uint256 tournamentId) external onlyOwner {
+    function setActiveTournament(uint256 tournamentId) external onlyAdmin {
         uint256 oldId = activeTournamentId;
         activeTournamentId = tournamentId;
         emit ActiveTournamentUpdated(oldId, tournamentId);
@@ -461,8 +472,8 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         }
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyAdmin { _pause(); }
+    function unpause() external onlyAdmin { _unpause(); }
 
     receive() external payable {}
 }

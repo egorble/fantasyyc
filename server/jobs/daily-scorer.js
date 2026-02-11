@@ -18,6 +18,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as db from '../db/database.js';
 import { CHAIN, CONTRACTS } from '../config.js';
+import { computeDailyScoreHmac, computeScoreHmac, computeLeaderboardHmac, computeIntegrityHash } from '../middleware/integrity.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -218,14 +219,22 @@ async function runDailyScoring(dateOverride) {
 
             console.log(`  -> ${result.tweetCount} tweets, ${result.totalPoints} pts`);
 
-            // Save daily score
+            // Save daily score with HMAC
+            const dailyHmac = computeDailyScoreHmac({
+                tournamentId: tournament.id,
+                startupName: name,
+                date: scoringDate,
+                basePoints: result.totalPoints,
+                tweetsAnalyzed: result.tweetCount
+            });
             db.saveDailyScore(
                 tournament.id,
                 name,
                 scoringDate,
                 result.totalPoints,
                 result.tweetCount,
-                result.tweets.flatMap(t => t.events)
+                result.tweets.flatMap(t => t.events),
+                dailyHmac
             );
 
             // Save events to live feed
@@ -252,6 +261,23 @@ async function runDailyScoring(dateOverride) {
         }
     }
 
+    // 3b. Build integrity hash chain for this day's scores
+    try {
+        const scoresJson = JSON.stringify(
+            Object.entries(startupBaseScores).sort(([a], [b]) => a.localeCompare(b))
+        );
+        const previousHash = db.getLatestIntegrityHash(tournament.id);
+        const integrityHash = computeIntegrityHash(tournament.id, scoringDate, scoresJson, previousHash);
+        db.setConfig(`integrity_latest_${tournament.id}`, JSON.stringify({
+            hash: integrityHash,
+            previousHash: previousHash || 'GENESIS',
+            date: scoringDate
+        }));
+        console.log(`  Integrity chain: ${integrityHash.substring(0, 16)}...`);
+    } catch (e) {
+        console.error('  Integrity hash error:', e.message);
+    }
+
     // 4. Calculate player scores
     console.log('\n[4] Calculating player scores...');
 
@@ -270,13 +296,27 @@ async function runDailyScoring(dateOverride) {
             // Calculate today's score
             const { totalPoints, breakdown } = calculatePlayerScore(cards, startupBaseScores);
 
-            // Save daily score history
-            db.saveScoreHistory(tournament.id, participant, scoringDate, totalPoints, breakdown);
+            // Save daily score history with HMAC
+            const scoreHmac = computeScoreHmac({
+                tournamentId: tournament.id,
+                playerAddress: participant,
+                date: scoringDate,
+                points: totalPoints,
+                breakdown
+            });
+            db.saveScoreHistory(tournament.id, participant, scoringDate, totalPoints, breakdown, scoreHmac);
 
             // Recalculate total from all days
             const history = db.getPlayerScoreHistory(tournament.id, participant);
             const totalScore = history.reduce((sum, h) => sum + h.points_earned, 0);
-            db.updateLeaderboard(tournament.id, participant, totalScore);
+
+            // Update leaderboard with HMAC
+            const leaderboardHmac = computeLeaderboardHmac({
+                tournamentId: tournament.id,
+                playerAddress: participant,
+                totalScore
+            });
+            db.updateLeaderboard(tournament.id, participant, totalScore, leaderboardHmac);
 
             console.log(`  ${participant.substring(0, 10)}... - today: ${totalPoints.toFixed(1)} | total: ${totalScore.toFixed(1)}`);
         } catch (error) {

@@ -225,13 +225,13 @@ export function getAllTournamentCards(tournamentId) {
 
 // ============ Daily Scores Functions ============
 
-export function saveDailyScore(tournamentId, startupName, date, basePoints, tweetsAnalyzed, events) {
+export function saveDailyScore(tournamentId, startupName, date, basePoints, tweetsAnalyzed, events, hmac = null, integrityHash = null) {
     const eventsJson = JSON.stringify(events);
     exec(`
         INSERT OR REPLACE INTO daily_scores
-        (tournament_id, startup_name, date, base_points, tweets_analyzed, events_detected)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `, [tournamentId, startupName, date, basePoints, tweetsAnalyzed, eventsJson]);
+        (tournament_id, startup_name, date, base_points, tweets_analyzed, events_detected, hmac, integrity_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [tournamentId, startupName, date, basePoints, tweetsAnalyzed, eventsJson, hmac, integrityHash]);
 }
 
 export function getDailyScores(tournamentId, date) {
@@ -256,12 +256,12 @@ export function getStartupScoreHistory(tournamentId, startupName) {
 
 // ============ Leaderboard Functions ============
 
-export function updateLeaderboard(tournamentId, playerAddress, totalScore) {
+export function updateLeaderboard(tournamentId, playerAddress, totalScore, hmac = null) {
     exec(`
         INSERT OR REPLACE INTO leaderboard
-        (tournament_id, player_address, total_score, last_updated)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    `, [tournamentId, playerAddress, totalScore]);
+        (tournament_id, player_address, total_score, last_updated, hmac)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+    `, [tournamentId, playerAddress, totalScore, hmac]);
 
     // Update ranks
     updateRanks(tournamentId);
@@ -291,7 +291,8 @@ export function getLeaderboard(tournamentId, limit = 100) {
             rank,
             player_address,
             total_score,
-            last_updated
+            last_updated,
+            hmac
         FROM leaderboard
         WHERE tournament_id = ?
         ORDER BY total_score DESC
@@ -303,7 +304,8 @@ export function getLeaderboard(tournamentId, limit = 100) {
         rank: row.rank,
         address: row.player_address,
         score: row.total_score,
-        lastUpdated: row.last_updated
+        lastUpdated: row.last_updated,
+        hmac: row.hmac || null
     }));
 }
 
@@ -338,13 +340,13 @@ export function getTournamentStats(tournamentId) {
 
 // ============ Score History Functions ============
 
-export function saveScoreHistory(tournamentId, playerAddress, date, pointsEarned, breakdown) {
+export function saveScoreHistory(tournamentId, playerAddress, date, pointsEarned, breakdown, hmac = null) {
     const breakdownJson = JSON.stringify(breakdown);
     exec(`
         INSERT INTO score_history
-        (tournament_id, player_address, date, points_earned, breakdown)
-        VALUES (?, ?, ?, ?, ?)
-    `, [tournamentId, playerAddress, date, pointsEarned, breakdownJson]);
+        (tournament_id, player_address, date, points_earned, breakdown, hmac)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `, [tournamentId, playerAddress, date, pointsEarned, breakdownJson, hmac]);
 }
 
 export function getPlayerScoreHistory(tournamentId, playerAddress) {
@@ -477,6 +479,40 @@ export function getReferralStats(referrerAddress) {
         FROM referrals
         WHERE referrer_address = ?
     `, [referrerAddress]);
+}
+
+// ============ HMAC Migration ============
+
+/**
+ * Add HMAC columns to existing tables (idempotent).
+ * Call during server startup after schema is applied.
+ */
+export function runHmacMigrations() {
+    if (!db) throw new Error('Database not initialized');
+    const migrations = [
+        'ALTER TABLE daily_scores ADD COLUMN hmac TEXT',
+        'ALTER TABLE daily_scores ADD COLUMN integrity_hash TEXT',
+        'ALTER TABLE score_history ADD COLUMN hmac TEXT',
+        'ALTER TABLE leaderboard ADD COLUMN hmac TEXT',
+    ];
+    for (const sql of migrations) {
+        try { db.run(sql); } catch (e) { /* column already exists */ }
+    }
+}
+
+/**
+ * Get the latest integrity hash for the hash chain.
+ */
+export function getLatestIntegrityHash(tournamentId) {
+    const row = get(
+        `SELECT value FROM kv_store WHERE key = ?`,
+        [`integrity_latest_${tournamentId}`]
+    );
+    if (!row) return null;
+    try {
+        const data = JSON.parse(row.value);
+        return data.hash;
+    } catch { return null; }
 }
 
 // Auto-save database every 5 seconds if there were changes

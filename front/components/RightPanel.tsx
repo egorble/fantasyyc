@@ -56,7 +56,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
     <aside className="w-64 h-screen fixed right-0 top-0 bg-white dark:bg-yc-dark-panel border-l border-gray-200 dark:border-yc-dark-border p-3 hidden xl:flex flex-col space-y-3 z-40 overflow-y-auto transition-colors duration-300">
 
       {/* Buy Pack CTA */}
-      <div className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl p-4 relative overflow-hidden shadow-lg flex-1 flex flex-col justify-between min-h-[200px]">
+      <div className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl p-4 relative overflow-hidden shadow-lg shrink-0 flex flex-col justify-between min-h-[200px]">
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
         <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full translate-y-6 -translate-x-6" />
 
@@ -106,7 +106,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
       <div className="bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg p-3 shadow-sm dark:shadow-none">
         <div className="flex items-center justify-between mb-2">
              <h3 className="text-gray-900 dark:text-white font-bold text-[11px] uppercase tracking-wide">Top Startups</h3>
-             <TrendingUp className="w-3 h-3 text-yc-orange" />
+             <span className="text-[8px] text-gray-400 font-medium">base pts</span>
         </div>
 
         <div className="space-y-1">

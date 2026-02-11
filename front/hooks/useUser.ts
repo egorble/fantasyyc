@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useWalletContext } from '../context/WalletContext';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
+import { createSignedAuth } from '../lib/auth';
 
 const API_BASE = 'http://localhost:3003/api';
 
@@ -11,7 +12,7 @@ export interface UserProfileData {
 }
 
 export function useUser() {
-    const { address, isConnected } = useWalletContext();
+    const { address, isConnected, getSigner } = useWalletContext();
     const [profile, setProfile] = useState<UserProfileData | null>(null);
     const [needsRegistration, setNeedsRegistration] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -56,8 +57,12 @@ export function useUser() {
         try {
             setLoading(true);
 
+            // Sign message to prove wallet ownership
+            const signer = await getSigner();
+            if (!signer) return false;
+            const { message, signature } = await createSignedAuth(signer, address);
+
             // Check for stored referrer to send with registration
-            // localStorage may already be cleared by useReferral hook, so also check URL params
             let referrer = localStorage.getItem('fantasyyc_referrer');
             if (!referrer) {
                 const params = new URLSearchParams(window.location.search);
@@ -75,6 +80,8 @@ export function useUser() {
                     username,
                     avatar: avatarDataUrl || null,
                     referrer: referrer || null,
+                    message,
+                    signature,
                 }),
             });
             const data = await res.json();
@@ -95,7 +102,7 @@ export function useUser() {
         } finally {
             setLoading(false);
         }
-    }, [address]);
+    }, [address, getSigner]);
 
     // Update existing profile
     const updateProfile = useCallback(async (username: string, avatarDataUrl?: string) => {
@@ -103,12 +110,21 @@ export function useUser() {
 
         try {
             setLoading(true);
+
+            // Sign message to prove wallet ownership
+            const signer = await getSigner();
+            if (!signer) return false;
+            const { message, signature } = await createSignedAuth(signer, address);
+
             const res = await fetch(`${API_BASE}/users/${address.toLowerCase()}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    address: address.toLowerCase(),
                     username,
                     avatar: avatarDataUrl || null,
+                    message,
+                    signature,
                 }),
             });
             const data = await res.json();
@@ -127,7 +143,7 @@ export function useUser() {
         } finally {
             setLoading(false);
         }
-    }, [address]);
+    }, [address, getSigner]);
 
     // Get generated pixel avatar for address
     const getPixelAvatar = useCallback((addr?: string) => {

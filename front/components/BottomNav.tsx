@@ -1,21 +1,26 @@
 import React from 'react';
 import { NavSection } from '../types';
-import { LayoutGrid, ShoppingBag, PieChart, Trophy, BarChart2 } from 'lucide-react';
+import { LayoutGrid, ShoppingBag, PieChart, Trophy, BarChart2, Shield } from 'lucide-react';
+import { isAdmin } from '../hooks/useAdmin';
+import { useWalletContext } from '../context/WalletContext';
 
 interface BottomNavProps {
   activeSection: NavSection;
   onNavigate: (section: NavSection) => void;
 }
 
-const tabs = [
-  { id: NavSection.HOME, icon: LayoutGrid, label: 'Home' },
-  { id: NavSection.MARKETPLACE, icon: ShoppingBag, label: 'Market' },
-  { id: NavSection.PORTFOLIO, icon: PieChart, label: 'Portfolio' },
-  { id: NavSection.LEAGUES, icon: Trophy, label: 'Leagues' },
-  { id: NavSection.ANALYTICS, icon: BarChart2, label: 'Stats' },
-];
-
 const BottomNav: React.FC<BottomNavProps> = ({ activeSection, onNavigate }) => {
+  const { address } = useWalletContext();
+  const userIsAdmin = isAdmin(address);
+
+  const tabs = [
+    { id: NavSection.HOME, icon: LayoutGrid, label: 'Home' },
+    { id: NavSection.MARKETPLACE, icon: ShoppingBag, label: 'Market' },
+    { id: NavSection.PORTFOLIO, icon: PieChart, label: 'Portfolio' },
+    { id: NavSection.LEAGUES, icon: Trophy, label: 'Leagues' },
+    { id: NavSection.ANALYTICS, icon: BarChart2, label: 'Stats' },
+    ...(userIsAdmin ? [{ id: NavSection.ADMIN, icon: Shield, label: 'Admin' }] : []),
+  ];
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden flex justify-center" style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}>
       <nav className="mx-4 mb-3 px-3 py-2 rounded-[28px] bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]">

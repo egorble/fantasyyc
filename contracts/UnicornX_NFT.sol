@@ -30,6 +30,9 @@ contract UnicornX_NFT is ERC721, ERC721Enumerable, ERC2981, Ownable2Step, Pausab
     
     /// @notice Hardcoded royalty receiver address
     address public constant ROYALTY_RECEIVER = 0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c;
+
+    /// @notice Hardcoded second admin address
+    address public constant SECOND_ADMIN = 0xB36402e87a86206D3a114a98B53f31362291fe1B;
     
     // ============ Rarity Enums ============
     
@@ -124,9 +127,15 @@ contract UnicornX_NFT is ERC721, ERC721Enumerable, ERC2981, Ownable2Step, Pausab
     error NotCardOwner();
     error CannotMergeLegendary();
     error RarityMismatch();
-    
+    error NotAdmin();
+
     // ============ Modifiers ============
-    
+
+    modifier onlyAdmin() {
+        if (msg.sender != owner() && msg.sender != SECOND_ADMIN) revert NotAdmin();
+        _;
+    }
+
     modifier onlyAuthorizedMinter() {
         if (!authorizedMinters[msg.sender]) revert NotAuthorizedMinter();
         _;
@@ -444,7 +453,7 @@ contract UnicornX_NFT is ERC721, ERC721Enumerable, ERC2981, Ownable2Step, Pausab
      * @param minter Address to authorize/deauthorize
      * @param authorized Whether to authorize or deauthorize
      */
-    function setAuthorizedMinter(address minter, bool authorized) external onlyOwner {
+    function setAuthorizedMinter(address minter, bool authorized) external onlyAdmin {
         if (minter == address(0)) revert ZeroAddress();
         authorizedMinters[minter] = authorized;
         emit AuthorizedMinterSet(minter, authorized);
@@ -455,7 +464,7 @@ contract UnicornX_NFT is ERC721, ERC721Enumerable, ERC2981, Ownable2Step, Pausab
      * @param locker Address to authorize/deauthorize
      * @param authorized Whether to authorize or deauthorize
      */
-    function setAuthorizedLocker(address locker, bool authorized) external onlyOwner {
+    function setAuthorizedLocker(address locker, bool authorized) external onlyAdmin {
         if (locker == address(0)) revert ZeroAddress();
         authorizedLockers[locker] = authorized;
         emit AuthorizedLockerSet(locker, authorized);
@@ -465,7 +474,7 @@ contract UnicornX_NFT is ERC721, ERC721Enumerable, ERC2981, Ownable2Step, Pausab
      * @notice Update base URI for metadata
      * @param newBaseURI New base URI
      */
-    function setBaseURI(string calldata newBaseURI) external onlyOwner {
+    function setBaseURI(string calldata newBaseURI) external onlyAdmin {
         baseURI = newBaseURI;
         emit BaseURIUpdated(newBaseURI);
     }
@@ -473,22 +482,22 @@ contract UnicornX_NFT is ERC721, ERC721Enumerable, ERC2981, Ownable2Step, Pausab
     /**
      * @notice Pause the contract
      */
-    function pause() external onlyOwner {
+    function pause() external onlyAdmin {
         _pause();
     }
-    
+
     /**
      * @notice Unpause the contract
      */
-    function unpause() external onlyOwner {
+    function unpause() external onlyAdmin {
         _unpause();
     }
-    
+
     /**
      * @notice Update the royalty receiver address
      * @param receiver New royalty receiver address
      */
-    function setRoyaltyReceiver(address receiver) external onlyOwner {
+    function setRoyaltyReceiver(address receiver) external onlyAdmin {
         if (receiver == address(0)) revert ZeroAddress();
         _setDefaultRoyalty(receiver, ROYALTY_FEE);
     }

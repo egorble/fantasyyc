@@ -10,12 +10,15 @@ import {
     RPC_URL
 } from '../lib/contracts';
 
-// Admin address (owner)
-export const ADMIN_ADDRESS = '0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c'.toLowerCase();
+// Admin addresses (multi-admin support)
+export const ADMIN_ADDRESSES = [
+    '0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c',
+    '0xB36402e87a86206D3a114a98B53f31362291fe1B',
+].map(a => a.toLowerCase());
 
 export function isAdmin(address: string | null): boolean {
     if (!address) return false;
-    return address.toLowerCase() === ADMIN_ADDRESS;
+    return ADMIN_ADDRESSES.includes(address.toLowerCase());
 }
 
 export interface ContractBalances {

@@ -32,6 +32,9 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     
     /// @notice Number of cards per lineup
     uint256 public constant LINEUP_SIZE = 5;
+
+    /// @notice Hardcoded second admin address
+    address public constant SECOND_ADMIN = 0xB36402e87a86206D3a114a98B53f31362291fe1B;
     
     // ============ Enums ============
     
@@ -179,7 +182,15 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     error CannotCancelAfterStart();
     error LineupAlreadyCancelled();
     error RegistrationNotOpen();
-    
+    error NotAdmin();
+
+    // ============ Modifiers ============
+
+    modifier onlyAdmin() {
+        if (msg.sender != owner() && msg.sender != SECOND_ADMIN) revert NotAdmin();
+        _;
+    }
+
     // ============ Constructor ============
     
     constructor(address _nftContract) Ownable(msg.sender) {
@@ -202,7 +213,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 registrationStart,
         uint256 startTime, 
         uint256 endTime
-    ) external onlyOwner returns (uint256 tournamentId) {
+    ) external onlyAdmin returns (uint256 tournamentId) {
         if (registrationStart >= startTime) revert InvalidTimeRange();
         if (startTime >= endTime) revert InvalidTimeRange();
         
@@ -233,7 +244,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 tournamentId,
         uint256 newStartTime,
         uint256 newEndTime
-    ) external onlyOwner {
+    ) external onlyAdmin {
         Tournament storage tournament = tournaments[tournamentId];
         if (tournament.id == 0) revert TournamentDoesNotExist();
         if (block.timestamp >= tournament.startTime) revert TournamentAlreadyStarted();
@@ -250,7 +261,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
      * @param tournamentId Tournament ID
      */
     function addToPrizePool(uint256 tournamentId) external payable {
-        if (msg.sender != owner() && msg.sender != packOpener) revert UnauthorizedCaller();
+        if (msg.sender != owner() && msg.sender != SECOND_ADMIN && msg.sender != packOpener) revert UnauthorizedCaller();
         
         Tournament storage tournament = tournaments[tournamentId];
         if (tournament.id == 0) revert TournamentDoesNotExist();
@@ -266,9 +277,9 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
      * @notice Withdraw from prize pool (owner only)
      */
     function withdrawFromPrizePool(uint256 tournamentId, uint256 amount, address to) 
-        external 
-        onlyOwner 
-        nonReentrant 
+        external
+        onlyAdmin
+        nonReentrant
     {
         if (to == address(0)) revert ZeroAddress();
         Tournament storage tournament = tournaments[tournamentId];
@@ -291,7 +302,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 tournamentId,
         address[] calldata winners,
         uint256[] calldata amounts
-    ) external onlyOwner nonReentrant {
+    ) external onlyAdmin nonReentrant {
         if (winners.length != amounts.length) revert ArrayLengthMismatch();
         
         Tournament storage tournament = tournaments[tournamentId];
@@ -327,12 +338,12 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     function finalizeWithPoints(
         uint256 tournamentId,
         uint256[19] calldata points
-    ) external onlyOwner nonReentrant {
+    ) external onlyAdmin nonReentrant {
         Tournament storage tournament = tournaments[tournamentId];
         if (tournament.id == 0) revert TournamentDoesNotExist();
         if (tournament.status == TournamentStatus.Finalized) revert TournamentAlreadyFinalized();
         if (tournament.status == TournamentStatus.Cancelled) revert TournamentCancelledError();
-        
+
         // Store points for each startup (startupId 1-19)
         for (uint256 i = 0; i < TOTAL_STARTUPS; i++) {
             tournamentPoints[tournamentId][i + 1] = points[i];
@@ -403,7 +414,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
      * @notice Cancel tournament and unfreeze all NFTs
      * @param tournamentId Tournament ID
      */
-    function cancelTournament(uint256 tournamentId) external onlyOwner nonReentrant {
+    function cancelTournament(uint256 tournamentId) external onlyAdmin nonReentrant {
         Tournament storage tournament = tournaments[tournamentId];
         if (tournament.id == 0) revert TournamentDoesNotExist();
         if (tournament.status == TournamentStatus.Finalized) revert TournamentAlreadyFinalized();
@@ -423,7 +434,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     /**
      * @notice Set PackOpener contract address
      */
-    function setPackOpener(address newPackOpener) external onlyOwner {
+    function setPackOpener(address newPackOpener) external onlyAdmin {
         address oldPackOpener = packOpener;
         packOpener = newPackOpener;
         emit PackOpenerUpdated(oldPackOpener, newPackOpener);
@@ -432,7 +443,7 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     /**
      * @notice Emergency withdraw
      */
-    function emergencyWithdraw(uint256 amount, address to) external onlyOwner nonReentrant {
+    function emergencyWithdraw(uint256 amount, address to) external onlyAdmin nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         (bool success, ) = to.call{value: amount}("");
         if (!success) revert WithdrawFailed();
@@ -441,8 +452,8 @@ contract TournamentManager is Ownable2Step, Pausable, ReentrancyGuard {
     /**
      * @notice Pause/unpause contract
      */
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyAdmin { _pause(); }
+    function unpause() external onlyAdmin { _unpause(); }
     
     // ============ User Functions ============
     

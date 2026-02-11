@@ -10,10 +10,10 @@ export const METADATA_API = 'http://localhost:3001';
 
 // ============ Contract Addresses ============
 export const CONTRACTS = {
-    UnicornX_NFT: '0xD3C4633257733dA9597b193cDaAA06bCBCbA0BF0',
-    PackOpener: '0x8A35cbe95CD07321CE4f0C73dC2518AAc5b28554',
-    TournamentManager: '0xfF528538033a55C7b9C23608eB3d15e2387E0d61',
-    MarketplaceV2: '0xEca397fB26dbBf5A6FaB976028E7D6B37961a8Bd',
+    UnicornX_NFT: '0x35066391f772dcb7C13A0a94E721d2A91F85FBC3',
+    PackOpener: '0x27f3d2aD14Db8FFc643f9b9ff620c6BcA45359D8',
+    TournamentManager: '0x8f8622FcbcF3Ed3279b9252DBB491377c0f237d0',
+    MarketplaceV2: '0x82412944850d0219503a2Ca894f6AB47BC292A4e',
 } as const;
 
 // ============ ABIs (minimal for frontend) ============
