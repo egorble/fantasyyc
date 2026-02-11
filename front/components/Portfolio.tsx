@@ -96,7 +96,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         await refreshCards();
     };
 
-    const totalValue = myCards.reduce((acc, card) => acc + card.multiplier, 0);
+    const uniqueStartups = new Set(myCards.map(card => card.startupId)).size;
 
     // Toggle Selection
     const toggleCardSelection = (tokenId: number) => {
@@ -427,7 +427,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                 <h2 className="text-4xl font-black font-mono">{myCards.length}</h2>
                                 <div className="flex items-center mt-2 text-sm font-bold bg-white/20 w-fit px-2 py-1 rounded backdrop-blur-sm">
                                     <TrendingUp className="w-4 h-4 mr-1" />
-                                    Total Multiplier: {totalValue}x
+                                    {uniqueStartups} / 19 Startups
                                 </div>
                             </div>
                             <Wallet className="absolute right-[-20px] bottom-[-40px] w-64 h-64 text-white/10 rotate-[-15deg]" />

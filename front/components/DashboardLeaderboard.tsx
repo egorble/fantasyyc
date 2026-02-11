@@ -27,7 +27,7 @@ const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate 
         const fetchData = async () => {
             try {
                 // First get active tournament
-                const tRes = await fetch('http://localhost:3003/api/tournaments/active');
+                const tRes = await fetch('/api/tournaments/active');
                 const tData = await tRes.json();
 
                 if (!tData.success) {
@@ -38,7 +38,7 @@ const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate 
                 setTournamentId(tData.data.id);
 
                 // Then get leaderboard
-                const lRes = await fetch(`http://localhost:3003/api/leaderboard/${tData.data.id}?limit=10`);
+                const lRes = await fetch(`/api/leaderboard/${tData.data.id}?limit=10`);
                 const lData = await lRes.json();
 
                 if (lData.success) {

@@ -6,7 +6,7 @@ export const CHAIN_ID = 127823;
 export const CHAIN_NAME = 'Etherlink Shadownet Testnet';
 export const RPC_URL = 'https://node.shadownet.etherlink.com';
 export const EXPLORER_URL = 'https://shadownet.explorer.etherlink.com';
-export const METADATA_API = 'http://localhost:3001';
+export const METADATA_API = '';
 
 // ============ Contract Addresses ============
 export const CONTRACTS = {

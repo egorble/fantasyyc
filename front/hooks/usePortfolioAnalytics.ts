@@ -5,7 +5,7 @@ import { useNFT } from './useNFT';
 import { useTournament } from './useTournament';
 import { formatXTZ } from '../lib/contracts';
 
-const API_BASE_URL = 'http://localhost:3003/api';
+const API_BASE_URL = '/api';
 
 // Per-card analytics data
 export interface CardAnalytics {

@@ -7,7 +7,7 @@ import { usePortfolioAnalytics, CardAnalytics } from '../hooks/usePortfolioAnaly
 import { CardData, RARITY_ORDER, sortByRarity } from '../types';
 import { formatXTZ } from '../lib/contracts';
 
-const API_BASE_URL = 'http://localhost:3003/api';
+const API_BASE_URL = '/api';
 
 // Rarity color mapping
 const RARITY_COLORS: Record<string, string> = {

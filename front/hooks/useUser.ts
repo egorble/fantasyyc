@@ -3,7 +3,7 @@ import { useWalletContext } from '../context/WalletContext';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { createSignedAuth } from '../lib/auth';
 
-const API_BASE = 'http://localhost:3003/api';
+const API_BASE = '/api';
 
 export interface UserProfileData {
     address: string;

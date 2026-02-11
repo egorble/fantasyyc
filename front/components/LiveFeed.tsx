@@ -58,7 +58,7 @@ const LiveFeed: React.FC = () => {
 
     const fetchFeed = async () => {
         try {
-            const res = await fetch('http://localhost:3003/api/live-feed?limit=15');
+            const res = await fetch('/api/live-feed?limit=15');
             const data = await res.json();
             if (data.success && data.data.length > 0) {
                 setEvents(data.data);

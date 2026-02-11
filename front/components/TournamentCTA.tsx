@@ -22,7 +22,7 @@ const TournamentCTA: React.FC<TournamentCTAProps> = ({ onNavigate }) => {
     useEffect(() => {
         const fetchTournament = async () => {
             try {
-                const res = await fetch('http://localhost:3003/api/tournaments/active');
+                const res = await fetch('/api/tournaments/active');
                 const data = await res.json();
                 if (data.success) {
                     setTournament(data.data);

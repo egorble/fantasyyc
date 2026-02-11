@@ -1,6 +1,7 @@
 import React from 'react';
-import { X, Share2, Calendar, DollarSign, MessageCircle, BarChart3, Activity, PieChart, ExternalLink, TrendingUp, Users, Building2 } from 'lucide-react';
+import { X, Share2, Calendar, Star, Hash, Layers, ExternalLink, TrendingUp, Building2, Sparkles } from 'lucide-react';
 import { CardData, Rarity } from '../types';
+import { STARTUPS, EXPLORER_URL, CONTRACTS } from '../lib/contracts';
 
 export interface CardDetailData {
     id: string;
@@ -15,22 +16,32 @@ export interface CardDetailData {
 
 interface CardDetailModalProps {
     data: CardDetailData | null;
-    cardData?: CardData | null; // Add real CardData prop
+    cardData?: CardData | null;
     onClose: () => void;
 }
+
+const RARITY_COLORS: Record<string, string> = {
+    Legendary: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
+    Epic: 'bg-purple-500/10 text-purple-500 border-purple-500/30',
+    Rare: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+    Common: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
+};
 
 const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, cardData, onClose }) => {
     if (!data && !cardData) return null;
 
-    // Use real data from cardData if available, otherwise fall back to legacy data
     const displayData = cardData || data;
     if (!displayData) return null;
 
-    // Extract fundraising data from cardData
+    const rarity = cardData?.rarity || data?.rarity || 'Common';
+    const multiplier = cardData?.multiplier || Number(data?.multiplier || data?.value || 1);
+    const edition = cardData?.edition;
+    const tokenId = cardData?.tokenId;
+    const startupId = cardData?.startupId;
+    const isLocked = cardData?.isLocked;
+    const description = cardData?.description || 'YC startup building innovative solutions.';
     const fundraising = cardData?.fundraising;
-    const description = cardData?.description || 'YC startup - building innovative solutions for the future.';
 
-    // Build funding history from fundraising data or use mock
     const fundingHistory = fundraising ? [
         {
             round: fundraising.round,
@@ -41,23 +52,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, cardData, onClo
         }
     ] : [];
 
-    // Mock data for fields not in metadata yet
-    const details = {
-        sentiment: 87,
-        socialMentions: '14.2k',
-        sector: 'Artificial Intelligence',
-        founded: '2023',
-        description: description,
-        fundingHistory: fundingHistory.length > 0 ? fundingHistory : [
-            { round: 'Stealth', date: 'TBD', amount: 'N/A', valuation: 'N/A', investor: 'N/A' }
-        ],
-        breakdown: [
-            { label: 'Technology', value: 40, color: 'bg-zinc-800 dark:bg-zinc-200' },
-            { label: 'Team', value: 25, color: 'bg-zinc-600 dark:bg-zinc-400' },
-            { label: 'Market', value: 20, color: 'bg-yc-orange' },
-            { label: 'Traction', value: 15, color: 'bg-zinc-400 dark:bg-zinc-600' },
-        ]
-    };
+    const rarityStyle = RARITY_COLORS[rarity] || RARITY_COLORS.Common;
 
     return (
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm md:p-4" onClick={onClose}>
@@ -85,23 +80,29 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, cardData, onClo
                                 <h2 className="text-lg md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight truncate">
                                     {cardData?.name || data?.name}
                                 </h2>
-                                <span className="px-2 py-0.5 rounded-full border border-gray-200 dark:border-[#27272a] text-[10px] md:text-xs font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-[#18181b]">
-                                    {fundraising?.round || data?.stage || 'Available'}
+                                <span className={`px-2 py-0.5 rounded-full border text-[10px] md:text-xs font-semibold ${rarityStyle}`}>
+                                    {rarity}
                                 </span>
                             </div>
                             <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-500 dark:text-gray-400 flex-wrap">
-                                <div className="flex items-center gap-1">
-                                    <Building2 className="w-3 h-3 md:w-4 md:h-4" />
-                                    <span>{details.sector}</span>
-                                </div>
-                                <div className="hidden sm:flex items-center gap-1">
-                                    <Calendar className="w-3 h-3 md:w-4 md:h-4" />
-                                    <span>{data?.batch ? `Batch ${data.batch}` : 'W24'}</span>
-                                </div>
-                                <div className="hidden sm:flex items-center gap-1">
-                                    <Users className="w-3 h-3 md:w-4 md:h-4" />
-                                    <span>Founded {details.founded}</span>
-                                </div>
+                                {tokenId !== undefined && (
+                                    <div className="flex items-center gap-1">
+                                        <Hash className="w-3 h-3 md:w-4 md:h-4" />
+                                        <span>Token #{tokenId}</span>
+                                    </div>
+                                )}
+                                {edition !== undefined && (
+                                    <div className="flex items-center gap-1">
+                                        <Layers className="w-3 h-3 md:w-4 md:h-4" />
+                                        <span>Edition #{edition}</span>
+                                    </div>
+                                )}
+                                {data?.batch && (
+                                    <div className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+                                        <span>Batch {data.batch}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -121,130 +122,113 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, cardData, onClo
                 {/* Main Content Grid - scrollable */}
                 <div className="flex flex-col lg:flex-row overflow-y-auto">
 
-                    {/* Left Column: Key Stats & Breakdown */}
+                    {/* Left Column: Card Stats */}
                     <div className="lg:w-2/3 p-4 md:p-6 lg:border-r border-gray-200 dark:border-[#27272a]">
 
                         {/* Description */}
                         <div className="mb-4 md:mb-8">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-2 md:mb-3">About</h3>
                             <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-xs md:text-sm">
-                                {details.description}
+                                {description}
                             </p>
                         </div>
 
-                        {/* Primary Metrics */}
+                        {/* Card Metrics */}
                         <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-8">
                             <div className="p-2.5 md:p-4 rounded-lg bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#27272a]">
                                 <div className="flex items-center gap-1 md:gap-2 text-gray-500 dark:text-gray-400 mb-1 md:mb-2">
-                                    <DollarSign className="w-3 h-3 md:w-4 md:h-4" />
-                                    <span className="text-[10px] md:text-xs font-semibold uppercase">Valuation</span>
+                                    <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
+                                    <span className="text-[10px] md:text-xs font-semibold uppercase">Multiplier</span>
                                 </div>
                                 <p className="text-base md:text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">
-                                    {fundraising?.valuation || `${cardData?.multiplier || data?.value}x`}
+                                    {multiplier}x
                                 </p>
-                                <div className="mt-1 md:mt-2 text-[10px] md:text-xs font-medium text-yc-green flex items-center">
-                                    <TrendingUp className="w-3 h-3 mr-1" /> {fundraising ? 'Latest Round' : 'Multiplier'}
-                                </div>
+                                <p className="mt-1 md:mt-2 text-[10px] md:text-xs text-gray-500">Score multiplier</p>
                             </div>
 
                             <div className="p-2.5 md:p-4 rounded-lg bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#27272a]">
                                 <div className="flex items-center gap-1 md:gap-2 text-gray-500 dark:text-gray-400 mb-1 md:mb-2">
-                                    <Activity className="w-3 h-3 md:w-4 md:h-4" />
-                                    <span className="text-[10px] md:text-xs font-semibold uppercase">Sentiment</span>
+                                    <Star className="w-3 h-3 md:w-4 md:h-4" />
+                                    <span className="text-[10px] md:text-xs font-semibold uppercase">Rarity</span>
                                 </div>
-                                <div className="flex items-end gap-1 md:gap-2">
-                                    <p className="text-base md:text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">{details.sentiment}</p>
-                                    <span className="text-[10px] md:text-sm text-gray-500 mb-0.5 md:mb-1">/ 100</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-[#27272a] h-1 md:h-1.5 rounded-full mt-2 md:mt-3 overflow-hidden">
-                                    <div className="bg-yc-orange h-full rounded-full" style={{ width: `${details.sentiment}%` }}></div>
-                                </div>
+                                <p className="text-base md:text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">
+                                    {rarity}
+                                </p>
+                                <p className="mt-1 md:mt-2 text-[10px] md:text-xs text-gray-500">
+                                    {rarity === 'Legendary' ? 'Top tier' : rarity === 'Epic' ? 'High tier' : rarity === 'Rare' ? 'Mid tier' : 'Base tier'}
+                                </p>
                             </div>
 
                             <div className="p-2.5 md:p-4 rounded-lg bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#27272a]">
                                 <div className="flex items-center gap-1 md:gap-2 text-gray-500 dark:text-gray-400 mb-1 md:mb-2">
-                                    <MessageCircle className="w-3 h-3 md:w-4 md:h-4" />
-                                    <span className="text-[10px] md:text-xs font-semibold uppercase">Mentions</span>
+                                    <Layers className="w-3 h-3 md:w-4 md:h-4" />
+                                    <span className="text-[10px] md:text-xs font-semibold uppercase">Edition</span>
                                 </div>
-                                <p className="text-base md:text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">{details.socialMentions}</p>
-                                <p className="mt-1 md:mt-2 text-[10px] md:text-xs text-gray-500">Global volume (24h)</p>
+                                <p className="text-base md:text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">
+                                    #{edition || '?'}
+                                </p>
+                                <p className="mt-1 md:mt-2 text-[10px] md:text-xs text-gray-500">Mint number</p>
                             </div>
                         </div>
 
-                        {/* Valuation Breakdown - Clean Bars */}
-                        <div>
-                            <h3 className="text-xs md:text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-3 md:mb-4 flex items-center">
-                                <PieChart className="w-3 h-3 md:w-4 md:h-4 mr-2" /> Valuation Breakdown
-                            </h3>
-                            <div className="flex h-6 md:h-8 w-full rounded-md overflow-hidden mb-3 md:mb-4 border border-white dark:border-black ring-1 ring-gray-200 dark:ring-[#27272a]">
-                                {details.breakdown.map((item, i) => (
-                                    <div key={i} style={{ width: `${item.value}%` }} className={`${item.color} h-full border-r last:border-r-0 border-white dark:border-black flex items-center justify-center`}>
-                                        {item.value > 10 && <span className="text-[10px] font-bold text-white mix-blend-difference">{item.value}%</span>}
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-                                {details.breakdown.map((item, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                        <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{item.label}</span>
-                                    </div>
-                                ))}
-                            </div>
+                        {/* Card Status */}
+                        <div className="flex flex-wrap gap-2">
+                            {isLocked && (
+                                <span className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-semibold">
+                                    Locked in Tournament
+                                </span>
+                            )}
+                            {startupId && (
+                                <span className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-[#18181b] text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-[#27272a] text-xs font-semibold">
+                                    Startup #{startupId}
+                                </span>
+                            )}
                         </div>
                     </div>
 
-                    {/* Right Column: Timeline & Actions */}
+                    {/* Right Column: Funding & Links */}
                     <div className="lg:w-1/3 bg-gray-50 dark:bg-[#0c0c0e]">
 
                         {/* Funding Timeline */}
-                        <div className="p-4 md:p-6 border-b border-gray-200 dark:border-[#27272a]">
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-6">Funding History</h3>
-                            <div className="relative pl-2">
-                                <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-200 dark:bg-[#27272a]"></div>
-                                <div className="space-y-6">
-                                    {details.fundingHistory.map((round, i) => (
-                                        <div key={i} className="relative pl-8">
-                                            <div className={`absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-[3px] border-white dark:border-[#0c0c0e] z-10 
-                                                ${i === 0 ? 'bg-yc-orange ring-1 ring-yc-orange' : 'bg-gray-300 dark:bg-gray-700'}`}></div>
+                        {fundingHistory.length > 0 && (
+                            <div className="p-4 md:p-6 border-b border-gray-200 dark:border-[#27272a]">
+                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-6">Funding History</h3>
+                                <div className="relative pl-2">
+                                    <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-200 dark:bg-[#27272a]"></div>
+                                    <div className="space-y-6">
+                                        {fundingHistory.map((round, i) => (
+                                            <div key={i} className="relative pl-8">
+                                                <div className={`absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-[3px] border-white dark:border-[#0c0c0e] z-10
+                                                    ${i === 0 ? 'bg-yc-orange ring-1 ring-yc-orange' : 'bg-gray-300 dark:bg-gray-700'}`}></div>
 
-                                            <div className="flex justify-between items-start mb-1">
-                                                <span className="font-bold text-sm text-gray-900 dark:text-white">{round.round}</span>
-                                                <span className="font-mono text-xs font-semibold text-gray-900 dark:text-white">{round.amount}</span>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="font-bold text-sm text-gray-900 dark:text-white">{round.round}</span>
+                                                    <span className="font-mono text-xs font-semibold text-gray-900 dark:text-white">{round.amount}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs text-gray-500">
+                                                    <span>{round.date}</span>
+                                                    <span>Val: {round.valuation}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex justify-between items-center text-xs text-gray-500">
-                                                <span>{round.date}</span>
-                                                <span>Val: {round.valuation}</span>
-                                            </div>
-                                            <div className="mt-1 text-xs text-gray-400 font-medium">
-                                                Lead: {round.investor}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        {/* Trade Actions */}
+                        {/* Actions */}
                         <div className="p-4 md:p-6">
-                            <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#27272a] rounded-lg p-4 mb-4">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs text-gray-500 font-medium uppercase">Current Price</span>
-                                    <span className="text-xs text-green-500 font-medium flex items-center"><TrendingUp className="w-3 h-3 mr-1" /> Low Volatility</span>
-                                </div>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl font-bold text-gray-900 dark:text-white font-mono">142.50</span>
-                                    <span className="text-sm font-bold text-gray-400">XTZ</span>
-                                </div>
-                            </div>
-
                             <div className="space-y-3">
-                                <button className="w-full py-3.5 px-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-lg font-bold text-sm hover:bg-yc-orange dark:hover:bg-yc-orange dark:hover:text-white transition-colors flex items-center justify-center">
-                                    Buy Shares
-                                </button>
-                                <button className="w-full py-3.5 px-4 bg-transparent border border-gray-200 dark:border-[#27272a] text-gray-900 dark:text-white rounded-lg font-bold text-sm hover:bg-gray-50 dark:hover:bg-[#18181b] transition-colors flex items-center justify-center">
-                                    <ExternalLink className="w-4 h-4 mr-2" /> View Prospectus
-                                </button>
+                                {tokenId !== undefined && (
+                                    <a
+                                        href={`${EXPLORER_URL}/token/${CONTRACTS.UnicornX_NFT}/instance/${tokenId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-3.5 px-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-lg font-bold text-sm hover:bg-yc-orange dark:hover:bg-yc-orange dark:hover:text-white transition-colors flex items-center justify-center"
+                                    >
+                                        <ExternalLink className="w-4 h-4 mr-2" /> View on Explorer
+                                    </a>
+                                )}
                             </div>
                         </div>
 

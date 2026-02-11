@@ -56,11 +56,11 @@ const AdminPanel: React.FC = () => {
         // Legendary (10x multiplier) - IDs 1-5
         'Openclaw', 'Lovable', 'Cursor', 'OpenAI', 'Anthropic',
         // Epic (5x multiplier) - IDs 6-8
-        'Browser Use', 'Axion Orbital Space', 'Grok',
+        'Browser Use', 'Dedalus Labs', 'Autumn',
         // Rare (3x multiplier) - IDs 9-13
-        'CodiumAI', 'Perplexity', 'Mistral', 'Supercog', 'Replit',
-        // Common (1.5x multiplier) - IDs 14-19
-        'AngelList', 'Spotify', 'Cointracker', 'Brex', 'Reddit', 'Notion'
+        'Axiom', 'Multifactor', 'Dome', 'GrazeMate', 'Tornyol Systems',
+        // Common (1x multiplier) - IDs 14-19
+        'Pocket', 'Caretta', 'AxionOrbital Space', 'Freeport Markets', 'Ruvo', 'Lightberry'
     ];
 
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -103,11 +103,11 @@ const AdminPanel: React.FC = () => {
     // Helper to get status text
     const getStatusInfo = (status: number) => {
         switch (status) {
-            case 0: return { text: 'Created', color: 'text-blue-400 bg-blue-500/20' };
-            case 1: return { text: 'Active', color: 'text-green-400 bg-green-500/20' };
-            case 2: return { text: 'Finalized', color: 'text-gray-400 bg-gray-500/20' };
-            case 3: return { text: 'Cancelled', color: 'text-red-400 bg-red-500/20' };
-            default: return { text: 'Unknown', color: 'text-gray-500 bg-gray-500/20' };
+            case 0: return { text: 'Created', color: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/20' };
+            case 1: return { text: 'Active', color: 'text-green-600 dark:text-green-400 bg-green-500/10 dark:bg-green-500/20' };
+            case 2: return { text: 'Finalized', color: 'text-gray-600 dark:text-gray-400 bg-gray-500/10 dark:bg-gray-500/20' };
+            case 3: return { text: 'Cancelled', color: 'text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-500/20' };
+            default: return { text: 'Unknown', color: 'text-gray-500 bg-gray-500/10 dark:bg-gray-500/20' };
         }
     };
 
@@ -338,18 +338,18 @@ const AdminPanel: React.FC = () => {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3">
-                        <div className="p-3 bg-red-500/20 rounded-xl">
+                        <div className="p-3 bg-red-500/10 dark:bg-red-500/20 rounded-xl">
                             <Shield className="w-8 h-8 text-red-500" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-white">Admin Panel</h2>
+                            <h2 className="text-2xl font-black text-gray-900 dark:text-white">Admin Panel</h2>
                             <p className="text-gray-500 text-sm font-mono">{address?.slice(0, 10)}...</p>
                         </div>
                     </div>
                     <button
                         onClick={loadData}
                         disabled={isRefreshing}
-                        className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                        className="p-2 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
                     >
                         <RefreshCw className={`w-5 h-5 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
@@ -358,8 +358,8 @@ const AdminPanel: React.FC = () => {
                 {/* Message */}
                 {message && (
                     <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${message.type === 'success'
-                        ? 'bg-green-500/20 border border-green-500/30 text-green-400'
-                        : 'bg-red-500/20 border border-red-500/30 text-red-400'
+                        ? 'bg-green-50 dark:bg-green-500/20 border border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-400'
+                        : 'bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400'
                         }`}>
                         {message.type === 'success' ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
                         {message.text}
@@ -368,55 +368,55 @@ const AdminPanel: React.FC = () => {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-4">
+                    <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-4">
                         <p className="text-gray-500 text-xs uppercase mb-1">Packs Sold</p>
-                        <p className="text-2xl font-bold text-white font-mono">{stats?.packsSold || 0}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white font-mono">{stats?.packsSold || 0}</p>
                     </div>
-                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-4">
+                    <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-4">
                         <p className="text-gray-500 text-xs uppercase mb-1">Pack Price</p>
                         <p className="text-2xl font-bold text-yc-orange font-mono">{stats ? formatXTZ(stats.packPrice) : '5'} XTZ</p>
                     </div>
-                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-4">
+                    <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-4">
                         <p className="text-gray-500 text-xs uppercase mb-1">Total NFTs</p>
-                        <p className="text-2xl font-bold text-white font-mono">{stats?.totalNFTs || 0}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white font-mono">{stats?.totalNFTs || 0}</p>
                     </div>
-                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-4">
+                    <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-4">
                         <p className="text-gray-500 text-xs uppercase mb-1">Active Tournament</p>
                         <p className="text-2xl font-bold text-yc-green font-mono">#{stats?.activeTournamentId || 0}</p>
                     </div>
                 </div>
 
                 {/* Contract Balances */}
-                <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-6 mb-6">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-6 mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                         <DollarSign className="w-5 h-5 text-yc-green" />
                         Contract Balances
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-black/50 rounded-lg p-4">
+                        <div className="bg-gray-50 dark:bg-black/50 rounded-lg p-4">
                             <p className="text-gray-500 text-xs mb-1">PackOpener</p>
-                            <p className="text-xl font-mono font-bold text-white">
+                            <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">
                                 {balances ? formatXTZ(balances.packOpener) : '0'} XTZ
                             </p>
                         </div>
-                        <div className="bg-black/50 rounded-lg p-4">
+                        <div className="bg-gray-50 dark:bg-black/50 rounded-lg p-4">
                             <p className="text-gray-500 text-xs mb-1">TournamentManager</p>
-                            <p className="text-xl font-mono font-bold text-white mb-2">
+                            <p className="text-xl font-mono font-bold text-gray-900 dark:text-white mb-2">
                                 {balances ? formatXTZ(balances.tournament) : '0'} XTZ
                             </p>
                             {balances && balances.tournament > 0n && (
                                 <button
                                     onClick={handleEmergencyWithdraw}
                                     disabled={actionLoading === 'withdraw'}
-                                    className="w-full bg-yc-orange/20 hover:bg-yc-orange text-yc-orange hover:text-white py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                    className="w-full bg-yc-orange/10 dark:bg-yc-orange/20 hover:bg-yc-orange text-yc-orange hover:text-white py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                 >
                                     {actionLoading === 'withdraw' ? 'Withdrawing...' : 'Withdraw'}
                                 </button>
                             )}
                         </div>
-                        <div className="bg-black/50 rounded-lg p-4">
+                        <div className="bg-gray-50 dark:bg-black/50 rounded-lg p-4">
                             <p className="text-gray-500 text-xs mb-1">NFT Contract</p>
-                            <p className="text-xl font-mono font-bold text-white">
+                            <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">
                                 {balances ? formatXTZ(balances.nft) : '0'} XTZ
                             </p>
                         </div>
@@ -427,8 +427,8 @@ const AdminPanel: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                     {/* PackOpener Controls */}
-                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-6">
-                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                             <Settings className="w-5 h-5 text-yc-orange" />
                             PackOpener Controls
                         </h3>
@@ -445,13 +445,13 @@ const AdminPanel: React.FC = () => {
 
                         {/* Set Pack Price */}
                         <div className="mb-4">
-                            <label className="text-gray-400 text-sm mb-2 block">Pack Price (XTZ)</label>
+                            <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Pack Price (XTZ)</label>
                             <div className="flex gap-2">
                                 <input
                                     type="number"
                                     value={newPackPrice}
                                     onChange={(e) => setNewPackPrice(e.target.value)}
-                                    className="flex-1 bg-black border border-[#333] rounded-lg px-4 py-2 text-white font-mono"
+                                    className="flex-1 bg-gray-50 dark:bg-black border border-gray-200 dark:border-[#333] rounded-lg px-4 py-2 text-gray-900 dark:text-white font-mono"
                                     placeholder="5"
                                 />
                                 <button
@@ -466,13 +466,13 @@ const AdminPanel: React.FC = () => {
 
                         {/* Set Active Tournament */}
                         <div className="mb-4">
-                            <label className="text-gray-400 text-sm mb-2 block">Active Tournament ID</label>
+                            <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Active Tournament ID</label>
                             <div className="flex gap-2">
                                 <input
                                     type="number"
                                     value={newActiveTournament}
                                     onChange={(e) => setNewActiveTournament(e.target.value)}
-                                    className="flex-1 bg-black border border-[#333] rounded-lg px-4 py-2 text-white font-mono"
+                                    className="flex-1 bg-gray-50 dark:bg-black border border-gray-200 dark:border-[#333] rounded-lg px-4 py-2 text-gray-900 dark:text-white font-mono"
                                     placeholder="0"
                                 />
                                 <button
@@ -489,13 +489,13 @@ const AdminPanel: React.FC = () => {
                         <div className="flex gap-2">
                             <button
                                 onClick={handlePausePackOpener}
-                                className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 rounded-lg font-bold flex items-center justify-center gap-2"
+                                className="flex-1 bg-red-50 dark:bg-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/30 text-red-600 dark:text-red-400 py-2 rounded-lg font-bold flex items-center justify-center gap-2"
                             >
                                 <Pause className="w-4 h-4" /> Pause
                             </button>
                             <button
                                 onClick={handleUnpausePackOpener}
-                                className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 py-2 rounded-lg font-bold flex items-center justify-center gap-2"
+                                className="flex-1 bg-green-50 dark:bg-green-500/20 hover:bg-green-100 dark:hover:bg-green-500/30 text-green-600 dark:text-green-400 py-2 rounded-lg font-bold flex items-center justify-center gap-2"
                             >
                                 <Play className="w-4 h-4" /> Unpause
                             </button>
@@ -503,8 +503,8 @@ const AdminPanel: React.FC = () => {
                     </div>
 
                     {/* Tournament Controls */}
-                    <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-6">
-                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                             <Trophy className="w-5 h-5 text-yellow-500" />
                             Tournament Controls
                         </h3>
@@ -519,9 +519,9 @@ const AdminPanel: React.FC = () => {
                                 Create Tournament
                             </button>
                         ) : (
-                            <div className="mb-4 bg-black/50 rounded-lg p-4">
+                            <div className="mb-4 bg-gray-50 dark:bg-black/50 rounded-lg p-4">
                                 <div className="flex justify-between items-center mb-3">
-                                    <span className="text-white font-bold">New Tournament</span>
+                                    <span className="text-gray-900 dark:text-white font-bold">New Tournament</span>
                                     <button onClick={() => setShowCreateTournament(false)}>
                                         <X className="w-4 h-4 text-gray-500" />
                                     </button>
@@ -529,30 +529,30 @@ const AdminPanel: React.FC = () => {
 
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="text-gray-400 text-xs">Registration Start</label>
+                                        <label className="text-gray-500 dark:text-gray-400 text-xs">Registration Start</label>
                                         <input
                                             type="datetime-local"
                                             value={tournamentForm.regStart}
                                             onChange={(e) => setTournamentForm({ ...tournamentForm, regStart: e.target.value })}
-                                            className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white text-sm"
+                                            className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded px-3 py-2 text-gray-900 dark:text-white text-sm"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-gray-400 text-xs">Start Time</label>
+                                        <label className="text-gray-500 dark:text-gray-400 text-xs">Start Time</label>
                                         <input
                                             type="datetime-local"
                                             value={tournamentForm.start}
                                             onChange={(e) => setTournamentForm({ ...tournamentForm, start: e.target.value })}
-                                            className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white text-sm"
+                                            className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded px-3 py-2 text-gray-900 dark:text-white text-sm"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-gray-400 text-xs">End Time</label>
+                                        <label className="text-gray-500 dark:text-gray-400 text-xs">End Time</label>
                                         <input
                                             type="datetime-local"
                                             value={tournamentForm.end}
                                             onChange={(e) => setTournamentForm({ ...tournamentForm, end: e.target.value })}
-                                            className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white text-sm"
+                                            className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded px-3 py-2 text-gray-900 dark:text-white text-sm"
                                         />
                                     </div>
                                     <button
@@ -569,8 +569,8 @@ const AdminPanel: React.FC = () => {
                 </div>
 
                 {/* Tournament List */}
-                <div className="mt-6 bg-[#121212] border border-[#2A2A2A] rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <div className="mt-6 bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-purple-500" />
                         All Tournaments ({tournaments.length})
                     </h3>
@@ -589,19 +589,19 @@ const AdminPanel: React.FC = () => {
                                 return (
                                     <div
                                         key={t.id}
-                                        className={`bg-black/50 rounded-lg p-4 border ${stats?.activeTournamentId === t.id
+                                        className={`bg-gray-50 dark:bg-black/50 rounded-lg p-4 border ${stats?.activeTournamentId === t.id
                                             ? 'border-yc-green'
                                             : 'border-transparent'
                                             }`}
                                     >
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-3">
-                                                <span className="text-white font-bold text-lg">#{t.id}</span>
+                                                <span className="text-gray-900 dark:text-white font-bold text-lg">#{t.id}</span>
                                                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusInfo.color}`}>
                                                     {statusInfo.text}
                                                 </span>
                                                 {stats?.activeTournamentId === t.id && (
-                                                    <span className="px-2 py-0.5 rounded text-xs font-bold text-yc-green bg-yc-green/20">
+                                                    <span className="px-2 py-0.5 rounded text-xs font-bold text-yc-green bg-yc-green/10 dark:bg-yc-green/20">
                                                         Active Prize Pool
                                                     </span>
                                                 )}
@@ -621,19 +621,19 @@ const AdminPanel: React.FC = () => {
                                         <div className="grid grid-cols-3 gap-4 text-sm">
                                             <div>
                                                 <p className="text-gray-500 text-xs uppercase mb-1">Registration</p>
-                                                <p className={`font-mono ${isRegistration ? 'text-blue-400' : 'text-gray-400'}`}>
+                                                <p className={`font-mono ${isRegistration ? 'text-blue-500 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                                     {formatDate(t.registrationStart)}
                                                 </p>
                                             </div>
                                             <div>
                                                 <p className="text-gray-500 text-xs uppercase mb-1">Start</p>
-                                                <p className={`font-mono ${isActive ? 'text-green-400' : 'text-gray-400'}`}>
+                                                <p className={`font-mono ${isActive ? 'text-green-500 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                                     {formatDate(t.startTime)}
                                                 </p>
                                             </div>
                                             <div>
                                                 <p className="text-gray-500 text-xs uppercase mb-1">End</p>
-                                                <p className={`font-mono ${isEnded ? 'text-red-400' : 'text-gray-400'}`}>
+                                                <p className={`font-mono ${isEnded ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                                     {formatDate(t.endTime)}
                                                     {!isEnded && t.endTime > now && (
                                                         <span className="ml-2 text-xs text-yc-orange">
@@ -646,11 +646,11 @@ const AdminPanel: React.FC = () => {
 
                                         {/* Action Buttons - show for Created (0) and Active (1) */}
                                         {(t.status === 0 || t.status === 1) && (
-                                            <div className="mt-3 pt-3 border-t border-[#2A2A2A] flex gap-2">
+                                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-[#2A2A2A] flex gap-2">
                                                 <button
                                                     onClick={() => handleCancelTournament(t.id)}
                                                     disabled={actionLoading === 'cancel'}
-                                                    className="flex-1 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                                    className="flex-1 bg-red-50 dark:bg-red-500/20 hover:bg-red-500 text-red-600 dark:text-red-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                                 >
                                                     {actionLoading === 'cancel' ? 'Cancelling...' : 'Cancel Tournament'}
                                                 </button>
@@ -658,7 +658,7 @@ const AdminPanel: React.FC = () => {
                                                     <button
                                                         onClick={() => handleFinalizeTournament(t.id)}
                                                         disabled={actionLoading === 'finalize'}
-                                                        className="flex-1 bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                                        className="flex-1 bg-green-50 dark:bg-green-500/20 hover:bg-green-500 text-green-600 dark:text-green-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                                     >
                                                         {actionLoading === 'finalize' ? 'Finalizing...' : 'Finalize & Unlock NFTs'}
                                                     </button>
@@ -670,9 +670,9 @@ const AdminPanel: React.FC = () => {
                                                             setPointsValues(Array(19).fill('0'));
                                                         }}
                                                         disabled={actionLoading?.startsWith('finalize')}
-                                                        className="flex-1 bg-yc-orange/20 hover:bg-yc-orange text-yc-orange hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                                        className="flex-1 bg-orange-50 dark:bg-yc-orange/20 hover:bg-yc-orange text-yc-orange hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                                     >
-                                                        🎯 Finalize with Points
+                                                        Finalize with Points
                                                     </button>
                                                 )}
                                             </div>
@@ -680,15 +680,15 @@ const AdminPanel: React.FC = () => {
 
                                         {/* Admin Withdraw - Available for any tournament with prize pool */}
                                         {t.prizePool > 0n && (
-                                            <div className="mt-3 pt-3 border-t border-[#2A2A2A]">
+                                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-[#2A2A2A]">
                                                 <button
                                                     onClick={() => handleWithdrawFromTournament(t)}
                                                     disabled={actionLoading === 'withdraw-' + t.id}
-                                                    className="w-full bg-purple-500/20 hover:bg-purple-500 text-purple-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                                    className="w-full bg-purple-50 dark:bg-purple-500/20 hover:bg-purple-500 text-purple-600 dark:text-purple-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                                 >
                                                     {actionLoading === 'withdraw-' + t.id
                                                         ? 'Withdrawing...'
-                                                        : `💰 Withdraw ${formatXTZ(t.prizePool)} XTZ`}
+                                                        : `Withdraw ${formatXTZ(t.prizePool)} XTZ`}
                                                 </button>
                                             </div>
                                         )}
@@ -703,17 +703,17 @@ const AdminPanel: React.FC = () => {
             {/* Points Finalization Modal */}
             {
                 showPointsModal && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                        <div className="bg-[#0A0A0A] border border-[#2A2A2A] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                            <div className="p-6 border-b border-[#2A2A2A] sticky top-0 bg-[#0A0A0A]">
+                    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white dark:bg-[#0A0A0A] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                            <div className="p-6 border-b border-gray-200 dark:border-[#2A2A2A] sticky top-0 bg-white dark:bg-[#0A0A0A]">
                                 <div className="flex justify-between items-center">
                                     <div>
-                                        <h3 className="text-xl font-bold text-white">🎯 Finalize Tournament #{showPointsModal.id}</h3>
+                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Finalize Tournament #{showPointsModal.id}</h3>
                                         <p className="text-gray-500 text-sm">Enter points for each startup (higher = better performance)</p>
                                     </div>
                                     <button
                                         onClick={() => setShowPointsModal(null)}
-                                        className="text-gray-400 hover:text-white p-2"
+                                        className="text-gray-400 hover:text-gray-900 dark:hover:text-white p-2"
                                     >
                                         <X className="w-5 h-5" />
                                     </button>
@@ -723,10 +723,10 @@ const AdminPanel: React.FC = () => {
                             <div className="p-6 space-y-3">
                                 {startupNames.map((name, i) => (
                                     <div key={i} className="flex items-center gap-4">
-                                        <div className="w-8 h-8 bg-yc-orange/20 rounded-lg flex items-center justify-center text-yc-orange font-bold text-sm">
+                                        <div className="w-8 h-8 bg-yc-orange/10 dark:bg-yc-orange/20 rounded-lg flex items-center justify-center text-yc-orange font-bold text-sm">
                                             {i + 1}
                                         </div>
-                                        <span className="flex-1 text-white font-medium">{name}</span>
+                                        <span className="flex-1 text-gray-900 dark:text-white font-medium">{name}</span>
                                         <input
                                             type="number"
                                             min="0"
@@ -736,17 +736,17 @@ const AdminPanel: React.FC = () => {
                                                 newPoints[i] = e.target.value;
                                                 setPointsValues(newPoints);
                                             }}
-                                            className="w-24 px-3 py-2 bg-black border border-[#2A2A2A] rounded-lg text-white font-mono text-right focus:border-yc-orange outline-none"
+                                            className="w-24 px-3 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-[#2A2A2A] rounded-lg text-gray-900 dark:text-white font-mono text-right focus:border-yc-orange outline-none"
                                             placeholder="0"
                                         />
                                     </div>
                                 ))}
                             </div>
 
-                            <div className="p-6 border-t border-[#2A2A2A] sticky bottom-0 bg-[#0A0A0A] flex gap-3">
+                            <div className="p-6 border-t border-gray-200 dark:border-[#2A2A2A] sticky bottom-0 bg-white dark:bg-[#0A0A0A] flex gap-3">
                                 <button
                                     onClick={() => setShowPointsModal(null)}
-                                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 font-bold transition-all"
+                                    className="flex-1 py-3 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 font-bold transition-all"
                                 >
                                     Cancel
                                 </button>
@@ -755,7 +755,7 @@ const AdminPanel: React.FC = () => {
                                     disabled={actionLoading === 'finalize-points'}
                                     className="flex-1 py-3 rounded-xl bg-yc-orange hover:bg-yc-orange/80 text-white font-bold transition-all disabled:opacity-50"
                                 >
-                                    {actionLoading === 'finalize-points' ? 'Finalizing...' : '✅ Finalize Tournament'}
+                                    {actionLoading === 'finalize-points' ? 'Finalizing...' : 'Finalize Tournament'}
                                 </button>
                             </div>
                         </div>

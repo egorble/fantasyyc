@@ -3,7 +3,7 @@ import { useWalletContext } from '../context/WalletContext';
 import { getPackOpenerContract, formatXTZ } from '../lib/contracts';
 
 const REFERRAL_STORAGE_KEY = 'fantasyyc_referrer';
-const API_BASE = 'http://localhost:3003/api';
+const API_BASE = '/api';
 
 export function useReferral() {
     const { address, isConnected } = useWalletContext();

@@ -12,7 +12,7 @@ interface RightPanelProps {
   onOpenPack: () => void;
 }
 
-const API_BASE = 'http://localhost:3003/api';
+const API_BASE = '/api';
 
 const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
   const { isConnected } = useWalletContext();
