@@ -5,7 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const { ethers } = require("ethers");
-require("dotenv").config({ path: path.join(__dirname, ".env") });
+require("dotenv").config({ path: path.join(__dirname, ".env"), override: false });
 
 const app = express();
 const PORT = process.env.PORT || 3001;

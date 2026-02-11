@@ -129,6 +129,7 @@ step "4/10 — Fetching code from GitHub"
 REPO="https://github.com/egorble/fantasyyc.git"
 
 apt-get install -y -qq git
+git config --global --add safe.directory "${APP_DIR}" 2>/dev/null || true
 
 if [ -d "${APP_DIR}/.git" ]; then
     log "Repo exists — pulling latest..."
@@ -312,9 +313,17 @@ systemctl daemon-reload
 systemctl enable fantasyyc-api
 systemctl enable fantasyyc-metadata
 
-# Start/restart services
-systemctl restart fantasyyc-api
-systemctl restart fantasyyc-metadata
+# Stop services first, kill stale processes, then start clean
+systemctl stop fantasyyc-api 2>/dev/null || true
+systemctl stop fantasyyc-metadata 2>/dev/null || true
+sleep 2
+fuser -k 3003/tcp 2>/dev/null || true
+fuser -k 3001/tcp 2>/dev/null || true
+sleep 1
+
+# Start services
+systemctl start fantasyyc-api
+systemctl start fantasyyc-metadata
 
 log "Services installed and started"
 

@@ -32,6 +32,20 @@ if [ "$(id -u)" -ne 0 ]; then
     err "Run as root: sudo bash $0"
 fi
 
+# Fix git ownership warning
+git config --global --add safe.directory "${APP_DIR}" 2>/dev/null || true
+
+# ─── Ensure remote is set correctly ───
+if [ -d "${APP_DIR}/.git" ]; then
+    cd "${APP_DIR}"
+    CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+    if [ "$CURRENT_REMOTE" != "$REPO" ]; then
+        git remote remove origin 2>/dev/null || true
+        git remote add origin "$REPO"
+        log "Fixed remote origin → $REPO"
+    fi
+fi
+
 # ─── Check if repo exists, clone or pull ───
 if [ ! -d "${APP_DIR}/.git" ]; then
     log "First time setup — cloning repo..."
@@ -90,10 +104,20 @@ log "Frontend built"
 # ─── Fix ownership ───
 chown -R fantasyyc:fantasyyc "${APP_DIR}"
 
-# ─── Restart services ───
-log "Restarting services..."
-systemctl restart fantasyyc-api
-systemctl restart fantasyyc-metadata
+# ─── Stop services, kill stale processes, then start clean ───
+log "Stopping services..."
+systemctl stop fantasyyc-api 2>/dev/null || true
+systemctl stop fantasyyc-metadata 2>/dev/null || true
+sleep 2
+
+# Kill any leftover node processes on our ports
+fuser -k 3003/tcp 2>/dev/null || true
+fuser -k 3001/tcp 2>/dev/null || true
+sleep 1
+
+log "Starting services..."
+systemctl start fantasyyc-api
+systemctl start fantasyyc-metadata
 
 sleep 3
 
