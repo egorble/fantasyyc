@@ -8,7 +8,21 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
-        hmr: false
+        hmr: false,
+        proxy: {
+          '/api': {
+            target: 'http://localhost:3003',
+            changeOrigin: true,
+          },
+          '/metadata': {
+            target: 'http://localhost:3001',
+            changeOrigin: true,
+          },
+          '/health': {
+            target: 'http://localhost:3003',
+            changeOrigin: true,
+          },
+        },
       },
       plugins: [react()],
       define: {

@@ -3,9 +3,12 @@
 # FantasyYC — Production Deployment Script
 # Domain: app.unicornx.fun
 #
-# Usage:
-#   1. Upload project to server (scp/rsync/git clone)
-#   2. Run: sudo bash scripts/deploy-server.sh
+# First deploy:
+#   1. Create .env:  sudo mkdir -p /opt/fantasyyc && sudo nano /opt/fantasyyc/.env
+#   2. Run:          sudo bash scripts/deploy-server.sh
+#
+# Update from GitHub:
+#   sudo bash /opt/fantasyyc/scripts/update.sh
 #
 # What it does:
 #   - Installs Node.js 20, nginx, certbot
@@ -119,38 +122,38 @@ mkdir -p "$CERTBOT_WEBROOT"
 log "Directories created at ${APP_DIR}"
 
 ###############################################################################
-# STEP 4: Sync project files
+# STEP 4: Clone/pull from GitHub
 ###############################################################################
-step "4/10 — Syncing project files"
+step "4/10 — Fetching code from GitHub"
 
-# Sync server
-rsync -a --delete \
-    --exclude 'node_modules' \
-    --exclude '.git' \
-    "${PROJECT_DIR}/server/" "${APP_DIR}/server/"
+REPO="https://github.com/egorble/fantasyyc.git"
 
-# Sync backend (metadata API)
-rsync -a --delete \
-    --exclude 'node_modules' \
-    --exclude '.git' \
-    "${PROJECT_DIR}/backend/" "${APP_DIR}/backend/"
+apt-get install -y -qq git
 
-# Sync frontend source (for building)
-rsync -a --delete \
-    --exclude 'node_modules' \
-    --exclude '.git' \
-    --exclude 'dist' \
-    "${PROJECT_DIR}/front/" "${APP_DIR}/front/"
+if [ -d "${APP_DIR}/.git" ]; then
+    log "Repo exists — pulling latest..."
+    cd "${APP_DIR}"
+    git stash --include-untracked 2>/dev/null || true
+    git pull origin main
+    git stash pop 2>/dev/null || true
+else
+    log "Cloning repo into ${APP_DIR}..."
+    # Save .env and db before clone
+    TEMP_DIR=$(mktemp -d)
+    [ -f "${APP_DIR}/.env" ] && cp "${APP_DIR}/.env" "${TEMP_DIR}/.env"
+    [ -f "${APP_DIR}/server/db/fantasyyc.db" ] && cp "${APP_DIR}/server/db/fantasyyc.db" "${TEMP_DIR}/fantasyyc.db"
 
-# Sync deploy configs
-rsync -a "${PROJECT_DIR}/deploy/" "${APP_DIR}/deploy/"
+    git clone "$REPO" "${APP_DIR}_tmp"
+    cp -a "${APP_DIR}_tmp/." "${APP_DIR}/"
+    rm -rf "${APP_DIR}_tmp"
 
-# Sync scripts (for .env and scorer)
-rsync -a --delete \
-    --exclude 'node_modules' \
-    "${PROJECT_DIR}/scripts/" "${APP_DIR}/scripts/"
+    # Restore .env and db
+    [ -f "${TEMP_DIR}/.env" ] && cp "${TEMP_DIR}/.env" "${APP_DIR}/.env"
+    [ -f "${TEMP_DIR}/fantasyyc.db" ] && mkdir -p "${APP_DIR}/server/db" && cp "${TEMP_DIR}/fantasyyc.db" "${APP_DIR}/server/db/fantasyyc.db"
+    rm -rf "$TEMP_DIR"
+fi
 
-log "Files synced"
+log "Code synced from GitHub"
 
 ###############################################################################
 # STEP 5: Environment variables
@@ -375,6 +378,7 @@ echo ""
 
 # Useful commands
 echo -e "${CYAN}Useful commands:${NC}"
+echo "  sudo bash /opt/fantasyyc/scripts/update.sh  # Update from GitHub"
 echo "  systemctl status fantasyyc-api         # API status"
 echo "  systemctl status fantasyyc-metadata    # Metadata status"
 echo "  journalctl -u fantasyyc-api -f         # API logs (live)"
