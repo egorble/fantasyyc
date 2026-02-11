@@ -158,56 +158,25 @@ log "Files synced"
 step "5/10 — Configuring environment"
 
 if [ -f "$ENV_FILE" ]; then
-    log "Environment file already exists at ${ENV_FILE}"
-    warn "To update secrets, edit ${ENV_FILE} manually"
+    log "Environment file found at ${ENV_FILE}"
 else
-    # Try to copy from scripts/.env if it exists
-    if [ -f "${APP_DIR}/scripts/.env" ]; then
-        log "Creating env file from scripts/.env..."
-        {
-            echo "# FantasyYC Production Environment"
-            echo "# Generated on $(date)"
-            echo ""
-            echo "NODE_ENV=production"
-            echo "PORT=3003"
-            echo ""
-            # Read existing keys from scripts/.env
-            grep -E '^(PRIVATE_KEY|ADMIN_API_KEY|SCORE_HMAC_SECRET)=' "${APP_DIR}/scripts/.env" || true
-            echo ""
-            echo "# Metadata API"
-            echo "SERVER_URL=https://${DOMAIN}/metadata"
-            echo "NFT_CONTRACT_ADDRESS=0x35066391f772dcb7C13A0a94E721d2A91F85FBC3"
-            echo "RPC_URL=https://node.shadownet.etherlink.com"
-        } > "$ENV_FILE"
-        log "Environment file created at ${ENV_FILE}"
-    else
-        warn "No scripts/.env found. Creating template..."
-        cat > "$ENV_FILE" << 'ENVEOF'
-# FantasyYC Production Environment
-# Fill in the values below and restart services
+    err "Environment file not found at ${ENV_FILE}
+Create it manually before running this script:
 
-NODE_ENV=production
-PORT=3003
+  sudo mkdir -p ${APP_DIR}
+  sudo nano ${ENV_FILE}
 
-# Blockchain signing key (for tournament finalization)
-PRIVATE_KEY=
-
-# API authentication key (for admin endpoints)
-ADMIN_API_KEY=
-
-# HMAC secret for score integrity
-SCORE_HMAC_SECRET=
-
-# Metadata API
-SERVER_URL=https://app.unicornx.fun/metadata
-NFT_CONTRACT_ADDRESS=0x35066391f772dcb7C13A0a94E721d2A91F85FBC3
-RPC_URL=https://node.shadownet.etherlink.com
-ENVEOF
-        warn "IMPORTANT: Edit ${ENV_FILE} and add your secret keys!"
-    fi
+Required variables:
+  NODE_ENV=production
+  PORT=3003
+  PRIVATE_KEY=<your_blockchain_signing_key>
+  ADMIN_API_KEY=<your_admin_api_key>
+  SCORE_HMAC_SECRET=<your_hmac_secret>
+  SERVER_URL=https://${DOMAIN}/metadata
+  NFT_CONTRACT_ADDRESS=0x35066391f772dcb7C13A0a94E721d2A91F85FBC3
+  RPC_URL=https://node.shadownet.etherlink.com"
 fi
 
-# Secure permissions on env file
 chmod 600 "$ENV_FILE"
 chown "$APP_USER":"$APP_USER" "$ENV_FILE"
 
