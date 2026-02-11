@@ -24,12 +24,8 @@ StartLimitIntervalSec=60
 KillSignal=SIGTERM
 TimeoutStopSec=30
 
-# Security hardening
+# Security
 NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/fantasyyc/server/db /opt/fantasyyc/server/logs /opt/fantasyyc/logs
-PrivateTmp=true
 
 # Logging
 StandardOutput=journal

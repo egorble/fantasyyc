@@ -244,8 +244,9 @@ function initContract() {
 app.use(cors());
 app.use(express.json());
 
-// Serve static files (images)
+// Serve static files (images) — both direct and via nginx /metadata/ proxy
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
+app.use('/metadata/images', express.static(path.join(__dirname, 'public', 'images')));
 
 // Request logging
 app.use((req, res, next) => {
