@@ -10,6 +10,7 @@ interface FeedEvent {
     tweetId: string | null;
     date: string;
     createdAt: string;
+    summary: string | null;
 }
 
 // Map Twitter handles for building tweet URLs
@@ -99,7 +100,7 @@ const LiveFeed: React.FC = () => {
                     <div className="flex animate-marquee whitespace-nowrap">
                         {marqueeItems.map((event, idx) => {
                             const tweetUrl = getTweetUrl(event);
-                            const headline = toHeadline(event.description);
+                            const headline = event.summary || toHeadline(event.description);
 
                             const content = (
                                 <div className="inline-flex items-center mr-10 shrink-0">

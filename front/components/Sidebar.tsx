@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavSection, UserProfile } from '../types';
-import { Flame, Store, Wallet, Swords, TrendingUp, Settings, Sun, Moon, ShieldCheck, LogOut } from 'lucide-react';
+import { Flame, Store, Wallet, Swords, Newspaper, Settings, Sun, Moon, ShieldCheck, LogOut } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { isAdmin } from '../hooks/useAdmin';
 import { useWalletContext } from '../context/WalletContext';
@@ -24,7 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
     { id: NavSection.MARKETPLACE, icon: Store, label: 'Marketplace' },
     { id: NavSection.PORTFOLIO, icon: Wallet, label: 'My Portfolio' },
     { id: NavSection.LEAGUES, icon: Swords, label: 'Leagues' },
-    { id: NavSection.ANALYTICS, icon: TrendingUp, label: 'Analytics' },
+    { id: NavSection.FEED, icon: Newspaper, label: 'Feed' },
     ...(userIsAdmin ? [{ id: NavSection.ADMIN, icon: ShieldCheck, label: 'Admin' }] : []),
   ];
 

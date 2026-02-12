@@ -73,7 +73,7 @@ export enum NavSection {
   MARKETPLACE = 'Marketplace',
   PORTFOLIO = 'My Portfolio',
   LEAGUES = 'Leagues',
-  ANALYTICS = 'Analytics',
+  FEED = 'Feed',
   ADMIN = 'Admin'
 }
 

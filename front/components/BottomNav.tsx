@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavSection } from '../types';
-import { Flame, Store, Wallet, Swords, TrendingUp, ShieldCheck } from 'lucide-react';
+import { Flame, Store, Wallet, Swords, Newspaper, ShieldCheck } from 'lucide-react';
 import { isAdmin } from '../hooks/useAdmin';
 import { useWalletContext } from '../context/WalletContext';
 
@@ -18,7 +18,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeSection, onNavigate }) => {
     { id: NavSection.MARKETPLACE, icon: Store, label: 'Market' },
     { id: NavSection.PORTFOLIO, icon: Wallet, label: 'Portfolio' },
     { id: NavSection.LEAGUES, icon: Swords, label: 'Leagues' },
-    { id: NavSection.ANALYTICS, icon: TrendingUp, label: 'Stats' },
+    { id: NavSection.FEED, icon: Newspaper, label: 'Feed' },
     ...(userIsAdmin ? [{ id: NavSection.ADMIN, icon: ShieldCheck, label: 'Admin' }] : []),
   ];
   return (

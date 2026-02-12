@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { CardData, sortByRarity } from '../types';
 import CardDetailModal, { CardDetailData } from './CardDetailModal';
+import Analytics from './Analytics';
 import { Wallet, ArrowUpRight, TrendingUp, Plus, ShoppingCart, Layers, Zap, X, Check, RefreshCw, Tag, Loader2, Gavel, Clock, Activity, DollarSign, History } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
@@ -14,6 +15,7 @@ interface PortfolioProps {
 }
 
 const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
+    const [activeTab, setActiveTab] = useState<'cards' | 'performance'>('cards');
     const [myCards, setMyCards] = useState<CardData[]>([]);
     const [isMergeMode, setIsMergeMode] = useState(false);
     const [selectedCardIds, setSelectedCardIds] = useState<number[]>([]);
@@ -455,6 +457,38 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         </div>
                     </div>
 
+                    {/* Tab Switcher */}
+                    <div className="mb-6">
+                        <div className="inline-flex bg-gray-100 dark:bg-[#0A0A0A] rounded-xl p-1">
+                            <button
+                                onClick={() => { setActiveTab('cards'); setIsMergeMode(false); setSelectedCardIds([]); }}
+                                className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                                    activeTab === 'cards'
+                                        ? 'bg-white dark:bg-[#1A1A1A] text-yc-text-primary dark:text-white shadow-sm'
+                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                }`}
+                            >
+                                My Cards
+                            </button>
+                            <button
+                                onClick={() => { setActiveTab('performance'); setIsMergeMode(false); setSelectedCardIds([]); }}
+                                className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${
+                                    activeTab === 'performance'
+                                        ? 'bg-white dark:bg-[#1A1A1A] text-yc-text-primary dark:text-white shadow-sm'
+                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                }`}
+                            >
+                                <TrendingUp className="w-4 h-4" />
+                                Performance
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Performance Tab: Analytics */}
+                    {activeTab === 'performance' && <Analytics />}
+
+                    {/* Cards Tab Content */}
+                    {activeTab === 'cards' && (<>
                     {/* Assets Header & Controls */}
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-xl font-bold text-yc-text-primary dark:text-white flex items-center">
@@ -602,6 +636,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             </div>
                         </div>
                     )}
+                </>)}
                 </>
             )}
 

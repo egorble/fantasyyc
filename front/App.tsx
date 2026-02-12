@@ -8,6 +8,7 @@ import Marketplace from './components/Marketplace';
 import Portfolio from './components/Portfolio';
 import Leagues from './components/Leagues';
 import Analytics from './components/Analytics';
+import Feed from './components/Feed';
 import AdminPanel from './components/AdminPanel';
 import CardDetailModal, { CardDetailData } from './components/CardDetailModal';
 import ProfileSetupModal from './components/ProfileSetupModal';
@@ -189,8 +190,8 @@ const AppContent: React.FC = () => {
                 return <Portfolio onBuyPack={() => setIsPackModalOpen(true)} />;
             case NavSection.LEAGUES:
                 return <Leagues />;
-            case NavSection.ANALYTICS:
-                return <Analytics />;
+            case NavSection.FEED:
+                return <Feed />;
             case NavSection.ADMIN:
                 return <AdminPanel />;
             case NavSection.HOME:

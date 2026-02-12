@@ -515,6 +515,63 @@ export function getLatestIntegrityHash(tournamentId) {
     } catch { return null; }
 }
 
+// ============ AI Summary Migration ============
+
+/**
+ * Add ai_summary column to live_feed table (idempotent).
+ */
+export function runAiSummaryMigrations() {
+    if (!db) throw new Error('Database not initialized');
+    const migrations = [
+        'ALTER TABLE live_feed ADD COLUMN ai_summary TEXT',
+    ];
+    for (const sql of migrations) {
+        try { db.run(sql); } catch (e) { /* column already exists */ }
+    }
+}
+
+/**
+ * Get feed events that haven't been summarized yet.
+ */
+export function getUnsummarizedFeedEvents(limit = 50) {
+    return all(`
+        SELECT id, startup_name, event_type, description, points, date
+        FROM live_feed
+        WHERE ai_summary IS NULL
+        ORDER BY created_at DESC
+        LIMIT ?
+    `, [limit]);
+}
+
+/**
+ * Batch update AI summaries for feed events.
+ */
+export function batchUpdateFeedSummaries(updates) {
+    if (!db) throw new Error('Database not initialized');
+    for (const { id, summary } of updates) {
+        db.run('UPDATE live_feed SET ai_summary = ? WHERE id = ?', [summary, id]);
+    }
+}
+
+/**
+ * Get paginated live feed with AI summaries.
+ */
+export function getLiveFeedPaginated(limit = 20, offset = 0) {
+    return all(`
+        SELECT * FROM live_feed
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+    `, [limit, offset]);
+}
+
+/**
+ * Get total count of live feed events.
+ */
+export function getLiveFeedCount() {
+    const row = get('SELECT COUNT(*) as count FROM live_feed');
+    return row ? row.count : 0;
+}
+
 // Auto-save database every 5 seconds if there were changes
 setInterval(() => {
     if (db) {

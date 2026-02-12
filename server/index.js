@@ -402,8 +402,48 @@ app.get('/api/live-feed', (req, res) => {
                 points: e.points,
                 tweetId: e.tweet_id || null,
                 date: e.date,
-                createdAt: e.created_at
+                createdAt: e.created_at,
+                summary: e.ai_summary || null
             }))
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/feed
+ * Paginated feed with full details and AI summaries
+ */
+app.get('/api/feed', (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+        const offset = parseInt(req.query.offset) || 0;
+        const events = db.getLiveFeedPaginated(limit, offset);
+        const total = db.getLiveFeedCount();
+
+        return res.json({
+            success: true,
+            data: events.map(e => ({
+                id: e.id,
+                startup: e.startup_name,
+                eventType: e.event_type,
+                description: e.description,
+                points: e.points,
+                tweetId: e.tweet_id || null,
+                date: e.date,
+                createdAt: e.created_at,
+                summary: e.ai_summary || null
+            })),
+            pagination: {
+                total,
+                limit,
+                offset,
+                hasMore: offset + limit < total
+            }
         });
     } catch (error) {
         return res.status(500).json({
@@ -844,6 +884,31 @@ function scheduleDailyScorer() {
     console.log('Finalization checker: every 1h');
 }
 
+// ============= AI FEED SUMMARIZER =============
+
+function scheduleAiSummarizer() {
+    async function runSummarizer() {
+        try {
+            const { summarizeFeedEvents } = await import('./services/ai-summarizer.js');
+            const unsummarized = db.getUnsummarizedFeedEvents(20);
+            if (unsummarized.length === 0) return;
+
+            console.log(`[AI] Summarizing ${unsummarized.length} feed events...`);
+            const results = await summarizeFeedEvents(unsummarized);
+            db.batchUpdateFeedSummaries(results);
+            console.log(`[AI] ${results.length} summaries saved`);
+        } catch (err) {
+            console.error('[AI] Summarizer error:', err.message);
+        }
+    }
+
+    // First run 30 seconds after startup
+    setTimeout(runSummarizer, 30000);
+    // Then every 5 minutes
+    setInterval(runSummarizer, 5 * 60 * 1000);
+    console.log('AI feed summarizer scheduled: every 5m (first in 30s)');
+}
+
 // Start server with database initialization
 async function startServer() {
     try {
@@ -865,6 +930,10 @@ async function startServer() {
         // Run HMAC column migrations (idempotent)
         db.runHmacMigrations();
         console.log('✅ HMAC migrations applied');
+
+        // Run AI summary migrations (idempotent)
+        db.runAiSummaryMigrations();
+        console.log('✅ AI summary migrations applied');
 
         // Detect contract changes → wipe stale tournament data
         const contractHash = JSON.stringify(CONTRACTS);
@@ -888,6 +957,9 @@ async function startServer() {
         // Schedule daily scorer at 00:00 UTC
         scheduleDailyScorer();
 
+        // Schedule AI feed summarizer (every 5 minutes)
+        scheduleAiSummarizer();
+
         // Start Express server
         app.listen(PORT, () => {
             console.log(`🚀 FantasyYC API Server running on port ${PORT}`);
@@ -902,6 +974,7 @@ async function startServer() {
             console.log(`   GET /api/stats/:tournamentId`);
             console.log(`   GET /api/daily-scores/:tournamentId/:date`);
             console.log(`   GET /api/live-feed`);
+            console.log(`   GET /api/feed`);
             console.log(`   POST /api/users/register`);
             console.log(`   GET /api/users/:address`);
             console.log(`   PUT /api/users/:address`);
