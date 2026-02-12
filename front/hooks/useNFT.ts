@@ -252,36 +252,53 @@ export function useNFT() {
         return await fetchMetadata(tokenId);
     }, [fetchMetadata]);
 
-    // Get all cards for an address — uses batch endpoint for speed
-    // Smart: skips server fetch entirely if token list hasn't changed
+    // Get all cards for an address — instant from localStorage, background refresh
+    // Flow: localStorage → cache hit → return instantly → validate in background
     const getCards = useCallback(async (address: string): Promise<CardData[]> => {
         setIsLoading(true);
         setError(null);
 
         try {
-            const tokenIds = await getOwnedTokens(address);
-
-            // Smart diff: if token list is same as last cached, return cached cards directly
+            // Phase 1: Check if we have cached cards (from localStorage or previous fetch)
             const cardsKey = CacheKeys.userCards(address);
             const cachedCards = blockchainCache.get<CardData[]>(cardsKey);
             const prevTokensKey = `nft:prevTokenIds:${address}`;
             const prevTokenIds = blockchainCache.get<number[]>(prevTokensKey);
 
+            // Phase 2: Get current token list from blockchain
+            const tokenIds = await getOwnedTokens(address);
+
+            // Smart diff: if token list matches cached, return instantly
             if (cachedCards && prevTokenIds &&
                 prevTokenIds.length === tokenIds.length &&
                 prevTokenIds.every((id, i) => id === tokenIds[i])) {
-                console.log('📋 Cards unchanged (' + tokenIds.length + '), returning cached');
+                console.log('📋 Cards unchanged (' + tokenIds.length + '), instant from cache');
                 return cachedCards;
             }
 
-            // Find which tokens are new (not in previous list)
+            // Stale-while-revalidate: if we have ANY cached cards, return them immediately
+            // and fetch fresh data — caller will get updated data on next poll (30s)
+            if (cachedCards && cachedCards.length > 0 && prevTokenIds) {
+                const newTokenIds = tokenIds.filter(id => !new Set(prevTokenIds).has(id));
+                if (newTokenIds.length > 0 && newTokenIds.length < tokenIds.length) {
+                    // Some new tokens — return stale cards now, fetch new ones in background
+                    console.log('📋 Returning', cachedCards.length, 'cached cards +', newTokenIds.length, 'new loading in background');
+                    // Background fetch for new tokens
+                    fetchMetadataBatch(tokenIds).then(cards => {
+                        const valid = cards.filter((c): c is CardData => c !== null);
+                        blockchainCache.set(cardsKey, valid);
+                        blockchainCache.set(prevTokensKey, tokenIds);
+                        blockchainCache.persistKeys('nft:');
+                    });
+                    return cachedCards;
+                }
+            }
+
+            // Full fetch needed (first load or major change)
             const prevSet = new Set(prevTokenIds || []);
             const newTokenIds = tokenIds.filter(id => !prevSet.has(id));
-
             console.log('📋 Fetching cards for', address, '-', tokenIds.length, 'tokens (' + newTokenIds.length + ' new)');
 
-            // For kept tokens, try to use individually cached metadata
-            // For new tokens + uncached kept tokens, batch fetch from server
             const cards = await fetchMetadataBatch(tokenIds);
 
             // For tokens where metadata failed, fall back to contract data
@@ -300,12 +317,20 @@ export function useNFT() {
             const validCards = cards.filter((c): c is CardData => c !== null);
             console.log('   Loaded', validCards.length, 'cards');
 
-            // Cache the full card list + token IDs for smart diffing
+            // Cache + persist to localStorage for instant load on next visit
             blockchainCache.set(cardsKey, validCards);
             blockchainCache.set(prevTokensKey, tokenIds);
+            blockchainCache.persistKeys('nft:');
 
             return validCards;
         } catch (e: any) {
+            // On error, return cached cards if available (offline resilience)
+            const cardsKey = CacheKeys.userCards(address);
+            const cached = blockchainCache.get<CardData[]>(cardsKey);
+            if (cached && cached.length > 0) {
+                console.warn('Fetch failed, returning cached cards:', e.message);
+                return cached;
+            }
             setError(e.message);
             return [];
         } finally {
@@ -386,6 +411,8 @@ export function useNFT() {
             const signerAddress = await signer.getAddress();
             blockchainCache.invalidatePrefix(`nft:owned:${signerAddress}`);
             blockchainCache.invalidatePrefix(`nft:cards:${signerAddress}`);
+            blockchainCache.invalidatePrefix(`nft:prevTokenIds:${signerAddress}`);
+            blockchainCache.persistKeys('nft:');
 
             return { success: true, newTokenId };
         } catch (e: any) {

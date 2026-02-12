@@ -562,6 +562,52 @@ app.get("/stats", async (req, res) => {
     }
 });
 
+// ============ Pre-warm Cache ============
+
+async function prewarmCache() {
+    if (!nftContract) {
+        console.log("⚠️  Skipping cache pre-warm (no contract)");
+        return;
+    }
+
+    try {
+        const totalSupply = Number(await nftContract.totalSupply());
+        if (totalSupply === 0) {
+            console.log("📦 No tokens minted yet, nothing to pre-warm");
+            return;
+        }
+
+        console.log(`🔥 Pre-warming cache for ${totalSupply} tokens...`);
+        const startTime = Date.now();
+
+        // Fetch in batches of 20 to avoid overwhelming the RPC
+        const BATCH_SIZE = 20;
+        let cached = 0;
+        let errors = 0;
+
+        for (let i = 1; i <= totalSupply; i += BATCH_SIZE) {
+            const batch = [];
+            for (let j = i; j < Math.min(i + BATCH_SIZE, totalSupply + 1); j++) {
+                batch.push(j);
+            }
+
+            const results = await Promise.all(
+                batch.map(tokenId => fetchTokenData(tokenId).catch(() => ({ error: true })))
+            );
+
+            for (const r of results) {
+                if (r.error) errors++;
+                else cached++;
+            }
+        }
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ Pre-warm complete: ${cached} tokens cached, ${errors} errors (${elapsed}s)`);
+    } catch (err) {
+        console.error("❌ Pre-warm failed:", err.message);
+    }
+}
+
 // ============ Start Server ============
 
 initContract();
@@ -588,4 +634,7 @@ app.listen(PORT, () => {
     console.log("");
     console.log("═══════════════════════════════════════════════════════════════");
     console.log("");
+
+    // Pre-warm cache in background (non-blocking)
+    prewarmCache();
 });

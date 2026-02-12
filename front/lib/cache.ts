@@ -274,10 +274,59 @@ class BlockchainCache {
             return this.get<T>(key);
         }
     }
+
+    // ── LocalStorage persistence ──
+
+    // Persist cache entries matching prefix to localStorage
+    persistKeys(prefix: string): void {
+        const toSave: Record<string, CacheEntry<any>> = {};
+        for (const [key, entry] of this.cache) {
+            if (key.startsWith(prefix)) {
+                toSave[key] = entry;
+            }
+        }
+        try {
+            localStorage.setItem(`fyc:${prefix}`, JSON.stringify(toSave));
+        } catch {
+            // localStorage full or unavailable — silently ignore
+        }
+    }
+
+    // Restore cache entries from localStorage (won't overwrite in-memory data)
+    restoreKeys(prefix: string): number {
+        try {
+            const raw = localStorage.getItem(`fyc:${prefix}`);
+            if (!raw) return 0;
+            const entries: Record<string, CacheEntry<any>> = JSON.parse(raw);
+            let count = 0;
+            for (const [key, entry] of Object.entries(entries)) {
+                if (!this.cache.has(key)) {
+                    this.cache.set(key, entry);
+                    count++;
+                }
+            }
+            return count;
+        } catch {
+            return 0;
+        }
+    }
+
+    // Clear persisted localStorage for a prefix
+    clearPersistedKeys(prefix: string): void {
+        try {
+            localStorage.removeItem(`fyc:${prefix}`);
+        } catch {}
+    }
 }
 
 // Singleton instance
 export const blockchainCache = new BlockchainCache();
+
+// Auto-restore NFT card cache from localStorage on startup (instant load)
+const _restored = blockchainCache.restoreKeys('nft:');
+if (_restored > 0) {
+    console.log(`Restored ${_restored} card cache entries from localStorage`);
+}
 
 // Export polling intervals for use in hooks
 export { POLLING_INTERVALS };
