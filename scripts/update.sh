@@ -8,9 +8,11 @@
 #   1. git pull from GitHub
 #   2. npm ci for server & backend (if package.json changed)
 #   3. npm run build for frontend (if front/ changed)
-#   4. Restart services
+#   4. Sync contract addresses from deployment file into .env
+#   5. Restart services
+#   6. Verify metadata server uses correct contract
 #
-# Safe to run anytime. Does NOT touch: .env, database, SSL, nginx.
+# Safe to run anytime. Does NOT touch: database, SSL, nginx.
 ###############################################################################
 
 set -euo pipefail
@@ -101,6 +103,34 @@ npm ci --silent 2>&1 | tail -3 || npm install --silent 2>&1 | tail -3
 npm run build
 log "Frontend built"
 
+# ─── Sync contract addresses from deployment file into .env ───
+# After a fresh deploy/upgrade, deployment-shadownet.json has the new addresses
+# but /opt/fantasyyc/.env may still have old ones (systemd EnvironmentFile takes
+# priority over dotenv, so the metadata server would read stale addresses).
+DEPLOY_FILE="${APP_DIR}/deployment-shadownet.json"
+if [ -f "$DEPLOY_FILE" ] && [ -f "${APP_DIR}/.env" ]; then
+    # Extract NFT contract address from deployment file
+    NEW_NFT_ADDR=$(node -e "console.log(JSON.parse(require('fs').readFileSync('${DEPLOY_FILE}','utf8')).proxies.UnicornX_NFT || '')" 2>/dev/null || echo "")
+
+    if [ -n "$NEW_NFT_ADDR" ]; then
+        # Read current value from .env
+        OLD_NFT_ADDR=$(grep -oP '(?<=NFT_CONTRACT_ADDRESS=).*' "${APP_DIR}/.env" 2>/dev/null || echo "")
+
+        if [ "$OLD_NFT_ADDR" != "$NEW_NFT_ADDR" ]; then
+            if grep -q "^NFT_CONTRACT_ADDRESS=" "${APP_DIR}/.env"; then
+                sed -i "s|^NFT_CONTRACT_ADDRESS=.*|NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}|" "${APP_DIR}/.env"
+            else
+                echo "NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}" >> "${APP_DIR}/.env"
+            fi
+            log "Updated NFT_CONTRACT_ADDRESS: ${OLD_NFT_ADDR:-<unset>} → ${NEW_NFT_ADDR}"
+        else
+            log "NFT_CONTRACT_ADDRESS already correct: ${NEW_NFT_ADDR}"
+        fi
+    fi
+else
+    warn "deployment-shadownet.json or .env not found — skipping contract address sync"
+fi
+
 # ─── Fix ownership ───
 chown -R fantasyyc:fantasyyc "${APP_DIR}"
 
@@ -142,5 +172,21 @@ echo ""
 echo -e "  fantasyyc-api:      ${API_OK} $([ "$API_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
 echo -e "  fantasyyc-metadata: ${META_OK} $([ "$META_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
 echo -e "  nginx:              ${NGINX_OK} $([ "$NGINX_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+
+# ─── Verify metadata server uses correct contract ───
+if [ -f "$DEPLOY_FILE" ]; then
+    EXPECTED_ADDR=$(node -e "console.log(JSON.parse(require('fs').readFileSync('${DEPLOY_FILE}','utf8')).proxies.UnicornX_NFT || '')" 2>/dev/null || echo "")
+    ACTUAL_ADDR=$(curl -s --max-time 5 "http://127.0.0.1:3001/" 2>/dev/null | node -e "process.stdin.on('data',d=>{try{console.log(JSON.parse(d).contract)}catch{console.log('?')}})" 2>/dev/null || echo "?")
+
+    if [ "$ACTUAL_ADDR" = "$EXPECTED_ADDR" ]; then
+        echo -e "  metadata contract:  ${GREEN}OK${NC} (${ACTUAL_ADDR})"
+    else
+        echo -e "  metadata contract:  ${RED}MISMATCH${NC}"
+        echo -e "    expected: ${EXPECTED_ADDR}"
+        echo -e "    actual:   ${ACTUAL_ADDR}"
+        warn "Metadata server may be using wrong contract! Check /opt/fantasyyc/.env"
+    fi
+fi
+
 echo ""
 log "Update complete!"
