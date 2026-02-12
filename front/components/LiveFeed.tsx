@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, RefreshCw } from 'lucide-react';
+import { blockchainCache } from '../lib/cache';
+import { PreloadKeys } from '../lib/preload';
 
 interface FeedEvent {
     id: number;
@@ -54,8 +56,10 @@ function toHeadline(text: string, maxLen = 80): string {
 }
 
 const LiveFeed: React.FC = () => {
-    const [events, setEvents] = useState<FeedEvent[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Use preloaded feed data for instant render
+    const preloaded = blockchainCache.get<FeedEvent[]>(PreloadKeys.liveFeed);
+    const [events, setEvents] = useState<FeedEvent[]>(preloaded || []);
+    const [loading, setLoading] = useState(!preloaded);
 
     const fetchFeed = async () => {
         try {
@@ -63,6 +67,7 @@ const LiveFeed: React.FC = () => {
             const data = await res.json();
             if (data.success && data.data.length > 0) {
                 setEvents(data.data);
+                blockchainCache.set(PreloadKeys.liveFeed, data.data);
             }
         } catch (err) {
             console.error('Failed to fetch live feed:', err);
@@ -72,9 +77,11 @@ const LiveFeed: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchFeed();
+        // If preloaded, delay first fetch; otherwise fetch immediately
+        const delay = preloaded ? 60000 : 0;
+        const timeout = setTimeout(fetchFeed, delay);
         const interval = setInterval(fetchFeed, 60000);
-        return () => clearInterval(interval);
+        return () => { clearTimeout(timeout); clearInterval(interval); };
     }, []);
 
     // Already sorted by points DESC from backend

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Users, Clock, ArrowRight, Zap } from 'lucide-react';
 import { NavSection } from '../types';
+import { blockchainCache } from '../lib/cache';
+import { PreloadKeys } from '../lib/preload';
 
 interface TournamentData {
     id: number;
@@ -16,7 +18,9 @@ interface TournamentCTAProps {
 }
 
 const TournamentCTA: React.FC<TournamentCTAProps> = ({ onNavigate }) => {
-    const [tournament, setTournament] = useState<TournamentData | null>(null);
+    // Use preloaded tournament data for instant render
+    const preloaded = blockchainCache.get<TournamentData>(PreloadKeys.activeTournament);
+    const [tournament, setTournament] = useState<TournamentData | null>(preloaded || null);
     const [timeLeft, setTimeLeft] = useState('');
 
     useEffect(() => {
@@ -26,15 +30,18 @@ const TournamentCTA: React.FC<TournamentCTAProps> = ({ onNavigate }) => {
                 const data = await res.json();
                 if (data.success) {
                     setTournament(data.data);
+                    blockchainCache.set(PreloadKeys.activeTournament, data.data);
                 }
             } catch {
                 // Silently fail
             }
         };
 
-        fetchTournament();
+        // If preloaded, delay first fetch; otherwise fetch immediately
+        const delay = preloaded ? 60000 : 0;
+        const timeout = setTimeout(fetchTournament, delay);
         const interval = setInterval(fetchTournament, 60000);
-        return () => clearInterval(interval);
+        return () => { clearTimeout(timeout); clearInterval(interval); };
     }, []);
 
     // Update countdown

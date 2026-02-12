@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { UserPlus, Copy, Check, TrendingUp } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useReferral } from '../hooks/useReferral';
+import { blockchainCache } from '../lib/cache';
+import { PreloadKeys, getPreloadedTournamentId } from '../lib/preload';
 
 interface TopStartup {
   name: string;
@@ -18,31 +20,42 @@ const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
   const { isConnected } = useWalletContext();
   const { getReferralLink, referralStats } = useReferral();
   const [copied, setCopied] = useState(false);
-  const [topStartups, setTopStartups] = useState<TopStartup[]>([]);
+
+  // Use preloaded top startups for instant render
+  const preloadedId = getPreloadedTournamentId();
+  const preloaded = preloadedId
+      ? blockchainCache.get<TopStartup[]>(PreloadKeys.topStartups(preloadedId))
+      : undefined;
+  const [topStartups, setTopStartups] = useState<TopStartup[]>(preloaded || []);
 
   const referralLink = getReferralLink();
 
-  // Fetch top startups
   useEffect(() => {
     const fetchTopStartups = async () => {
       try {
-        const tourRes = await fetch(`${API_BASE}/tournaments/active`);
-        const tourData = await tourRes.json();
-        if (!tourData.success) return;
+        let tId = getPreloadedTournamentId();
+        if (!tId) {
+          const tourRes = await fetch(`${API_BASE}/tournaments/active`);
+          const tourData = await tourRes.json();
+          if (!tourData.success) return;
+          tId = tourData.data.id;
+        }
 
-        const res = await fetch(`${API_BASE}/top-startups/${tourData.data.id}?limit=5`);
+        const res = await fetch(`${API_BASE}/top-startups/${tId}?limit=5`);
         const data = await res.json();
         if (data.success) {
           setTopStartups(data.data);
+          blockchainCache.set(PreloadKeys.topStartups(tId), data.data);
         }
       } catch {
         // Silently fail
       }
     };
 
-    fetchTopStartups();
+    const delay = preloaded ? 60000 : 0;
+    const timeout = setTimeout(fetchTopStartups, delay);
     const interval = setInterval(fetchTopStartups, 60000);
-    return () => clearInterval(interval);
+    return () => { clearTimeout(timeout); clearInterval(interval); };
   }, []);
 
   const handleCopy = () => {

@@ -3,6 +3,8 @@ import { Trophy, ArrowRight, Crown, Medal, Award } from 'lucide-react';
 import { NavSection } from '../types';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { useWalletContext } from '../context/WalletContext';
+import { blockchainCache } from '../lib/cache';
+import { PreloadKeys, getPreloadedTournamentId } from '../lib/preload';
 
 interface LeaderboardPlayer {
     rank: number;
@@ -18,31 +20,37 @@ interface DashboardLeaderboardProps {
 }
 
 const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate }) => {
-    const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [tournamentId, setTournamentId] = useState<number | null>(null);
+    // Check preloaded data for instant first render
+    const preloadedId = getPreloadedTournamentId();
+    const preloadedPlayers = preloadedId
+        ? blockchainCache.get<LeaderboardPlayer[]>(PreloadKeys.leaderboard(preloadedId))
+        : undefined;
+
+    const [players, setPlayers] = useState<LeaderboardPlayer[]>(preloadedPlayers || []);
+    const [loading, setLoading] = useState(!preloadedPlayers);
+    const [tournamentId, setTournamentId] = useState<number | null>(preloadedId);
     const { address } = useWalletContext();
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // First get active tournament
-                const tRes = await fetch('/api/tournaments/active');
-                const tData = await tRes.json();
-
-                if (!tData.success) {
-                    setLoading(false);
-                    return;
+                // Use preloaded tournament if available, otherwise fetch
+                let tId = getPreloadedTournamentId();
+                if (!tId) {
+                    const tRes = await fetch('/api/tournaments/active');
+                    const tData = await tRes.json();
+                    if (!tData.success) { setLoading(false); return; }
+                    tId = tData.data.id;
                 }
 
-                setTournamentId(tData.data.id);
+                setTournamentId(tId);
 
-                // Then get leaderboard
-                const lRes = await fetch(`/api/leaderboard/${tData.data.id}?limit=10`);
+                const lRes = await fetch(`/api/leaderboard/${tId}?limit=10`);
                 const lData = await lRes.json();
 
                 if (lData.success) {
                     setPlayers(lData.data);
+                    blockchainCache.set(PreloadKeys.leaderboard(tId), lData.data);
                 }
             } catch {
                 // Silently fail
@@ -51,9 +59,13 @@ const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate 
             }
         };
 
-        fetchData();
+        // If we already have preloaded data, delay first poll
+        const delay = preloadedPlayers ? 10000 : 0;
+        const timeout = setTimeout(() => {
+            fetchData();
+        }, delay);
         const interval = setInterval(fetchData, 10000);
-        return () => clearInterval(interval);
+        return () => { clearTimeout(timeout); clearInterval(interval); };
     }, []);
 
     const formatAddress = (addr: string) => {
