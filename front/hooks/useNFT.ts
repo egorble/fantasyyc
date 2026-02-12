@@ -15,6 +15,25 @@ const RARITY_STRING_MAP: Record<string, Rarity> = {
     'Legendary': Rarity.LEGENDARY,
 };
 
+// Fetch items in batches to avoid overwhelming nginx rate limits
+async function fetchInBatches<T>(
+    items: number[],
+    fn: (id: number) => Promise<T>,
+    batchSize = 5,
+    delayMs = 200
+): Promise<T[]> {
+    const results: T[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map(fn));
+        results.push(...batchResults);
+        if (i + batchSize < items.length) {
+            await new Promise(r => setTimeout(r, delayMs));
+        }
+    }
+    return results;
+}
+
 export function useNFT() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -117,26 +136,27 @@ export function useNFT() {
             const tokenIds = await getOwnedTokens(address);
             console.log('📋 Fetching cards for', address, '- found', tokenIds.length, 'tokens');
 
-            // Fetch metadata for all tokens in parallel
-            const cardPromises = tokenIds.map(id => fetchMetadata(id));
-            const cards = await Promise.all(cardPromises);
+            // Fetch metadata in batches to avoid nginx rate limit (burst=10)
+            const cards = await fetchInBatches(tokenIds, fetchMetadata, 5, 200);
 
             // Filter out nulls
             const validCards = cards.filter((c): c is CardData => c !== null);
 
-            // Verify isLocked from contract (metadata cache may be stale)
+            // Verify isLocked from contract in batches (metadata cache may be stale)
             const contract = getNFTContract();
-            const lockChecks = validCards.map(async (card) => {
+            const checkLock = async (idx: number) => {
+                const card = validCards[idx];
                 try {
                     const locked = await contract.isLocked(card.tokenId);
                     if (card.isLocked !== locked) {
                         card.isLocked = locked;
-                        // Update cached metadata too
                         blockchainCache.set(CacheKeys.cardMetadata(card.tokenId), { ...card });
                     }
                 } catch {}
-            });
-            await Promise.all(lockChecks);
+                return idx;
+            };
+            const indices = validCards.map((_, i) => i);
+            await fetchInBatches(indices, checkLock, 5, 100);
 
             console.log('   Loaded', validCards.length, 'cards');
 
