@@ -75,7 +75,7 @@ const AppContent: React.FC = () => {
     const [buyingId, setBuyingId] = useState<number | null>(null);
 
     // NFT hook
-    const { getCardInfo } = useNFT();
+    const { getCardInfo, getCards } = useNFT();
 
     // Dynamic user from wallet + profile
     const user: UserProfile = {
@@ -89,6 +89,15 @@ const AppContent: React.FC = () => {
             : generatePixelAvatar(''),
         address: address || undefined,
     };
+
+    // Pre-fetch user's NFT cards as soon as wallet connects (background, non-blocking)
+    // Cards get cached in blockchainCache + localStorage → Portfolio loads instantly
+    useEffect(() => {
+        if (isConnected && address) {
+            console.log('⚡ Pre-fetching NFT cards for', address.slice(0, 8));
+            getCards(address).catch(() => {}); // fire-and-forget
+        }
+    }, [isConnected, address, getCards]);
 
     // Load dashboard listings with NFT metadata
     useEffect(() => {
