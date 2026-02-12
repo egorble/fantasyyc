@@ -646,7 +646,7 @@ const AdminPanel: React.FC = () => {
 
                                         {/* Action Buttons - show for Created (0) and Active (1) */}
                                         {(t.status === 0 || t.status === 1) && (
-                                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-[#2A2A2A] flex gap-2">
+                                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-[#2A2A2A] flex flex-wrap gap-2">
                                                 <button
                                                     onClick={() => handleCancelTournament(t.id)}
                                                     disabled={actionLoading === 'cancel'}
@@ -654,27 +654,23 @@ const AdminPanel: React.FC = () => {
                                                 >
                                                     {actionLoading === 'cancel' ? 'Cancelling...' : 'Cancel Tournament'}
                                                 </button>
-                                                {isEnded && (
-                                                    <button
-                                                        onClick={() => handleFinalizeTournament(t.id)}
-                                                        disabled={actionLoading === 'finalize'}
-                                                        className="flex-1 bg-green-50 dark:bg-green-500/20 hover:bg-green-500 text-green-600 dark:text-green-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-                                                    >
-                                                        {actionLoading === 'finalize' ? 'Finalizing...' : 'Finalize & Unlock NFTs'}
-                                                    </button>
-                                                )}
-                                                {isEnded && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setShowPointsModal(t);
-                                                            setPointsValues(Array(19).fill('0'));
-                                                        }}
-                                                        disabled={actionLoading?.startsWith('finalize')}
-                                                        className="flex-1 bg-orange-50 dark:bg-yc-orange/20 hover:bg-yc-orange text-yc-orange hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-                                                    >
-                                                        Finalize with Points
-                                                    </button>
-                                                )}
+                                                <button
+                                                    onClick={() => handleFinalizeTournament(t.id)}
+                                                    disabled={actionLoading === 'finalize'}
+                                                    className="flex-1 bg-green-50 dark:bg-green-500/20 hover:bg-green-500 text-green-600 dark:text-green-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                                >
+                                                    {actionLoading === 'finalize' ? 'Finalizing...' : 'Finalize & Unlock NFTs'}
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowPointsModal(t);
+                                                        setPointsValues(Array(19).fill('0'));
+                                                    }}
+                                                    disabled={actionLoading?.startsWith('finalize')}
+                                                    className="flex-1 bg-orange-50 dark:bg-yc-orange/20 hover:bg-yc-orange text-yc-orange hover:text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                                >
+                                                    Finalize with Points
+                                                </button>
                                             </div>
                                         )}
 
