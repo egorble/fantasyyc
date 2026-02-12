@@ -349,7 +349,7 @@ export function useMarketplaceV2() {
             if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
                 blockchainCache.fetchInBackground(key, async () => {
                     const contract = getMarketplaceV2Contract();
-                    const bids = await contract.getBidsByBidder(address);
+                    const bids = await contract.getUserBids(address);
                     return bids.map((b: any) => ({
                         bidId: b.bidId,
                         bidder: b.bidder,
@@ -365,7 +365,7 @@ export function useMarketplaceV2() {
 
         return blockchainCache.getOrFetch(key, async () => {
             const contract = getMarketplaceV2Contract();
-            const bids = await contract.getBidsByBidder(address);
+            const bids = await contract.getUserBids(address);
             return bids.map((b: any) => ({
                 bidId: b.bidId,
                 bidder: b.bidder,
@@ -540,12 +540,12 @@ export function useMarketplaceV2() {
             const contract = getMarketplaceV2Contract();
             const stats = await contract.getTokenStats(tokenId);
             return {
-                totalSales: stats.totalSales,
+                totalSales: stats.salesCount,
                 totalVolume: stats.totalVolume,
                 highestSale: stats.highestSale,
                 lowestSale: stats.lowestSale,
                 lastSalePrice: stats.lastSalePrice,
-                lastSaleTime: stats.lastSaleTime,
+                lastSaleTime: 0n,
             };
         } catch (err: any) {
             console.error('Error getting token stats:', err);
@@ -556,13 +556,13 @@ export function useMarketplaceV2() {
     const getMarketplaceStats = useCallback(async (): Promise<MarketplaceStats | null> => {
         try {
             const contract = getMarketplaceV2Contract();
-            const stats = await contract.getMarketplaceStats();
+            const [totalVolume, totalSales, activeListings, activeAuctions] = await contract.getGlobalStats();
             return {
-                totalListings: stats.totalListings,
-                activeBids: stats.activeBids,
-                activeAuctions: stats.activeAuctions,
-                totalVolume: stats.totalVolume,
-                totalSales: stats.totalSales,
+                totalListings: activeListings,
+                activeBids: 0n,
+                activeAuctions: activeAuctions,
+                totalVolume: totalVolume,
+                totalSales: totalSales,
             };
         } catch (err: any) {
             console.error('Error getting marketplace stats:', err);

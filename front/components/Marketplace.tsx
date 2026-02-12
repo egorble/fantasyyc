@@ -16,6 +16,24 @@ const RARITY_COLORS: Record<string, string> = {
     'Legendary': 'bg-orange-500 text-white border-orange-400',
 };
 
+// Safe formatting helpers
+function safeFormatXTZ(amount: any): string {
+    try {
+        const formatted = formatXTZ(BigInt(amount));
+        const num = parseFloat(formatted);
+        if (isNaN(num) || num > 1_000_000) return '???';
+        return num % 1 === 0 ? num.toString() : num.toFixed(2);
+    } catch { return '???'; }
+}
+
+function safeFormatDate(timestamp: any): string {
+    try {
+        const date = new Date(Number(timestamp) * 1000);
+        if (isNaN(date.getTime())) return '—';
+        return date.toLocaleDateString();
+    } catch { return '—'; }
+}
+
 type MarketTab = 'listings' | 'auctions' | 'activity';
 
 interface ListingWithMeta extends Listing {
@@ -348,6 +366,7 @@ const Marketplace: React.FC = () => {
                 getTokenSaleHistory(tokenId),
                 getTokenStats(tokenId)
             ]);
+            console.log('[Stats] bids:', bids, 'sales:', sales, 'stats:', stats);
             setCardBids(bids || []);
             setCardSales(sales || []);
             setCardStats(stats);
@@ -667,7 +686,7 @@ const Marketplace: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="p-1.5 md:p-4">
-                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-base leading-tight">{formatXTZ(auction.highestBid)} XTZ</p>
+                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-base leading-tight">{safeFormatXTZ(auction.highestBid)} XTZ</p>
                                         {auction.isEnded ? (
                                             <button
                                                 onClick={() => handleFinalizeAuction(auction)}
@@ -728,7 +747,7 @@ const Marketplace: React.FC = () => {
                                     <img src={bidModal.auction.cardImage} alt="" className="w-20 h-20 rounded-lg object-cover" />
                                     <div>
                                         <h4 className="text-gray-900 dark:text-white font-bold">{bidModal.auction.cardName}</h4>
-                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Current: {formatXTZ(bidModal.auction.highestBid)} XTZ</p>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Current: {safeFormatXTZ(bidModal.auction.highestBid)} XTZ</p>
                                     </div>
                                 </div>
 
@@ -849,12 +868,12 @@ const Marketplace: React.FC = () => {
                                                     <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-[#2A2A2A]">
                                                         <div className="flex-1">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-gray-900 dark:text-white font-bold">{formatXTZ(bid.amount)} XTZ</span>
+                                                                <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(bid.amount)} XTZ</span>
                                                                 <span className="text-gray-500 dark:text-gray-500 text-xs">from</span>
                                                                 <span className="text-gray-500 dark:text-gray-400 text-xs">{bid.bidder?.slice(0, 6)}...{bid.bidder?.slice(-4)}</span>
                                                             </div>
                                                             <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
-                                                                Expires: {new Date(Number(bid.expiration) * 1000).toLocaleDateString()}
+                                                                Expires: {safeFormatDate(bid.expiration)}
                                                             </p>
                                                         </div>
                                                         {statsItem && 'seller' in statsItem && statsItem.seller?.toLowerCase() === address?.toLowerCase() && (
@@ -875,8 +894,8 @@ const Marketplace: React.FC = () => {
                                             cardSales.map((sale, i) => (
                                                 <div key={i} className="py-2 border-b border-gray-200 dark:border-[#2A2A2A] last:border-0">
                                                     <div className="flex justify-between">
-                                                        <span className="text-gray-900 dark:text-white font-bold">{formatXTZ(sale.price)} XTZ</span>
-                                                        <span className="text-gray-500 dark:text-gray-400 text-xs">{new Date(Number(sale.timestamp) * 1000).toLocaleDateString()}</span>
+                                                        <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(sale.price)} XTZ</span>
+                                                        <span className="text-gray-500 dark:text-gray-400 text-xs">{safeFormatDate(sale.timestamp)}</span>
                                                     </div>
                                                     <p className="text-gray-500 dark:text-gray-500 text-xs">{sale.seller?.slice(0, 6)}... → {sale.buyer?.slice(0, 6)}...</p>
                                                 </div>
@@ -885,9 +904,9 @@ const Marketplace: React.FC = () => {
                                     {statsTab === 'stats' && cardStats && (
                                         <div className="space-y-3">
                                             <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Total Sales</span><span className="text-gray-900 dark:text-white font-bold">{String(cardStats.totalSales || 0)}</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Total Volume</span><span className="text-gray-900 dark:text-white font-bold">{formatXTZ(cardStats.totalVolume || 0n)} XTZ</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Highest Sale</span><span className="text-yc-green font-bold">{formatXTZ(cardStats.highestSale || 0n)} XTZ</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Lowest Sale</span><span className="text-red-400 font-bold">{formatXTZ(cardStats.lowestSale || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Total Volume</span><span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(cardStats.totalVolume || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Highest Sale</span><span className="text-yc-green font-bold">{safeFormatXTZ(cardStats.highestSale || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Lowest Sale</span><span className="text-red-400 font-bold">{safeFormatXTZ(cardStats.lowestSale || 0n)} XTZ</span></div>
                                         </div>
                                     )}
                                 </>

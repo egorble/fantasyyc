@@ -122,8 +122,7 @@ export const MARKETPLACE_V2_ABI = [
     'function cancelBid(uint256 bidId)',
     'function acceptBid(uint256 bidId)',
     'function getActiveBidsForToken(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
-    'function getBidsByBidder(address bidder) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
-    'function getBid(uint256 bidId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active))',
+    'function getUserBids(address user) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
 
     // ===== Auctions =====
     'function createAuction(uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 duration) returns (uint256)',
@@ -135,8 +134,8 @@ export const MARKETPLACE_V2_ABI = [
 
     // ===== History & Stats =====
     'function getTokenSaleHistory(uint256 tokenId) view returns (tuple(uint256 tokenId, address seller, address buyer, uint256 price, uint256 timestamp, uint8 saleType)[])',
-    'function getTokenStats(uint256 tokenId) view returns (tuple(uint256 totalSales, uint256 totalVolume, uint256 highestSale, uint256 lowestSale, uint256 lastSalePrice, uint256 lastSaleTime))',
-    'function getMarketplaceStats() view returns (tuple(uint256 totalListings, uint256 activeBids, uint256 activeAuctions, uint256 totalVolume, uint256 totalSales) memory)',
+    'function getTokenStats(uint256 tokenId) view returns (tuple(uint256 lastSalePrice, uint256 totalVolume, uint256 salesCount, uint256 highestSale, uint256 lowestSale))',
+    'function getGlobalStats() view returns (uint256 _totalVolume, uint256 _totalSales, uint256 _activeListings, uint256 _activeAuctions)',
 
     // Events
     'event CardListed(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId, uint256 price)',
