@@ -732,8 +732,8 @@ const STARTUPS = {
 };
 
 // Sync NFT cards from blockchain for a given address and cache in DB
-// Uses simple mapping getters (tokenToStartup, tokenToEdition, isLocked)
-// instead of getCardInfo which returns a complex tuple that fails on some RPC nodes
+// Uses simple mapping getters (tokenToStartup, tokenToEdition)
+// Calls made sequentially to avoid RPC node throttling
 async function syncNFTCards(address) {
     const provider = new ethers.JsonRpcProvider(CHAIN.RPC_URL);
     const nft = new ethers.Contract(CONTRACTS.UnicornX_NFT, nftABI, provider);
@@ -748,42 +748,46 @@ async function syncNFTCards(address) {
         return [];
     }
 
-    // Fetch startup IDs for all tokens (simple uint256 returns, batches of 20)
+    // Diagnostic: test a single raw eth_call to check if RPC works at all
+    const testId = ids[0];
+    try {
+        const iface = new ethers.Interface(nftABI);
+        const calldata = iface.encodeFunctionData('tokenToStartup', [testId]);
+        const rawResult = await provider.call({ to: CONTRACTS.UnicornX_NFT, data: calldata });
+        console.log(`[NFT sync] Raw eth_call test for token ${testId}: result=${rawResult?.slice(0, 20)}... (${rawResult?.length} chars)`);
+    } catch (diagErr) {
+        console.error(`[NFT sync] Raw eth_call diagnostic FAILED:`, diagErr.message?.slice(0, 200));
+    }
+
+    // Fetch card data SEQUENTIALLY (one token at a time) to avoid RPC throttling
     const cards = [];
     let skipped = 0;
-    for (let i = 0; i < ids.length; i += 20) {
-        const batch = ids.slice(i, i + 20);
-        const results = await Promise.all(batch.map(async id => {
-            try {
-                const [startupId, edition, locked] = await Promise.all([
-                    nft.tokenToStartup(id),
-                    nft.tokenToEdition(id),
-                    nft.isLocked(id),
-                ]);
-                const sid = Number(startupId);
-                const startup = STARTUPS[sid];
-                if (!startup) {
-                    console.warn(`[NFT sync] Token ${id} has unknown startupId ${sid}, skipping`);
-                    skipped++;
-                    return null;
-                }
-                return {
-                    tokenId: id,
-                    startupId: sid,
-                    name: startup.name,
-                    rarity: startup.rarity,
-                    multiplier: startup.multiplier,
-                    edition: Number(edition),
-                    isLocked: locked,
-                };
-            } catch (err) {
-                console.warn(`[NFT sync] Token ${id} failed:`, err.message?.slice(0, 100) || err);
+    for (const id of ids) {
+        try {
+            const startupId = await nft.tokenToStartup(id);
+            const sid = Number(startupId);
+            const startup = STARTUPS[sid];
+            if (!startup) {
+                console.warn(`[NFT sync] Token ${id}: unknown startupId ${sid}`);
                 skipped++;
-                return null;
+                continue;
             }
-        }));
-        for (const card of results) {
-            if (card) cards.push(card);
+
+            let edition = 1;
+            try { edition = Number(await nft.tokenToEdition(id)); } catch { /* default 1 */ }
+
+            cards.push({
+                tokenId: id,
+                startupId: sid,
+                name: startup.name,
+                rarity: startup.rarity,
+                multiplier: startup.multiplier,
+                edition,
+                isLocked: false, // Will be updated from tournament data
+            });
+        } catch (err) {
+            console.warn(`[NFT sync] Token ${id} failed:`, err.message?.slice(0, 120) || err);
+            skipped++;
         }
     }
 
