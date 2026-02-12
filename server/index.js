@@ -703,63 +703,95 @@ app.post('/api/referrals/track', writeLimiter, verifyWalletSignature, (req, res)
 
 const nftABI = [
     'function getOwnedTokens(address owner) view returns (uint256[])',
-    'function getCardInfo(uint256 tokenId) view returns (tuple(uint256 startupId, uint256 edition, uint8 rarity, uint256 multiplier, bool isLocked, string name))',
+    'function tokenToStartup(uint256 tokenId) view returns (uint256)',
+    'function tokenToEdition(uint256 tokenId) view returns (uint256)',
+    'function isLocked(uint256 tokenId) view returns (bool)',
 ];
 
-const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
+// Startup data (matches contract — same as front/lib/contracts.ts STARTUPS)
+const STARTUPS = {
+    1: { name: 'Openclaw', rarity: 'Legendary', multiplier: 10 },
+    2: { name: 'Lovable', rarity: 'Legendary', multiplier: 10 },
+    3: { name: 'Cursor', rarity: 'Legendary', multiplier: 10 },
+    4: { name: 'OpenAI', rarity: 'Legendary', multiplier: 10 },
+    5: { name: 'Anthropic', rarity: 'Legendary', multiplier: 10 },
+    6: { name: 'Browser Use', rarity: 'Epic', multiplier: 5 },
+    7: { name: 'Dedalus Labs', rarity: 'Epic', multiplier: 5 },
+    8: { name: 'Autumn', rarity: 'Epic', multiplier: 5 },
+    9: { name: 'Axiom', rarity: 'Rare', multiplier: 3 },
+    10: { name: 'Multifactor', rarity: 'Rare', multiplier: 3 },
+    11: { name: 'Dome', rarity: 'Rare', multiplier: 3 },
+    12: { name: 'GrazeMate', rarity: 'Rare', multiplier: 3 },
+    13: { name: 'Tornyol Systems', rarity: 'Rare', multiplier: 3 },
+    14: { name: 'Pocket', rarity: 'Common', multiplier: 1 },
+    15: { name: 'Caretta', rarity: 'Common', multiplier: 1 },
+    16: { name: 'AxionOrbital Space', rarity: 'Common', multiplier: 1 },
+    17: { name: 'Freeport Markets', rarity: 'Common', multiplier: 1 },
+    18: { name: 'Ruvo', rarity: 'Common', multiplier: 1 },
+    19: { name: 'Lightberry', rarity: 'Common', multiplier: 1 },
+};
 
 // Sync NFT cards from blockchain for a given address and cache in DB
+// Uses simple mapping getters (tokenToStartup, tokenToEdition, isLocked)
+// instead of getCardInfo which returns a complex tuple that fails on some RPC nodes
 async function syncNFTCards(address) {
     const provider = new ethers.JsonRpcProvider(CHAIN.RPC_URL);
     const nft = new ethers.Contract(CONTRACTS.UnicornX_NFT, nftABI, provider);
 
     console.log(`[NFT sync] Fetching owned tokens for ${address}...`);
     const tokenIds = await nft.getOwnedTokens(address);
-    console.log(`[NFT sync] getOwnedTokens returned ${tokenIds.length} tokens:`, tokenIds.map(t => Number(t)));
+    const ids = tokenIds.map(t => Number(t));
+    console.log(`[NFT sync] getOwnedTokens returned ${ids.length} tokens`);
 
-    if (tokenIds.length === 0) {
+    if (ids.length === 0) {
         db.saveNFTCards(address, []);
         return [];
     }
 
-    // Fetch card info for all tokens in parallel (batches of 10)
-    // Individual calls wrapped in try/catch — burned/invalid tokens are skipped
+    // Fetch startup IDs for all tokens (simple uint256 returns, batches of 20)
     const cards = [];
     let skipped = 0;
-    const ids = tokenIds.map(t => Number(t));
-    for (let i = 0; i < ids.length; i += 10) {
-        const batch = ids.slice(i, i + 10);
+    for (let i = 0; i < ids.length; i += 20) {
+        const batch = ids.slice(i, i + 20);
         const results = await Promise.all(batch.map(async id => {
             try {
-                const info = await nft.getCardInfo(id);
-                return { id, info };
+                const [startupId, edition, locked] = await Promise.all([
+                    nft.tokenToStartup(id),
+                    nft.tokenToEdition(id),
+                    nft.isLocked(id),
+                ]);
+                const sid = Number(startupId);
+                const startup = STARTUPS[sid];
+                if (!startup) {
+                    console.warn(`[NFT sync] Token ${id} has unknown startupId ${sid}, skipping`);
+                    skipped++;
+                    return null;
+                }
+                return {
+                    tokenId: id,
+                    startupId: sid,
+                    name: startup.name,
+                    rarity: startup.rarity,
+                    multiplier: startup.multiplier,
+                    edition: Number(edition),
+                    isLocked: locked,
+                };
             } catch (err) {
-                console.warn(`[NFT sync] getCardInfo(${id}) failed:`, err.message || err);
+                console.warn(`[NFT sync] Token ${id} failed:`, err.message?.slice(0, 100) || err);
                 skipped++;
                 return null;
             }
         }));
-        for (const result of results) {
-            if (!result) continue;
-            const { id, info } = result;
-            cards.push({
-                tokenId: id,
-                startupId: Number(info.startupId),
-                name: info.name,
-                rarity: RARITY_NAMES[Number(info.rarity)] || 'Common',
-                multiplier: Number(info.multiplier),
-                edition: Number(info.edition),
-                isLocked: info.isLocked,
-            });
+        for (const card of results) {
+            if (card) cards.push(card);
         }
     }
 
     console.log(`[NFT sync] Done: ${cards.length} cards synced, ${skipped} skipped for ${address}`);
 
-    // Don't wipe cache if ALL calls failed (likely RPC issue, not actually 0 cards)
+    // Don't wipe cache if ALL calls failed (likely RPC issue)
     if (cards.length === 0 && skipped > 0) {
-        console.warn(`[NFT sync] All ${skipped} getCardInfo calls failed — keeping existing cache`);
-        // Return cached DB rows normalized to same shape as fresh cards
+        console.warn(`[NFT sync] All calls failed — keeping existing cache`);
         return db.getNFTCards(address).map(c => ({
             tokenId: c.token_id,
             startupId: c.startup_id,
