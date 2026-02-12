@@ -34,6 +34,10 @@ async function fetchInBatches<T>(
     return results;
 }
 
+// Deduplication for in-flight batch requests — prevents duplicate fetches from React re-renders
+let pendingBatchRequest: Promise<Record<number, any>> | null = null;
+let pendingBatchIds: string = '';
+
 // Parse single token metadata response into CardData
 function parseMetadataResponse(tokenId: number, data: any): CardData {
     const attributes = data.attributes || [];
@@ -90,6 +94,7 @@ export function useNFT() {
     }, []);
 
     // Batch fetch: single request for all tokens, populates individual cache entries
+    // Uses module-level dedup to prevent duplicate requests from React re-renders
     const fetchMetadataBatch = useCallback(async (tokenIds: number[]): Promise<(CardData | null)[]> => {
         if (tokenIds.length === 0) return [];
 
@@ -112,14 +117,27 @@ export function useNFT() {
         }
 
         const uncachedIds = uncachedIndices.map(i => tokenIds[i]);
-        console.log('   Batch fetching', uncachedIds.length, 'tokens (', tokenIds.length - uncachedIds.length, 'cached)');
+        const batchKey = uncachedIds.sort((a, b) => a - b).join(',');
 
         try {
-            const response = await fetch(`${METADATA_API}/metadata/batch?tokenIds=${uncachedIds.join(',')}`);
-            if (!response.ok) throw new Error(`Batch fetch failed: ${response.status}`);
+            let batchData: Record<string, any>;
 
-            const data = await response.json();
-            const { tokens, errors } = data;
+            // Dedup: if identical batch is already in-flight, reuse it
+            if (pendingBatchRequest && pendingBatchIds === batchKey) {
+                console.log('   Dedup: reusing in-flight batch request');
+                batchData = await pendingBatchRequest;
+            } else {
+                console.log('   Batch fetching', uncachedIds.length, 'tokens (', tokenIds.length - uncachedIds.length, 'cached)');
+                const request = fetch(`${METADATA_API}/metadata/batch?tokenIds=${uncachedIds.join(',')}`)
+                    .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });
+                pendingBatchIds = batchKey;
+                pendingBatchRequest = request;
+                batchData = await request;
+                pendingBatchRequest = null;
+                pendingBatchIds = '';
+            }
+
+            const { tokens, errors } = batchData;
 
             for (const idx of uncachedIndices) {
                 const tid = tokenIds[idx];
@@ -135,8 +153,9 @@ export function useNFT() {
 
             return results;
         } catch (e) {
+            pendingBatchRequest = null;
+            pendingBatchIds = '';
             console.warn('Batch fetch failed, falling back to individual requests:', e);
-            // Fallback: fetch uncached tokens one-by-one
             const fallbackCards = await fetchInBatches(uncachedIds, fetchMetadata, 5, 200);
             for (let fi = 0; fi < uncachedIndices.length; fi++) {
                 results[uncachedIndices[fi]] = fallbackCards[fi];

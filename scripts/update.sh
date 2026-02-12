@@ -108,27 +108,43 @@ log "Frontend built"
 # but /opt/fantasyyc/.env may still have old ones (systemd EnvironmentFile takes
 # priority over dotenv, so the metadata server would read stale addresses).
 DEPLOY_FILE="${APP_DIR}/deployment-shadownet.json"
-if [ -f "$DEPLOY_FILE" ] && [ -f "${APP_DIR}/.env" ]; then
-    # Extract NFT contract address from deployment file
+ENV_FILE="${APP_DIR}/.env"
+BACKEND_ENV="${APP_DIR}/backend/.env"
+
+# Create .env if missing (copy from backend/.env as base)
+if [ ! -f "$ENV_FILE" ] && [ -f "$BACKEND_ENV" ]; then
+    cp "$BACKEND_ENV" "$ENV_FILE"
+    log "Created ${ENV_FILE} from backend/.env"
+fi
+
+# Determine new NFT contract address (try deployment file, then backend/.env)
+NEW_NFT_ADDR=""
+if [ -f "$DEPLOY_FILE" ]; then
     NEW_NFT_ADDR=$(node -e "console.log(JSON.parse(require('fs').readFileSync('${DEPLOY_FILE}','utf8')).proxies.UnicornX_NFT || '')" 2>/dev/null || echo "")
+fi
+if [ -z "$NEW_NFT_ADDR" ] && [ -f "$BACKEND_ENV" ]; then
+    NEW_NFT_ADDR=$(grep -oP '(?<=NFT_CONTRACT_ADDRESS=).*' "$BACKEND_ENV" 2>/dev/null || echo "")
+    [ -n "$NEW_NFT_ADDR" ] && log "Using NFT address from backend/.env (deployment file not found)"
+fi
 
-    if [ -n "$NEW_NFT_ADDR" ]; then
-        # Read current value from .env
-        OLD_NFT_ADDR=$(grep -oP '(?<=NFT_CONTRACT_ADDRESS=).*' "${APP_DIR}/.env" 2>/dev/null || echo "")
+if [ -n "$NEW_NFT_ADDR" ] && [ -f "$ENV_FILE" ]; then
+    OLD_NFT_ADDR=$(grep -oP '(?<=NFT_CONTRACT_ADDRESS=).*' "$ENV_FILE" 2>/dev/null || echo "")
 
-        if [ "$OLD_NFT_ADDR" != "$NEW_NFT_ADDR" ]; then
-            if grep -q "^NFT_CONTRACT_ADDRESS=" "${APP_DIR}/.env"; then
-                sed -i "s|^NFT_CONTRACT_ADDRESS=.*|NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}|" "${APP_DIR}/.env"
-            else
-                echo "NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}" >> "${APP_DIR}/.env"
-            fi
-            log "Updated NFT_CONTRACT_ADDRESS: ${OLD_NFT_ADDR:-<unset>} → ${NEW_NFT_ADDR}"
+    if [ "$OLD_NFT_ADDR" != "$NEW_NFT_ADDR" ]; then
+        if grep -q "^NFT_CONTRACT_ADDRESS=" "$ENV_FILE"; then
+            sed -i "s|^NFT_CONTRACT_ADDRESS=.*|NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}|" "$ENV_FILE"
         else
-            log "NFT_CONTRACT_ADDRESS already correct: ${NEW_NFT_ADDR}"
+            echo "NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}" >> "$ENV_FILE"
         fi
+        log "Updated NFT_CONTRACT_ADDRESS: ${OLD_NFT_ADDR:-<unset>} → ${NEW_NFT_ADDR}"
+    else
+        log "NFT_CONTRACT_ADDRESS already correct: ${NEW_NFT_ADDR}"
     fi
-else
-    warn "deployment-shadownet.json or .env not found — skipping contract address sync"
+elif [ -z "$NEW_NFT_ADDR" ]; then
+    warn "Could not determine NFT_CONTRACT_ADDRESS from deployment file or backend/.env"
+elif [ ! -f "$ENV_FILE" ]; then
+    warn ".env not found at ${ENV_FILE} — creating with NFT address"
+    echo "NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}" > "$ENV_FILE"
 fi
 
 # ─── Fix ownership ───
