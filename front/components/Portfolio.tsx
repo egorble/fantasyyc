@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { CardData, sortByRarity } from '../types';
+import { CardData, Rarity, sortByRarity } from '../types';
 import CardDetailModal, { CardDetailData } from './CardDetailModal';
 import Analytics from './Analytics';
 import { Wallet, ArrowUpRight, TrendingUp, Plus, ShoppingCart, Layers, Zap, X, Check, RefreshCw, Tag, Loader2, Gavel, Clock, Activity, DollarSign, History } from 'lucide-react';
@@ -55,7 +55,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
     // Hooks
     const { isConnected, address, getSigner, connect } = useWalletContext();
-    const { getCards, getCardInfo, getCardInfoWithRetry, mergeCards, isLoading, clearCache } = useNFT();
+    const { getCards, getCardInfo, getCardInfoWithRetry, mergeCards, isLoading, clearCache, updateServerCache } = useNFT();
     const { listCard, createAuction, getBidsForToken, getTokenStats, getTokenSaleHistory, loading: marketplaceLoading } = useMarketplaceV2();
 
     // Auto-refresh cards with polling (disabled when not connected)
@@ -113,6 +113,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
         const card = myCards.find(c => c.tokenId === tokenId);
         if (!card || card.isLocked) return; // Can't select locked cards
+        if (card.rarity === Rarity.LEGENDARY) return; // Legendary cards can't be merged
 
         if (selectedCardIds.includes(tokenId)) {
             setSelectedCardIds(prev => prev.filter(id => id !== tokenId));
@@ -293,11 +294,19 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         }
 
         setMergeStatus('success');
-        setSelectedCardIds([]);
 
-        // Refresh full card list in background (don't block success screen)
+        // Surgical local update: remove 3 burned cards, add 1 new card (instant, no refetch)
+        const burnedIds = new Set(selectedCardIds);
+        setSelectedCardIds([]);
+        setMyCards(prev => {
+            const remaining = prev.filter(c => !burnedIds.has(c.tokenId));
+            if (newCard) remaining.push(newCard);
+            return sortByRarity(remaining);
+        });
+
+        // Push incremental changes to server cache in background
         if (address) {
-            getCards(address).then(cards => setMyCards(sortByRarity(cards)));
+            updateServerCache(address, newCard ? [newCard] : undefined, [...burnedIds]);
         }
     };
 
@@ -312,6 +321,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     // Get available cards for merge (same rarity as first selected, not locked)
     const getAvailableForMerge = (card: CardData): boolean => {
         if (card.isLocked) return false;
+        if (card.rarity === Rarity.LEGENDARY) return false; // Legendary can't be merged
         if (selectedCardIds.length === 0) return true;
         const firstCard = myCards.find(c => c.tokenId === selectedCardIds[0]);
         return firstCard ? firstCard.rarity === card.rarity : true;
@@ -602,7 +612,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                               `}
                                     >
                                         {/* Selection Checkbox Overlay */}
-                                        {isMergeMode && !card.isLocked && (
+                                        {isMergeMode && !card.isLocked && card.rarity !== Rarity.LEGENDARY && (
                                             <div className={`absolute top-3 right-3 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-yc-orange border-yc-orange' : 'bg-black/50 border-white/50'}`}>
                                                 {isSelected && <Check className="w-4 h-4 text-white" />}
                                             </div>

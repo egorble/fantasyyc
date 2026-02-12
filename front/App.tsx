@@ -75,7 +75,7 @@ const AppContent: React.FC = () => {
     const [buyingId, setBuyingId] = useState<number | null>(null);
 
     // NFT hook
-    const { getCardInfo, getCards } = useNFT();
+    const { getCardInfo, getCards, updateServerCache } = useNFT();
 
     // Dynamic user from wallet + profile
     const user: UserProfile = {
@@ -543,6 +543,9 @@ const AppContent: React.FC = () => {
             <PackOpeningModal
                 isOpen={isPackModalOpen}
                 onClose={() => setIsPackModalOpen(false)}
+                onCardsAcquired={(cards) => {
+                    if (address) updateServerCache(address, cards);
+                }}
             />
 
             {/* Card Details Modal */}

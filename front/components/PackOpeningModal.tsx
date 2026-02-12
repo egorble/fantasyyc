@@ -9,9 +9,10 @@ import gsap from 'gsap';
 interface PackOpeningModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onCardsAcquired?: (cards: CardData[]) => void;
 }
 
-const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose }) => {
+const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, onCardsAcquired }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const packRef = useRef<HTMLDivElement>(null);
     const flashRef = useRef<HTMLDivElement>(null);
@@ -179,6 +180,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose }) 
 
             if (result.success && result.cards) {
                 setPendingCards(result.cards);
+                onCardsAcquired?.(result.cards);
                 refreshBalance();
             } else {
                 setTxError(result.error || 'Failed to buy pack');

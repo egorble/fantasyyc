@@ -700,156 +700,32 @@ app.post('/api/referrals/track', writeLimiter, verifyWalletSignature, (req, res)
 });
 
 // ============= NFT CARDS CACHE =============
+// Server is a pure DB cache — no RPC calls.
+// Frontend fetches from blockchain (via user's wallet) and pushes data here.
 
-const nftABI = [
-    'function getOwnedTokens(address owner) view returns (uint256[])',
-    'function tokenToStartup(uint256 tokenId) view returns (uint256)',
-    'function tokenToEdition(uint256 tokenId) view returns (uint256)',
-    'function isLocked(uint256 tokenId) view returns (bool)',
-];
-
-// Startup data (matches contract — same as front/lib/contracts.ts STARTUPS)
-const STARTUPS = {
-    1: { name: 'Openclaw', rarity: 'Legendary', multiplier: 10 },
-    2: { name: 'Lovable', rarity: 'Legendary', multiplier: 10 },
-    3: { name: 'Cursor', rarity: 'Legendary', multiplier: 10 },
-    4: { name: 'OpenAI', rarity: 'Legendary', multiplier: 10 },
-    5: { name: 'Anthropic', rarity: 'Legendary', multiplier: 10 },
-    6: { name: 'Browser Use', rarity: 'Epic', multiplier: 5 },
-    7: { name: 'Dedalus Labs', rarity: 'Epic', multiplier: 5 },
-    8: { name: 'Autumn', rarity: 'Epic', multiplier: 5 },
-    9: { name: 'Axiom', rarity: 'Rare', multiplier: 3 },
-    10: { name: 'Multifactor', rarity: 'Rare', multiplier: 3 },
-    11: { name: 'Dome', rarity: 'Rare', multiplier: 3 },
-    12: { name: 'GrazeMate', rarity: 'Rare', multiplier: 3 },
-    13: { name: 'Tornyol Systems', rarity: 'Rare', multiplier: 3 },
-    14: { name: 'Pocket', rarity: 'Common', multiplier: 1 },
-    15: { name: 'Caretta', rarity: 'Common', multiplier: 1 },
-    16: { name: 'AxionOrbital Space', rarity: 'Common', multiplier: 1 },
-    17: { name: 'Freeport Markets', rarity: 'Common', multiplier: 1 },
-    18: { name: 'Ruvo', rarity: 'Common', multiplier: 1 },
-    19: { name: 'Lightberry', rarity: 'Common', multiplier: 1 },
-};
-
-// Sync NFT cards from blockchain for a given address and cache in DB
-// Uses simple mapping getters (tokenToStartup, tokenToEdition)
-// Calls made sequentially to avoid RPC node throttling
-async function syncNFTCards(address) {
-    const provider = new ethers.JsonRpcProvider(CHAIN.RPC_URL);
-    const nft = new ethers.Contract(CONTRACTS.UnicornX_NFT, nftABI, provider);
-
-    console.log(`[NFT sync] Fetching owned tokens for ${address}...`);
-    const tokenIds = await nft.getOwnedTokens(address);
-    const ids = tokenIds.map(t => Number(t));
-    console.log(`[NFT sync] getOwnedTokens returned ${ids.length} tokens`);
-
-    if (ids.length === 0) {
-        db.saveNFTCards(address, []);
-        return [];
-    }
-
-    // Diagnostic: test a single raw eth_call to check if RPC works at all
-    const testId = ids[0];
-    try {
-        const iface = new ethers.Interface(nftABI);
-        const calldata = iface.encodeFunctionData('tokenToStartup', [testId]);
-        const rawResult = await provider.call({ to: CONTRACTS.UnicornX_NFT, data: calldata });
-        console.log(`[NFT sync] Raw eth_call test for token ${testId}: result=${rawResult?.slice(0, 20)}... (${rawResult?.length} chars)`);
-    } catch (diagErr) {
-        console.error(`[NFT sync] Raw eth_call diagnostic FAILED:`, diagErr.message?.slice(0, 200));
-    }
-
-    // Fetch card data SEQUENTIALLY (one token at a time) to avoid RPC throttling
-    const cards = [];
-    let skipped = 0;
-    for (const id of ids) {
-        try {
-            const startupId = await nft.tokenToStartup(id);
-            const sid = Number(startupId);
-            const startup = STARTUPS[sid];
-            if (!startup) {
-                console.warn(`[NFT sync] Token ${id}: unknown startupId ${sid}`);
-                skipped++;
-                continue;
-            }
-
-            let edition = 1;
-            try { edition = Number(await nft.tokenToEdition(id)); } catch { /* default 1 */ }
-
-            cards.push({
-                tokenId: id,
-                startupId: sid,
-                name: startup.name,
-                rarity: startup.rarity,
-                multiplier: startup.multiplier,
-                edition,
-                isLocked: false, // Will be updated from tournament data
-            });
-        } catch (err) {
-            console.warn(`[NFT sync] Token ${id} failed:`, err.message?.slice(0, 120) || err);
-            skipped++;
-        }
-    }
-
-    console.log(`[NFT sync] Done: ${cards.length} cards synced, ${skipped} skipped for ${address}`);
-
-    // Don't wipe cache if ALL calls failed (likely RPC issue)
-    if (cards.length === 0 && skipped > 0) {
-        console.warn(`[NFT sync] All calls failed — keeping existing cache`);
-        return db.getNFTCards(address).map(c => ({
-            tokenId: c.token_id,
-            startupId: c.startup_id,
-            name: c.startup_name,
-            rarity: c.rarity,
-            multiplier: c.multiplier,
-            edition: c.edition,
-            isLocked: !!c.is_locked,
-        }));
-    }
-
-    db.saveNFTCards(address, cards);
-    return cards;
-}
+const VALID_RARITIES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
 
 /**
  * GET /api/player/:address/nfts
- * Returns cached NFT cards for a player. Triggers background sync on first request.
+ * Returns cached NFT cards for a player (instant, from DB).
  */
 app.get('/api/player/:address/nfts', async (req, res) => {
     try {
         const { address } = req.params;
         if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
 
-        const addr = address.toLowerCase();
-
-        // Return cached data if available
-        const cached = db.getNFTCards(addr);
-        if (cached.length > 0) {
-            // Trigger background refresh (don't await)
-            syncNFTCards(addr).catch(e => console.error('Background NFT sync failed:', e.message));
-
-            return res.json({
-                success: true,
-                data: cached.map(c => ({
-                    tokenId: c.token_id,
-                    startupId: c.startup_id,
-                    name: c.startup_name,
-                    rarity: c.rarity,
-                    multiplier: c.multiplier,
-                    edition: c.edition,
-                    isLocked: !!c.is_locked,
-                    image: `/images/${c.startup_id}.png`,
-                }))
-            });
-        }
-
-        // First time: sync from blockchain (wait for it)
-        const cards = await syncNFTCards(addr);
+        const cached = db.getNFTCards(address.toLowerCase());
         return res.json({
             success: true,
-            data: cards.map(c => ({
-                ...c,
-                image: `/images/${c.startupId}.png`,
+            data: cached.map(c => ({
+                tokenId: c.token_id,
+                startupId: c.startup_id,
+                name: c.startup_name,
+                rarity: c.rarity,
+                multiplier: c.multiplier,
+                edition: c.edition,
+                isLocked: !!c.is_locked,
+                image: `/images/${c.startup_id}.png`,
             }))
         });
     } catch (error) {
@@ -858,22 +734,90 @@ app.get('/api/player/:address/nfts', async (req, res) => {
 });
 
 /**
- * POST /api/player/:address/nfts/sync
- * Force-sync NFT cards from blockchain (called after pack open, merge, etc.)
+ * POST /api/player/:address/nfts
+ * Frontend pushes card data after fetching from blockchain.
+ * Body: { cards: [{ tokenId, startupId, name, rarity, multiplier, edition, isLocked }] }
  */
-app.post('/api/player/:address/nfts/sync', writeLimiter, async (req, res) => {
+app.post('/api/player/:address/nfts', writeLimiter, async (req, res) => {
     try {
         const { address } = req.params;
         if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
 
-        const cards = await syncNFTCards(address.toLowerCase());
-        return res.json({
-            success: true,
-            data: cards.map(c => ({
-                ...c,
-                image: `/images/${c.startupId}.png`,
-            }))
-        });
+        const { cards } = req.body;
+        if (!Array.isArray(cards)) return res.status(400).json({ success: false, error: 'cards must be an array' });
+
+        // Validate and sanitize each card
+        const sanitized = [];
+        for (const c of cards) {
+            if (!c.tokenId || !c.startupId || !c.name || !c.rarity) continue;
+            if (!VALID_RARITIES.includes(c.rarity)) continue;
+            sanitized.push({
+                tokenId: Number(c.tokenId),
+                startupId: Number(c.startupId),
+                name: String(c.name).slice(0, 100),
+                rarity: c.rarity,
+                multiplier: Number(c.multiplier) || 1,
+                edition: Number(c.edition) || 1,
+                isLocked: !!c.isLocked,
+            });
+        }
+
+        db.saveNFTCards(address.toLowerCase(), sanitized);
+        console.log(`[NFT cache] Saved ${sanitized.length} cards for ${address.toLowerCase()}`);
+
+        return res.json({ success: true, saved: sanitized.length });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * PATCH /api/player/:address/nfts
+ * Incremental update: add new cards and/or remove burned cards.
+ * Body: { add?: [CardData], remove?: [tokenId] }
+ */
+app.patch('/api/player/:address/nfts', writeLimiter, async (req, res) => {
+    try {
+        const { address } = req.params;
+        if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
+
+        const addr = address.toLowerCase();
+        const { add, remove } = req.body;
+
+        // Remove burned cards
+        if (Array.isArray(remove) && remove.length > 0) {
+            const tokenIds = remove.map(Number).filter(n => n > 0);
+            if (tokenIds.length > 0) {
+                db.removeNFTCards(addr, tokenIds);
+                console.log(`[NFT cache] Removed ${tokenIds.length} cards for ${addr}`);
+            }
+        }
+
+        // Add new cards
+        let added = 0;
+        if (Array.isArray(add) && add.length > 0) {
+            const sanitized = [];
+            for (const c of add) {
+                if (!c.tokenId || !c.startupId || !c.name || !c.rarity) continue;
+                if (!VALID_RARITIES.includes(c.rarity)) continue;
+                sanitized.push({
+                    tokenId: Number(c.tokenId),
+                    startupId: Number(c.startupId),
+                    name: String(c.name).slice(0, 100),
+                    rarity: c.rarity,
+                    multiplier: Number(c.multiplier) || 1,
+                    edition: Number(c.edition) || 1,
+                    isLocked: !!c.isLocked,
+                });
+            }
+            if (sanitized.length > 0) {
+                db.addNFTCards(addr, sanitized);
+                added = sanitized.length;
+                console.log(`[NFT cache] Added ${added} cards for ${addr}`);
+            }
+        }
+
+        return res.json({ success: true, added, removed: Array.isArray(remove) ? remove.length : 0 });
     } catch (error) {
         return res.status(500).json({ success: false, error: error.message });
     }

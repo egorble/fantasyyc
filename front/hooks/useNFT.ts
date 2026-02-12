@@ -280,22 +280,96 @@ export function useNFT() {
         }
     }, []);
 
-    // Trigger server-side blockchain sync (after pack open, merge, etc.)
-    const syncCardsOnServer = useCallback(async (address: string): Promise<void> => {
+    // Push full card list to server DB cache (for initial population)
+    const pushCardsToServer = useCallback(async (address: string, cards: CardData[]): Promise<void> => {
         try {
-            await fetch(`/api/player/${address.toLowerCase()}/nfts/sync`, { method: 'POST' });
+            await fetch(`/api/player/${address.toLowerCase()}/nfts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cards: cards.map(c => ({
+                        tokenId: c.tokenId,
+                        startupId: c.startupId,
+                        name: c.name,
+                        rarity: c.rarity,
+                        multiplier: c.multiplier,
+                        edition: c.edition || 1,
+                        isLocked: c.isLocked || false,
+                    })),
+                }),
+            });
         } catch { /* ignore */ }
     }, []);
 
-    // Get all cards for an address — server API first, blockchain fallback
-    const getCards = useCallback(async (address: string): Promise<CardData[]> => {
+    // Incremental server cache update (add new cards / remove burned cards)
+    const updateServerCache = useCallback(async (
+        address: string,
+        add?: CardData[],
+        remove?: number[]
+    ): Promise<void> => {
+        try {
+            await fetch(`/api/player/${address.toLowerCase()}/nfts`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    add: add?.map(c => ({
+                        tokenId: c.tokenId,
+                        startupId: c.startupId,
+                        name: c.name,
+                        rarity: c.rarity,
+                        multiplier: c.multiplier,
+                        edition: c.edition || 1,
+                        isLocked: c.isLocked || false,
+                    })),
+                    remove,
+                }),
+            });
+        } catch { /* ignore */ }
+    }, []);
+
+    // Fetch cards from blockchain, cache everywhere, push to server
+    const fetchCardsFromBlockchain = useCallback(async (address: string): Promise<CardData[]> => {
+        const tokenIds = await getOwnedTokens(address);
+        if (tokenIds.length === 0) return [];
+
+        const cards = await fetchMetadataBatch(tokenIds);
+
+        const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
+        if (nullIndices.length > 0) {
+            const fallbacks = await fetchInBatches(
+                nullIndices.map(i => tokenIds[i]),
+                fetchCardFromContract, 5, 100
+            );
+            fallbacks.forEach((card, fi) => {
+                if (card) cards[nullIndices[fi]] = card;
+            });
+        }
+
+        const validCards = cards.filter((c): c is CardData => c !== null);
+        console.log('📋 Loaded', validCards.length, 'cards from blockchain');
+
+        const cardsKey = CacheKeys.userCards(address);
+        blockchainCache.set(cardsKey, validCards);
+        blockchainCache.persistKeys('nft:');
+
+        // Push to server DB cache in background
+        pushCardsToServer(address, validCards);
+
+        return validCards;
+    }, [getOwnedTokens, fetchMetadataBatch, fetchCardFromContract, pushCardsToServer]);
+
+    // Get all cards for an address — server cache first, blockchain fallback
+    // Pass forceRefresh=true after mutations (merge, pack open, purchase) to skip stale cache
+    const getCards = useCallback(async (address: string, forceRefresh = false): Promise<CardData[]> => {
         const addrKey = address.toLowerCase();
 
         // If already fetching for this address, return the in-flight promise
-        const pending = pendingGetCards.get(addrKey);
-        if (pending) {
-            console.log('📋 getCards already in-flight for', address.slice(0, 8), '— reusing');
-            return pending;
+        if (!forceRefresh) {
+            const pending = pendingGetCards.get(addrKey);
+            if (pending) {
+                console.log('📋 getCards already in-flight for', address.slice(0, 8), '— reusing');
+                return pending;
+            }
         }
 
         const doFetch = async (): Promise<CardData[]> => {
@@ -303,45 +377,21 @@ export function useNFT() {
             setError(null);
 
             try {
-                // Try server API first (instant from DB cache, single HTTP request)
-                const serverCards = await fetchCardsFromServer(address);
-                if (serverCards && serverCards.length > 0) {
-                    console.log('📋 Loaded', serverCards.length, 'cards from server API');
-                    const cardsKey = CacheKeys.userCards(address);
-                    blockchainCache.set(cardsKey, serverCards);
-                    blockchainCache.persistKeys('nft:');
-                    return serverCards;
+                // Try server DB cache first (unless forced refresh)
+                if (!forceRefresh) {
+                    const serverCards = await fetchCardsFromServer(address);
+                    if (serverCards && serverCards.length > 0) {
+                        console.log('📋 Loaded', serverCards.length, 'cards from server cache');
+                        const cardsKey = CacheKeys.userCards(address);
+                        blockchainCache.set(cardsKey, serverCards);
+                        blockchainCache.persistKeys('nft:');
+                        return serverCards;
+                    }
                 }
 
-                // Server returned empty or failed — fall back to blockchain
-                console.log('📋 Server API empty/failed, falling back to blockchain...');
-                const tokenIds = await getOwnedTokens(address);
-                if (tokenIds.length === 0) return [];
-
-                const cards = await fetchMetadataBatch(tokenIds);
-
-                const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
-                if (nullIndices.length > 0) {
-                    const fallbacks = await fetchInBatches(
-                        nullIndices.map(i => tokenIds[i]),
-                        fetchCardFromContract, 5, 100
-                    );
-                    fallbacks.forEach((card, fi) => {
-                        if (card) cards[nullIndices[fi]] = card;
-                    });
-                }
-
-                const validCards = cards.filter((c): c is CardData => c !== null);
-                console.log('   Loaded', validCards.length, 'cards from blockchain');
-
-                const cardsKey = CacheKeys.userCards(address);
-                blockchainCache.set(cardsKey, validCards);
-                blockchainCache.persistKeys('nft:');
-
-                // Trigger server sync in background for next time
-                syncCardsOnServer(address);
-
-                return validCards;
+                // Fetch from blockchain (+ push to server)
+                console.log('📋 Fetching cards from blockchain...');
+                return await fetchCardsFromBlockchain(address);
             } catch (e: any) {
                 const cardsKey = CacheKeys.userCards(address);
                 const cached = blockchainCache.get<CardData[]>(cardsKey);
@@ -360,7 +410,7 @@ export function useNFT() {
         const promise = doFetch();
         pendingGetCards.set(addrKey, promise);
         return promise;
-    }, [getOwnedTokens, fetchMetadataBatch, fetchCardFromContract, fetchCardsFromServer, syncCardsOnServer]);
+    }, [fetchCardsFromBlockchain, fetchCardsFromServer]);
 
     // Rarity names for logging
     const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
@@ -474,6 +524,7 @@ export function useNFT() {
         mergeCards,
         isLocked,
         clearCache,
-        syncCardsOnServer,
+        pushCardsToServer,
+        updateServerCache,
     };
 }

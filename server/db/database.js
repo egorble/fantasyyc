@@ -530,6 +530,28 @@ export function hasNFTCards(ownerAddress) {
     return row && row.count > 0;
 }
 
+// Add cards to cache (upsert, no deletes — for incremental updates after pack open)
+export function addNFTCards(ownerAddress, cards) {
+    if (!db) throw new Error('Database not initialized');
+    const addr = ownerAddress.toLowerCase();
+    for (const card of cards) {
+        db.run(`
+            INSERT OR REPLACE INTO nft_cards
+            (token_id, owner_address, startup_id, startup_name, rarity, multiplier, edition, is_locked, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `, [card.tokenId, addr, card.startupId, card.name, card.rarity, card.multiplier, card.edition || 1, card.isLocked ? 1 : 0]);
+    }
+}
+
+// Remove specific cards from cache (for merge — burned cards)
+export function removeNFTCards(ownerAddress, tokenIds) {
+    if (!db) throw new Error('Database not initialized');
+    if (tokenIds.length === 0) return;
+    const addr = ownerAddress.toLowerCase();
+    const placeholders = tokenIds.map(() => '?').join(',');
+    db.run(`DELETE FROM nft_cards WHERE owner_address = ? AND token_id IN (${placeholders})`, [addr, ...tokenIds]);
+}
+
 // ============ HMAC Migration ============
 
 /**
