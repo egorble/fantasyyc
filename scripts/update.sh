@@ -73,10 +73,9 @@ if [ ! -d "${APP_DIR}/.git" ]; then
 else
     log "Pulling latest changes..."
     cd "${APP_DIR}"
-    # Stash local changes (db, logs) if any
-    git stash --include-untracked 2>/dev/null || true
-    git pull origin main
-    git stash pop 2>/dev/null || true
+    # Hard reset to match remote (safe: .env, db, logs are gitignored)
+    git fetch origin main
+    git reset --hard origin/main
     log "Pull complete"
 fi
 
