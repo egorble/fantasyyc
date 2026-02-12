@@ -10,8 +10,7 @@ build/
 scripts/.env
 backend/.env
 
-# Deployment files
-deployment-*.json
+# Deployment files (deployment-shadownet.json is tracked — needed by server for contract sync)
 test-results.json
 
 # IDE

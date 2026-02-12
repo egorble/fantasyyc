@@ -1,0 +1,55 @@
+{
+  "network": "shadownet",
+  "networkName": "Etherlink Shadownet Testnet",
+  "chainId": 127823,
+  "explorer": "https://shadownet.explorer.etherlink.com",
+  "timestamp": "2026-02-12T13:06:25.907Z",
+  "deployer": "0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c",
+  "deployMode": "UUPS Proxy",
+  "proxies": {
+    "UnicornX_NFT": "0x172aC7aa7a6774559b1588E2F4426F7303a97cf1",
+    "PackOpener": "0x78b602DE1721FF85C0c07F2Db5CF253c73590BaF",
+    "TournamentManager": "0xc367886000da37447AC592fc3571ceb63184BF1b",
+    "MarketplaceV2": "0x5BCf9A613C117dacD5C74199b288CCDdc7f5aa82"
+  },
+  "implementations": {
+    "UnicornX_NFT": "0x20Cc3F19F4fAB1427D56787c311f288F234C2Cc1",
+    "PackOpener": "0xFe6c5DCdB2F422D4FC3B762D97Df6538c705Fe8a",
+    "TournamentManager": "0x68ac26B3e6F44ACb9d59928392033670C3A689cA",
+    "MarketplaceV2": "0x2EC254320f1a76c747abBB12325023f2267B20eA"
+  },
+  "configuration": {
+    "owner": "0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c",
+    "treasury": "0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c"
+  },
+  "upgradeHistory": [
+    {
+      "contract": "UnicornX_NFT",
+      "oldImplementation": "0xCd056ec2249a0311CFf9b001A9FDB11A556824A9",
+      "newImplementation": "0x20Cc3F19F4fAB1427D56787c311f288F234C2Cc1",
+      "timestamp": "2026-02-12T13:41:03.890Z",
+      "txHash": "0x9b6a3ebf10085dd92bca5cfc348dfcf90cbdacf2ddbb9c822e80e80cc7333110"
+    },
+    {
+      "contract": "PackOpener",
+      "oldImplementation": "0x676960C165Bfb4D88e570B1623e7d9dB26805E27",
+      "newImplementation": "0xFe6c5DCdB2F422D4FC3B762D97Df6538c705Fe8a",
+      "timestamp": "2026-02-12T13:41:21.683Z",
+      "txHash": "0xd8af88cf8c3825f0ca1759582159230e45a79a8ce4b4e207923e694f878754dc"
+    },
+    {
+      "contract": "TournamentManager",
+      "oldImplementation": "0x0C221975f320EbaBd857645D97d7B8b1Bbd285d3",
+      "newImplementation": "0x68ac26B3e6F44ACb9d59928392033670C3A689cA",
+      "timestamp": "2026-02-12T13:41:39.577Z",
+      "txHash": "0x433054ff9ecd910596223b2849e788ee68a29ef5ba775710e568d22be6b224bf"
+    },
+    {
+      "contract": "MarketplaceV2",
+      "oldImplementation": "0x3cc41FB09bE4bC3fAA355e06946Ed71601bCb5D8",
+      "newImplementation": "0x2EC254320f1a76c747abBB12325023f2267B20eA",
+      "timestamp": "2026-02-12T13:41:58.634Z",
+      "txHash": "0x2e01bbea54a48b80205e04d2cea7e5182f4f760f049ab3228d8e7e88d888bcae"
+    }
+  ]
+}
