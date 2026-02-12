@@ -713,7 +713,10 @@ async function syncNFTCards(address) {
     const provider = new ethers.JsonRpcProvider(CHAIN.RPC_URL);
     const nft = new ethers.Contract(CONTRACTS.UnicornX_NFT, nftABI, provider);
 
+    console.log(`[NFT sync] Fetching owned tokens for ${address}...`);
     const tokenIds = await nft.getOwnedTokens(address);
+    console.log(`[NFT sync] getOwnedTokens returned ${tokenIds.length} tokens:`, tokenIds.map(t => Number(t)));
+
     if (tokenIds.length === 0) {
         db.saveNFTCards(address, []);
         return [];
@@ -722,6 +725,7 @@ async function syncNFTCards(address) {
     // Fetch card info for all tokens in parallel (batches of 10)
     // Individual calls wrapped in try/catch — burned/invalid tokens are skipped
     const cards = [];
+    let skipped = 0;
     const ids = tokenIds.map(t => Number(t));
     for (let i = 0; i < ids.length; i += 10) {
         const batch = ids.slice(i, i + 10);
@@ -729,8 +733,9 @@ async function syncNFTCards(address) {
             try {
                 const info = await nft.getCardInfo(id);
                 return { id, info };
-            } catch {
-                console.warn(`[NFT] getCardInfo(${id}) failed — token may be burned, skipping`);
+            } catch (err) {
+                console.warn(`[NFT sync] getCardInfo(${id}) failed:`, err.message || err);
+                skipped++;
                 return null;
             }
         }));
@@ -747,6 +752,23 @@ async function syncNFTCards(address) {
                 isLocked: info.isLocked,
             });
         }
+    }
+
+    console.log(`[NFT sync] Done: ${cards.length} cards synced, ${skipped} skipped for ${address}`);
+
+    // Don't wipe cache if ALL calls failed (likely RPC issue, not actually 0 cards)
+    if (cards.length === 0 && skipped > 0) {
+        console.warn(`[NFT sync] All ${skipped} getCardInfo calls failed — keeping existing cache`);
+        // Return cached DB rows normalized to same shape as fresh cards
+        return db.getNFTCards(address).map(c => ({
+            tokenId: c.token_id,
+            startupId: c.startup_id,
+            name: c.startup_name,
+            rarity: c.rarity,
+            multiplier: c.multiplier,
+            edition: c.edition,
+            isLocked: !!c.is_locked,
+        }));
     }
 
     db.saveNFTCards(address, cards);
