@@ -71,7 +71,7 @@ export function useNFT() {
     const [error, setError] = useState<string | null>(null);
 
     // Fetch metadata from backend API with caching + request deduplication
-    // Uses getOrFetch() so concurrent callers for the same tokenId share one request
+    // Card metadata is immutable (startupId, rarity, multiplier never change) — cache permanently
     const fetchMetadata = useCallback(async (tokenId: number): Promise<CardData | null> => {
         const key = CacheKeys.cardMetadata(tokenId);
 
@@ -85,7 +85,7 @@ export function useNFT() {
                 console.error(`Error fetching metadata for token ${tokenId}:`, e);
                 return null;
             }
-        }, CacheTTL.LONG);
+        }, CacheTTL.PERMANENT);
 
         if (result === null) {
             blockchainCache.invalidate(key);
@@ -253,15 +253,35 @@ export function useNFT() {
     }, [fetchMetadata]);
 
     // Get all cards for an address — uses batch endpoint for speed
+    // Smart: skips server fetch entirely if token list hasn't changed
     const getCards = useCallback(async (address: string): Promise<CardData[]> => {
         setIsLoading(true);
         setError(null);
 
         try {
             const tokenIds = await getOwnedTokens(address);
-            console.log('📋 Fetching cards for', address, '- found', tokenIds.length, 'tokens');
 
-            // Single batch request for all tokens (fallback to individual inside fetchMetadataBatch)
+            // Smart diff: if token list is same as last cached, return cached cards directly
+            const cardsKey = CacheKeys.userCards(address);
+            const cachedCards = blockchainCache.get<CardData[]>(cardsKey);
+            const prevTokensKey = `nft:prevTokenIds:${address}`;
+            const prevTokenIds = blockchainCache.get<number[]>(prevTokensKey);
+
+            if (cachedCards && prevTokenIds &&
+                prevTokenIds.length === tokenIds.length &&
+                prevTokenIds.every((id, i) => id === tokenIds[i])) {
+                console.log('📋 Cards unchanged (' + tokenIds.length + '), returning cached');
+                return cachedCards;
+            }
+
+            // Find which tokens are new (not in previous list)
+            const prevSet = new Set(prevTokenIds || []);
+            const newTokenIds = tokenIds.filter(id => !prevSet.has(id));
+
+            console.log('📋 Fetching cards for', address, '-', tokenIds.length, 'tokens (' + newTokenIds.length + ' new)');
+
+            // For kept tokens, try to use individually cached metadata
+            // For new tokens + uncached kept tokens, batch fetch from server
             const cards = await fetchMetadataBatch(tokenIds);
 
             // For tokens where metadata failed, fall back to contract data
@@ -277,26 +297,12 @@ export function useNFT() {
                 });
             }
 
-            // Filter out nulls
             const validCards = cards.filter((c): c is CardData => c !== null);
-
-            // Verify isLocked from contract in batches (metadata cache may be stale)
-            const contract = getNFTContract();
-            const checkLock = async (idx: number) => {
-                const card = validCards[idx];
-                try {
-                    const locked = await contract.isLocked(card.tokenId);
-                    if (card.isLocked !== locked) {
-                        card.isLocked = locked;
-                        blockchainCache.set(CacheKeys.cardMetadata(card.tokenId), { ...card });
-                    }
-                } catch {}
-                return idx;
-            };
-            const indices = validCards.map((_, i) => i);
-            await fetchInBatches(indices, checkLock, 5, 100);
-
             console.log('   Loaded', validCards.length, 'cards');
+
+            // Cache the full card list + token IDs for smart diffing
+            blockchainCache.set(cardsKey, validCards);
+            blockchainCache.set(prevTokensKey, tokenIds);
 
             return validCards;
         } catch (e: any) {

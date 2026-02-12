@@ -292,7 +292,7 @@ function generateMockToken(tokenId) {
 
 // In-memory cache for token data (avoids repeated blockchain queries)
 const tokenCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;       // 5 minutes for valid tokens
+const CACHE_TTL = 60 * 60 * 1000;      // 1 hour for valid tokens (card data is immutable after mint)
 const CACHE_TTL_NOT_FOUND = 30 * 1000; // 30 seconds for not-found (RPC lag recovery)
 
 function getCachedToken(tokenId) {
@@ -333,20 +333,20 @@ async function fetchTokenData(tokenId) {
 
     if (nftContract) {
         try {
-            let startupId, edition, isLocked, totalMinted, contractRarity = null, contractMultiplier = null;
+            let startupId, edition, isLocked, contractRarity = null, contractMultiplier = null;
             try {
+                // Single RPC call — getCardInfo returns all needed data
                 const cardInfo = await nftContract.getCardInfo(tokenId);
                 startupId = Number(cardInfo.startupId);
                 edition = Number(cardInfo.edition);
                 isLocked = cardInfo.isLocked;
                 contractRarity = Number(cardInfo.rarity);
                 contractMultiplier = Number(cardInfo.multiplier);
-                totalMinted = Number(await nftContract.startupMintCount(startupId));
             } catch (cardInfoError) {
+                // Fallback for older contracts without getCardInfo
                 startupId = Number(await nftContract.tokenToStartup(tokenId));
                 edition = Number(await nftContract.tokenToEdition(tokenId));
                 isLocked = await nftContract.isLocked(tokenId);
-                totalMinted = startupId > 0 ? Number(await nftContract.startupMintCount(startupId)) : 0;
             }
 
             if (startupId === 0) {
@@ -354,7 +354,7 @@ async function fetchTokenData(tokenId) {
                 return { error: "Token does not exist or has been burned" };
             }
 
-            const data = { startupId, edition, isLocked, totalMinted, contractRarity, contractMultiplier };
+            const data = { startupId, edition, isLocked, totalMinted: edition, contractRarity, contractMultiplier };
             setCachedToken(tokenId, data);
             return data;
         } catch (contractError) {
