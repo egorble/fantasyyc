@@ -42,8 +42,8 @@ export function useNFT() {
     const fetchMetadata = useCallback(async (tokenId: number): Promise<CardData | null> => {
         const key = CacheKeys.cardMetadata(tokenId);
 
-        // Check cache first
-        const cached = blockchainCache.get<CardData>(key);
+        // Check cache first (null = previously failed, skip retry until cache expires)
+        const cached = blockchainCache.get<CardData | null>(key);
         if (cached !== undefined) {
             return cached;
         }
@@ -51,7 +51,8 @@ export function useNFT() {
         try {
             const response = await fetch(`${METADATA_API}/metadata/${tokenId}`);
             if (!response.ok) {
-                console.error(`Failed to fetch metadata for token ${tokenId}:`, response.status);
+                // Cache null to prevent polling from retrying burned/missing tokens
+                blockchainCache.set(key, null);
                 return null;
             }
 
@@ -91,6 +92,7 @@ export function useNFT() {
             return card;
         } catch (e) {
             console.error(`Error fetching metadata for token ${tokenId}:`, e);
+            blockchainCache.set(key, null);
             return null;
         }
     }, []);
