@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { CardData } from '../types';
+import { CardData, sortByRarity } from '../types';
 import { Layers, Package, Minus, Plus, ChevronDown } from 'lucide-react';
 import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
@@ -106,8 +106,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose }) 
     useLayoutEffect(() => {
         if (pendingCards && stage === 'buying') {
             if (isMultiPack) {
-                // Multi-pack: skip tearing, go straight to finished with all cards visible
-                setMintedCards(pendingCards);
+                // Multi-pack: skip tearing, go straight to finished with cards sorted by rarity (rarest first)
+                setMintedCards(sortByRarity(pendingCards));
                 setPendingCards(null);
                 setStage('finished');
             } else {

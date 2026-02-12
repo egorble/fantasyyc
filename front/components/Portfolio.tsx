@@ -78,9 +78,15 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     useEffect(() => {
         if (polledCards) {
             setMyCards(sortByRarity(polledCards));
-            setIsRefreshing(false);
         }
     }, [polledCards]);
+
+    // Clear refreshing spinner when polling finishes (success or error)
+    useEffect(() => {
+        if (!pollingLoading) {
+            setIsRefreshing(false);
+        }
+    }, [pollingLoading]);
 
     // Load cards when address changes
     useEffect(() => {
@@ -620,7 +626,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
                     {/* Floating Action Bar for Merge */}
                     {isMergeMode && (
-                        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 animate-[slideUp_0.3s_cubic-bezier(0.2,0.8,0.2,1)]">
+                        <div className="fixed bottom-24 md:bottom-8 left-1/2 transform -translate-x-1/2 z-40 animate-[slideUp_0.3s_cubic-bezier(0.2,0.8,0.2,1)]">
                             <div className="bg-white dark:bg-[#1A1A1A] border border-gray-300 dark:border-[#333] p-2 pl-6 pr-2 rounded-2xl shadow-2xl flex items-center gap-6">
                                 <div className="flex flex-col">
                                     <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Fusion Chamber</span>
@@ -744,8 +750,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
                     {mergeStatus === 'success' && (
                         <div className="flex flex-col items-center animate-[scaleIn_0.4s_cubic-bezier(0.34,1.56,0.64,1)] relative z-50">
-                            <div className="text-yc-green mb-4">
-                                <Zap className="w-20 h-20 fill-current drop-shadow-[0_0_20px_rgba(20,184,129,0.5)]" />
+                            <div className="text-yc-orange mb-4">
+                                <Layers className="w-20 h-20 drop-shadow-[0_0_20px_rgba(242,101,34,0.5)]" />
                             </div>
                             <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-2">Fusion Complete</h2>
                             <p className="text-gray-400 mb-8">A new powerful asset has been forged.</p>

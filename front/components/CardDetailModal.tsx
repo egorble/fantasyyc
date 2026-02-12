@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Share2, Calendar, Star, Hash, Layers, ExternalLink, TrendingUp, Building2, Sparkles } from 'lucide-react';
+import { X, Share2, Calendar, Star, Hash, Layers, ExternalLink, TrendingUp, Building2, Zap } from 'lucide-react';
 import { CardData, Rarity } from '../types';
 import { STARTUPS, EXPLORER_URL, CONTRACTS } from '../lib/contracts';
 
@@ -137,7 +137,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, cardData, onClo
                         <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-8">
                             <div className="p-2.5 md:p-4 rounded-lg bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#27272a]">
                                 <div className="flex items-center gap-1 md:gap-2 text-gray-500 dark:text-gray-400 mb-1 md:mb-2">
-                                    <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
+                                    <Zap className="w-3 h-3 md:w-4 md:h-4" />
                                     <span className="text-[10px] md:text-xs font-semibold uppercase">Multiplier</span>
                                 </div>
                                 <p className="text-base md:text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">
