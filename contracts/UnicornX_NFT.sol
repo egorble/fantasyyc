@@ -354,15 +354,13 @@ contract UnicornX_NFT is
         )));
 
         if (rarity == Rarity.Common) {
-            return 15 + (random % 5);
+            return 14 + (random % 6);   // IDs 14-19 (6 common startups)
         } else if (rarity == Rarity.Rare) {
-            return 10 + (random % 5);
+            return 9 + (random % 5);    // IDs 9-13 (5 rare startups)
         } else if (rarity == Rarity.Epic) {
-            return 6 + (random % 4);
-        } else if (rarity == Rarity.EpicRare) {
-            return 5;
+            return 6 + (random % 3);    // IDs 6-8 (3 epic startups)
         } else {
-            return 1 + (random % 4);
+            return 1 + (random % 5);    // IDs 1-5 (5 legendary startups)
         }
     }
 

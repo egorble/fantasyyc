@@ -184,6 +184,88 @@ export function usePacks() {
         }
     }, []);
 
+    // Buy AND Open multiple packs (up to 10) in one transaction
+    const buyAndOpenMultiplePacks = useCallback(async (
+        signer: ethers.Signer,
+        count: number
+    ): Promise<{ success: boolean; cards?: CardData[]; error?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const packContract = getPackOpenerContract(signer);
+            const nftContract = getNFTContract(signer);
+            const signerAddress = await signer.getAddress();
+
+            // Get referrer
+            let referrer = localStorage.getItem('fantasyyc_referrer');
+            if (!referrer) {
+                const params = new URLSearchParams(window.location.search);
+                const ref = params.get('ref');
+                if (ref && ref.startsWith('0x') && ref.length === 42) {
+                    referrer = ref.toLowerCase();
+                }
+            }
+            if (referrer && referrer.toLowerCase() === signerAddress.toLowerCase()) {
+                referrer = null;
+            }
+
+            const referrerAddress = referrer || ethers.ZeroAddress;
+            const price = await packContract.currentPackPrice();
+            const totalPrice = BigInt(price.toString()) * BigInt(count);
+
+            console.log(`📦 Buying and opening ${count} packs...`);
+            console.log('   Total price:', ethers.formatEther(totalPrice), 'XTZ');
+
+            const tx = await packContract.buyAndOpenMultiplePacks(referrerAddress, count, {
+                value: totalPrice
+            });
+            console.log('   TX sent:', tx.hash);
+
+            const receipt = await tx.wait();
+            console.log('   TX confirmed!');
+
+            // Parse CardMinted events to get all token IDs
+            const tokenIds: number[] = [];
+            for (const log of receipt.logs) {
+                try {
+                    const parsed = nftContract.interface.parseLog(log);
+                    if (parsed?.name === 'CardMinted') {
+                        tokenIds.push(Number(parsed.args.tokenId));
+                    }
+                } catch { }
+            }
+
+            console.log(`   Minted ${tokenIds.length} tokens:`, tokenIds);
+
+            // Invalidate cache
+            blockchainCache.invalidate(CacheKeys.packsSold());
+            blockchainCache.invalidatePrefix(`nft:owned:${signerAddress}`);
+            blockchainCache.invalidatePrefix(`nft:cards:${signerAddress}`);
+            blockchainCache.invalidatePrefix(`pack:user:${signerAddress}`);
+
+            // Fetch metadata for all cards
+            const cards: CardData[] = [];
+            for (const tokenId of tokenIds) {
+                const card = await fetchCardMetadata(tokenId);
+                if (card) {
+                    cards.push(card);
+                    blockchainCache.set(CacheKeys.cardMetadata(tokenId), card);
+                }
+            }
+
+            console.log('   Cards loaded:', cards.length);
+            return { success: true, cards };
+        } catch (e: any) {
+            const msg = e.reason || e.message || 'Failed to buy packs';
+            console.error('❌ Buy multi-pack error:', msg);
+            setError(msg);
+            return { success: false, error: msg };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
     // Get user's unopened packs count
     const getUnopenedPackCount = useCallback(async (address: string): Promise<number> => {
         try {
@@ -211,6 +293,7 @@ export function usePacks() {
         getPackPrice,
         getPacksSold,
         buyAndOpenPack,
+        buyAndOpenMultiplePacks,
         getUnopenedPackCount,
         getUserPacks,
     };

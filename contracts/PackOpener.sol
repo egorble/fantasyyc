@@ -28,6 +28,7 @@ contract PackOpener is Initializable, Ownable2StepUpgradeable, PausableUpgradeab
     uint256 public constant PACK_PRICE = 5 ether;
     uint256 public constant MAX_PACKS = 10000;
     uint256 public constant CARDS_PER_PACK = 5;
+    uint256 public constant MAX_MULTI_PACKS = 10;
 
     uint256 public constant REFERRAL_PERCENT = 10;
     uint256 public constant PLATFORM_PERCENT = 10;
@@ -38,14 +39,13 @@ contract PackOpener is Initializable, Ownable2StepUpgradeable, PausableUpgradeab
     uint256 private constant RARE_THRESHOLD = 95;
 
     uint256 private constant LEGENDARY_START = 1;
-    uint256 private constant LEGENDARY_END = 4;
-    uint256 private constant EPIC_RARE_ID = 5;
+    uint256 private constant LEGENDARY_COUNT = 5;   // IDs 1-5
     uint256 private constant EPIC_START = 6;
-    uint256 private constant EPIC_END = 9;
-    uint256 private constant RARE_START = 10;
-    uint256 private constant RARE_END = 14;
-    uint256 private constant COMMON_START = 15;
-    uint256 private constant COMMON_END = 19;
+    uint256 private constant EPIC_COUNT = 3;         // IDs 6-8
+    uint256 private constant RARE_START = 9;
+    uint256 private constant RARE_COUNT = 5;         // IDs 9-13
+    uint256 private constant COMMON_START = 14;
+    uint256 private constant COMMON_COUNT = 6;       // IDs 14-19
 
     // ============ State Variables ============
 
@@ -86,6 +86,7 @@ contract PackOpener is Initializable, Ownable2StepUpgradeable, PausableUpgradeab
     event FundsWithdrawn(address indexed to, uint256 amount);
     event TournamentManagerUpdated(address indexed oldTM, address indexed newTM);
     event ActiveTournamentUpdated(uint256 oldId, uint256 newId);
+    event MultiplePacksOpened(address indexed buyer, uint256 packCount, uint256 totalCards);
 
     // ============ Errors ============
 
@@ -99,6 +100,7 @@ contract PackOpener is Initializable, Ownable2StepUpgradeable, PausableUpgradeab
     error InvalidPrice();
     error CannotReferSelf();
     error NotAdmin();
+    error InvalidPackCount();
 
     // ============ Modifiers ============
 
@@ -222,6 +224,57 @@ contract PackOpener is Initializable, Ownable2StepUpgradeable, PausableUpgradeab
         return (cardIds, startupIds);
     }
 
+    function buyAndOpenMultiplePacks(address referrer, uint256 count) external payable whenNotPaused nonReentrant returns (
+        uint256[] memory allCardIds,
+        uint256[] memory allStartupIds
+    ) {
+        if (count == 0 || count > MAX_MULTI_PACKS) revert InvalidPackCount();
+        uint256 totalCost = currentPackPrice * count;
+        if (msg.value < totalCost) revert InsufficientPayment();
+        if (packsSold + count > MAX_PACKS) revert MaxPacksReached();
+
+        _trySetReferrer(msg.sender, referrer);
+
+        uint256 totalCards = count * CARDS_PER_PACK;
+        allCardIds = new uint256[](totalCards);
+        allStartupIds = new uint256[](totalCards);
+
+        for (uint256 p = 0; p < count; p++) {
+            uint256 packId = packsSold + 1;
+            packsSold++;
+
+            uint256[5] memory startupIds = _generateRandomCards(packId);
+            uint256[5] memory cardIds = nftContract.batchMint(msg.sender, startupIds);
+
+            packs[packId] = PackPurchase({
+                buyer: msg.sender,
+                purchaseTime: block.timestamp,
+                opened: true,
+                cardIds: cardIds
+            });
+
+            userPacks[msg.sender].push(packId);
+
+            for (uint256 i = 0; i < CARDS_PER_PACK; i++) {
+                allCardIds[p * CARDS_PER_PACK + i] = cardIds[i];
+                allStartupIds[p * CARDS_PER_PACK + i] = startupIds[i];
+            }
+
+            emit PackPurchased(msg.sender, packId, currentPackPrice, block.timestamp);
+            emit PackOpened(msg.sender, packId, cardIds, startupIds);
+        }
+
+        _distributeFunds(totalCost, msg.sender);
+
+        if (msg.value > totalCost) {
+            (bool refundSuccess, ) = msg.sender.call{value: msg.value - totalCost}("");
+            if (!refundSuccess) revert WithdrawFailed();
+        }
+
+        emit MultiplePacksOpened(msg.sender, count, totalCards);
+        return (allCardIds, allStartupIds);
+    }
+
     function openPack(uint256 packId) external whenNotPaused nonReentrant returns (
         uint256[5] memory cardIds,
         uint256[5] memory startupIds
@@ -262,17 +315,15 @@ contract PackOpener is Initializable, Ownable2StepUpgradeable, PausableUpgradeab
 
     function _pickStartupByRarity(uint256 rarityRoll, uint256 seed) internal pure returns (uint256 startupId) {
         if (rarityRoll < COMMON_THRESHOLD) {
-            startupId = COMMON_START + (seed / 100 % 5);
+            startupId = COMMON_START + (seed / 100 % COMMON_COUNT);
         } else if (rarityRoll < RARE_THRESHOLD) {
-            startupId = RARE_START + (seed / 100 % 5);
+            startupId = RARE_START + (seed / 100 % RARE_COUNT);
         } else {
             uint256 epicRoll = (seed / 10000) % 100;
-            if (epicRoll < 40) {
-                startupId = LEGENDARY_START + (seed / 1000000 % 4);
-            } else if (epicRoll < 50) {
-                startupId = EPIC_RARE_ID;
+            if (epicRoll < 50) {
+                startupId = EPIC_START + (seed / 1000000 % EPIC_COUNT);
             } else {
-                startupId = EPIC_START + (seed / 1000000 % 4);
+                startupId = LEGENDARY_START + (seed / 1000000 % LEGENDARY_COUNT);
             }
         }
         return startupId;
