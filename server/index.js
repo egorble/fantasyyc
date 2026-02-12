@@ -720,15 +720,25 @@ async function syncNFTCards(address) {
     }
 
     // Fetch card info for all tokens in parallel (batches of 10)
+    // Individual calls wrapped in try/catch — burned/invalid tokens are skipped
     const cards = [];
     const ids = tokenIds.map(t => Number(t));
     for (let i = 0; i < ids.length; i += 10) {
         const batch = ids.slice(i, i + 10);
-        const infos = await Promise.all(batch.map(id => nft.getCardInfo(id)));
-        for (let j = 0; j < batch.length; j++) {
-            const info = infos[j];
+        const results = await Promise.all(batch.map(async id => {
+            try {
+                const info = await nft.getCardInfo(id);
+                return { id, info };
+            } catch {
+                console.warn(`[NFT] getCardInfo(${id}) failed — token may be burned, skipping`);
+                return null;
+            }
+        }));
+        for (const result of results) {
+            if (!result) continue;
+            const { id, info } = result;
             cards.push({
-                tokenId: batch[j],
+                tokenId: id,
                 startupId: Number(info.startupId),
                 name: info.name,
                 rarity: RARITY_NAMES[Number(info.rarity)] || 'Common',
