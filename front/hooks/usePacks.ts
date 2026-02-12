@@ -32,14 +32,15 @@ async function fetchCardMetadata(tokenId: number): Promise<CardData | null> {
         const rarityStr = getAttribute('Rarity') || 'Common';
         const multiplierStr = getAttribute('Multiplier') || '1x';
 
+        const startupId = parseInt(getAttribute('Startup ID')) || 1;
         return {
             tokenId,
-            startupId: parseInt(getAttribute('Startup ID')) || 1,
+            startupId,
             name: getAttribute('Startup') || data.name?.split(' #')[0] || 'Unknown',
             rarity: RARITY_STRING_MAP[rarityStr] || Rarity.COMMON,
             multiplier: parseInt(multiplierStr) || 1,
             isLocked: getAttribute('Locked') === 'Yes',
-            image: data.image || '',
+            image: `/images/${startupId}.png`,
             edition: parseInt(getAttribute('Edition')) || 1,
         };
     } catch (e) {
