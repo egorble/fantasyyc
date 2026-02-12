@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { useWeb3ModalProvider, useWeb3ModalAccount } from '@web3modal/ethers/react';
 import { BrowserProvider, ethers } from 'ethers';
 import { getMarketplaceV2Contract, getNFTContract, CONTRACTS, formatXTZ } from '@/lib/contracts';
 import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
+import { useWalletContext } from '../context/WalletContext';
 
 // ============ Constants ============
 // Gas limits removed - letting ethers.js auto-estimate for better reliability
@@ -67,8 +67,7 @@ export interface Listing {
 
 // ============ Hook ============
 export function useMarketplaceV2() {
-    const { address, isConnected } = useWeb3ModalAccount();
-    const { walletProvider } = useWeb3ModalProvider();
+    const { address, isConnected, walletProvider } = useWalletContext();
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
