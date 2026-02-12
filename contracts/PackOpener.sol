@@ -315,16 +315,14 @@ contract PackOpener is Initializable, Ownable2StepUpgradeable, PausableUpgradeab
 
     function _pickStartupByRarity(uint256 rarityRoll, uint256 seed) internal pure returns (uint256 startupId) {
         if (rarityRoll < COMMON_THRESHOLD) {
+            // 70% Common
             startupId = COMMON_START + (seed / 100 % COMMON_COUNT);
         } else if (rarityRoll < RARE_THRESHOLD) {
+            // 25% Rare
             startupId = RARE_START + (seed / 100 % RARE_COUNT);
         } else {
-            uint256 epicRoll = (seed / 10000) % 100;
-            if (epicRoll < 50) {
-                startupId = EPIC_START + (seed / 1000000 % EPIC_COUNT);
-            } else {
-                startupId = LEGENDARY_START + (seed / 1000000 % LEGENDARY_COUNT);
-            }
+            // 5% Epic (Legendary only from merging)
+            startupId = EPIC_START + (seed / 1000000 % EPIC_COUNT);
         }
         return startupId;
     }

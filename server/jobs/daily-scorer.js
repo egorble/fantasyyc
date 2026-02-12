@@ -44,7 +44,6 @@ const nftABI = [
 ];
 
 const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
-const RARITY_MULTIPLIERS = { Common: 1, Rare: 2, Epic: 3, EpicRare: 4, Legendary: 5 };
 
 // ============ Blockchain reads ============
 
@@ -120,14 +119,13 @@ function calculatePlayerScore(playerCards, startupBaseScores) {
 
     for (const card of playerCards) {
         const baseScore = startupBaseScores[card.name] || 0;
-        const multiplier = RARITY_MULTIPLIERS[card.rarity] || 1;
-        const cardPoints = baseScore * multiplier;
+        const cardPoints = baseScore * card.multiplier;
 
         totalPoints += cardPoints;
         breakdown[card.name] = {
             basePoints: baseScore,
             rarity: card.rarity,
-            multiplier,
+            multiplier: card.multiplier,
             totalPoints: cardPoints
         };
     }

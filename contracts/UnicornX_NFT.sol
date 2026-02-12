@@ -329,9 +329,15 @@ contract UnicornX_NFT is
             if (startups[sid].rarity != fromRarity) revert RarityMismatch();
         }
 
-        if (fromRarity == Rarity.Legendary) revert CannotMergeLegendary();
+        if (fromRarity == Rarity.Legendary || fromRarity == Rarity.EpicRare) revert CannotMergeLegendary();
 
-        Rarity toRarity = Rarity(uint8(fromRarity) + 1);
+        // Common→Rare, Rare→Epic, Epic→Legendary (skip EpicRare)
+        Rarity toRarity;
+        if (fromRarity == Rarity.Epic) {
+            toRarity = Rarity.Legendary;
+        } else {
+            toRarity = Rarity(uint8(fromRarity) + 1);
+        }
         uint256 newStartupId = _getRandomStartupByRarity(toRarity, tokenIds[0]);
 
         for (uint256 i = 0; i < 3; i++) {
@@ -360,6 +366,7 @@ contract UnicornX_NFT is
         } else if (rarity == Rarity.Epic) {
             return 6 + (random % 3);    // IDs 6-8 (3 epic startups)
         } else {
+            // Legendary (includes any EpicRare fallback)
             return 1 + (random % 5);    // IDs 1-5 (5 legendary startups)
         }
     }

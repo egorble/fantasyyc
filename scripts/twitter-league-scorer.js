@@ -307,7 +307,7 @@ function analyzeTweet(tweet) {
  */
 async function fetchTweetsByDate(userName, date) {
     const nextDate = getNextDate(date);
-    const query = `from:${userName} since:${date}_00:00:00_UTC until:${nextDate}_00:00:00_UTC`;
+    const query = `from:${userName} since:${date}_00:00:00_UTC until:${nextDate}_00:00:00_UTC -filter:replies`;
     const allTweets = [];
     let cursor = '';
     let page = 0;
@@ -375,7 +375,18 @@ function getNextDate(dateStr) {
  * Returns scoring result with all analyzed tweets.
  */
 async function processStartupForDate(userName, date) {
-    const tweets = await fetchTweetsByDate(userName, date);
+    const rawTweets = await fetchTweetsByDate(userName, date);
+
+    // Filter out replies and comments — only keep original tweets
+    const tweets = rawTweets.filter(tweet => {
+        // Skip if it's a reply to another user
+        if (tweet.inReplyToId || tweet.in_reply_to_status_id || tweet.in_reply_to_user_id) return false;
+        // Skip if text starts with @mention (reply pattern)
+        if (tweet.text && /^@\w/.test(tweet.text.trim())) return false;
+        // Skip retweets (text starts with "RT @")
+        if (tweet.text && tweet.text.trim().startsWith('RT @')) return false;
+        return true;
+    });
 
     if (tweets.length === 0) {
         return {
@@ -387,7 +398,8 @@ async function processStartupForDate(userName, date) {
         };
     }
 
-    console.log(`   Found ${tweets.length} tweets for @${userName} on ${date}`);
+    const filtered = rawTweets.length - tweets.length;
+    console.log(`   Found ${tweets.length} tweets for @${userName} on ${date}${filtered > 0 ? ` (filtered ${filtered} replies/RTs)` : ''}`);
 
     const results = tweets.map(tweet => {
         const analysis = analyzeTweet(tweet);
