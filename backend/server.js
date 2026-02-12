@@ -266,14 +266,14 @@ function generateMockToken(tokenId) {
 
     let startupId;
     if (rarityRoll < 70) {
-        // Common: IDs 15-19
-        startupId = 15 + (seed % 5);
+        // Common: IDs 14-19 (6 startups)
+        startupId = 14 + (seed % 6);
     } else if (rarityRoll < 95) {
-        // Rare: IDs 10-14
-        startupId = 10 + ((seed / 100) % 5);
+        // Rare: IDs 9-13 (5 startups)
+        startupId = 9 + ((seed / 100) % 5);
     } else {
-        // Epic/Legendary: IDs 1-9
-        startupId = 1 + ((seed / 1000) % 9);
+        // Epic: IDs 6-8 (3 startups) — Legendary only from merging
+        startupId = 6 + ((seed / 1000) % 3);
     }
 
     // Calculate edition based on how many of this startup we've "seen"
