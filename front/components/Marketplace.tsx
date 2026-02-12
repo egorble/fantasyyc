@@ -212,7 +212,7 @@ const Marketplace: React.FC = () => {
         refresh: refreshListings
     } = usePollingData<ListingWithMeta[]>(fetchListings, {
         cacheKey: 'marketplace:active-listings',
-        interval: 30000, // 30 seconds
+        interval: 5000, // 5 seconds
         enabled: true
     });
 
@@ -223,7 +223,7 @@ const Marketplace: React.FC = () => {
         refresh: refreshAuctions
     } = usePollingData<AuctionWithMeta[]>(fetchAuctions, {
         cacheKey: 'marketplace:active-auctions',
-        interval: 30000, // 30 seconds
+        interval: 5000, // 5 seconds
         enabled: true
     });
 

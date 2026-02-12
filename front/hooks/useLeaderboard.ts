@@ -65,8 +65,8 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
 
         fetchLeaderboard();
 
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(fetchLeaderboard, 30000);
+        // Auto-refresh every 10 seconds
+        const interval = setInterval(fetchLeaderboard, 10000);
         return () => clearInterval(interval);
     }, [tournamentId, limit]);
 
@@ -108,8 +108,8 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
 
         fetchRank();
 
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(fetchRank, 30000);
+        // Auto-refresh every 10 seconds
+        const interval = setInterval(fetchRank, 10000);
         return () => clearInterval(interval);
     }, [tournamentId, playerAddress]);
 

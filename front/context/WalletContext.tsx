@@ -67,10 +67,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Update balance when address changes
+    // Update balance when address changes + poll every 10s
     useEffect(() => {
         if (address) {
             updateBalance(address);
+            const interval = setInterval(() => updateBalance(address), 10000);
+            return () => clearInterval(interval);
         } else {
             setBalance(0n);
         }
