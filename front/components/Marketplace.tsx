@@ -83,6 +83,7 @@ const Marketplace: React.FC = () => {
         listCard,
         createAuction,
         cancelListing,
+        cancelAuction,
         getTokenStats,
         getTokenSaleHistory,
         loading: isLoading,
@@ -356,6 +357,25 @@ const Marketplace: React.FC = () => {
             alert(`Error: ${e.message}`);
         }
         setBiddingId(null);
+    };
+
+    // Handle cancel auction
+    const handleCancelAuction = async (auction: AuctionWithMeta) => {
+        if (!confirm('Cancel this auction? NFT will be returned to you.')) return;
+        setCancellingId(Number(auction.auctionId));
+        try {
+            await cancelAuction(auction.auctionId);
+            await refreshAuctions();
+            alert('Auction cancelled!');
+        } catch (e: any) {
+            const msg = e.message || '';
+            if (msg.includes('AuctionHasBids') || msg.includes('0x')) {
+                alert('Cannot cancel — auction already has bids.');
+            } else {
+                alert(`Error: ${msg}`);
+            }
+        }
+        setCancellingId(null);
     };
 
     // Open Stats modal
@@ -706,16 +726,25 @@ const Marketplace: React.FC = () => {
                                                     <Loader2 className="w-3 h-3 animate-spin mx-auto" />
                                                 ) : 'Finalize'}
                                             </button>
+                                        ) : auction.seller.toLowerCase() === address?.toLowerCase() ? (
+                                            // Seller: show Cancel (no bids) or Yours (has bids)
+                                            auction.highestBidder === '0x0000000000000000000000000000000000000000' || !auction.highestBidder ? (
+                                                <button
+                                                    onClick={() => handleCancelAuction(auction)}
+                                                    disabled={cancellingId === Number(auction.auctionId)}
+                                                    className="w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                >
+                                                    {cancellingId === Number(auction.auctionId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel'}
+                                                </button>
+                                            ) : (
+                                                <p className="mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 text-center font-bold text-[10px] md:text-sm text-gray-400">Has bids</p>
+                                            )
                                         ) : (
                                             <button
                                                 onClick={() => { setBidModal({ auction }); setBidAmount(''); }}
-                                                disabled={auction.seller.toLowerCase() === address?.toLowerCase()}
-                                                className={`w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all ${auction.seller.toLowerCase() === address?.toLowerCase()
-                                                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                                    : 'bg-yc-orange text-white hover:bg-yc-orange/80'
-                                                    }`}
+                                                className="w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all bg-yc-orange text-white hover:bg-yc-orange/80"
                                             >
-                                                {auction.seller.toLowerCase() === address?.toLowerCase() ? 'Yours' : 'Bid'}
+                                                {'Bid'}
                                             </button>
                                         )}
                                     </div>
