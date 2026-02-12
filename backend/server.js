@@ -313,6 +313,104 @@ function setCachedToken(tokenId, data) {
     });
 }
 
+// ============ Shared Helpers ============
+
+const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
+
+/**
+ * Fetch token data from cache or blockchain.
+ * Returns { error } on failure, or token fields on success.
+ */
+async function fetchTokenData(tokenId) {
+    // Check cache first
+    const cached = getCachedToken(tokenId);
+    if (cached) {
+        if (cached.nonExistent) {
+            return { error: "Token does not exist or has been burned" };
+        }
+        return cached;
+    }
+
+    if (nftContract) {
+        try {
+            let startupId, edition, isLocked, totalMinted, contractRarity = null, contractMultiplier = null;
+            try {
+                const cardInfo = await nftContract.getCardInfo(tokenId);
+                startupId = Number(cardInfo.startupId);
+                edition = Number(cardInfo.edition);
+                isLocked = cardInfo.isLocked;
+                contractRarity = Number(cardInfo.rarity);
+                contractMultiplier = Number(cardInfo.multiplier);
+                totalMinted = Number(await nftContract.startupMintCount(startupId));
+            } catch (cardInfoError) {
+                startupId = Number(await nftContract.tokenToStartup(tokenId));
+                edition = Number(await nftContract.tokenToEdition(tokenId));
+                isLocked = await nftContract.isLocked(tokenId);
+                totalMinted = startupId > 0 ? Number(await nftContract.startupMintCount(startupId)) : 0;
+            }
+
+            if (startupId === 0) {
+                setCachedToken(tokenId, { startupId: 0, nonExistent: true });
+                return { error: "Token does not exist or has been burned" };
+            }
+
+            const data = { startupId, edition, isLocked, totalMinted, contractRarity, contractMultiplier };
+            setCachedToken(tokenId, data);
+            return data;
+        } catch (contractError) {
+            setCachedToken(tokenId, { startupId: 0, nonExistent: true });
+            return { error: "Token does not exist or has been burned" };
+        }
+    } else {
+        const mock = generateMockToken(tokenId);
+        return { startupId: mock.startupId, edition: mock.edition, isLocked: mock.isLocked, totalMinted: mock.totalMinted, contractRarity: null, contractMultiplier: null };
+    }
+}
+
+/**
+ * Build OpenSea-compatible metadata object from token data.
+ */
+function buildMetadata(tokenId, tokenData) {
+    const { startupId, edition, isLocked, totalMinted, contractRarity, contractMultiplier } = tokenData;
+
+    const startup = STARTUPS[startupId];
+    if (!startup) return { error: "Startup not found" };
+
+    const effectiveRarity = (contractRarity !== null && contractRarity >= 0 && contractRarity <= 4)
+        ? RARITY_NAMES[contractRarity]
+        : startup.rarity;
+    const effectiveMultiplier = (contractMultiplier !== null && contractMultiplier > 0)
+        ? contractMultiplier
+        : startup.multiplier;
+
+    const stats = DYNAMIC_STATS[startupId] || {};
+
+    const imageUrl = IPFS_IMAGE_BASE.startsWith("ipfs://") && !IPFS_IMAGE_BASE.includes("PLACEHOLDER")
+        ? `${IPFS_IMAGE_BASE}/${startupId}.png`
+        : `${SERVER_URL}/images/${startupId}.png`;
+
+    return {
+        name: `${startup.name} #${edition}`,
+        description: `${effectiveRarity} YC startup card - ${startup.description}. Edition ${edition} of ${totalMinted} minted.`,
+        image: imageUrl,
+        external_url: `https://unicornx.app/card/${tokenId}`,
+        fundraising: startup.fundraising || null,
+        attributes: [
+            { trait_type: "Startup", value: startup.name },
+            { trait_type: "Startup ID", value: startupId.toString() },
+            { trait_type: "Rarity", value: effectiveRarity },
+            { trait_type: "Multiplier", value: effectiveMultiplier.toString() + "x" },
+            { trait_type: "Edition", value: edition.toString(), display_type: "number" },
+            { trait_type: "Total Minted", value: totalMinted, display_type: "number" },
+            { trait_type: "Locked", value: isLocked ? "Yes" : "No" },
+            { trait_type: "Valuation", value: stats.valuation || "N/A" },
+            { trait_type: "Partnerships", value: stats.partnerships || 0, display_type: "number" },
+            { trait_type: "Funding", value: stats.funding || "N/A" },
+            { trait_type: "Last Updated", value: new Date().toISOString().split("T")[0] }
+        ]
+    };
+}
+
 // ============ API Routes ============
 
 /**
@@ -330,176 +428,82 @@ app.get("/", (req, res) => {
 });
 
 /**
+ * Batch metadata: fetch multiple tokens in one request
+ * GET /metadata/batch?tokenIds=1,2,3,4,5
+ * Returns { tokens: { "1": {...}, "2": {...} }, errors: { "999": "not found" } }
+ * IMPORTANT: must be registered BEFORE /metadata/:tokenId to avoid matching "batch" as tokenId
+ */
+app.get("/metadata/batch", async (req, res) => {
+    try {
+        const idsParam = req.query.tokenIds;
+        if (!idsParam) {
+            return res.status(400).json({ error: "tokenIds query parameter required" });
+        }
+
+        const tokenIds = idsParam.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0);
+        if (tokenIds.length === 0) {
+            return res.status(400).json({ error: "No valid token IDs provided" });
+        }
+        if (tokenIds.length > 50) {
+            return res.status(400).json({ error: "Max 50 tokens per batch request" });
+        }
+
+        // Fetch all tokens in parallel
+        const results = await Promise.all(
+            tokenIds.map(async (tokenId) => {
+                const tokenData = await fetchTokenData(tokenId);
+                if (tokenData.error) {
+                    return { tokenId, error: tokenData.error };
+                }
+                const metadata = buildMetadata(tokenId, tokenData);
+                if (metadata.error) {
+                    return { tokenId, error: metadata.error };
+                }
+                return { tokenId, metadata };
+            })
+        );
+
+        const tokens = {};
+        const errors = {};
+        for (const r of results) {
+            if (r.error) {
+                errors[r.tokenId] = r.error;
+            } else {
+                tokens[r.tokenId] = r.metadata;
+            }
+        }
+
+        res.set("Cache-Control", "public, max-age=3600");
+        res.json({ tokens, errors });
+    } catch (error) {
+        console.error("Error in batch metadata:", error);
+        res.status(500).json({ error: "Failed to fetch batch metadata" });
+    }
+});
+
+/**
  * Get metadata for a specific token
  * OpenSea and marketplaces call this endpoint
  */
 app.get("/metadata/:tokenId", async (req, res) => {
     try {
         const tokenId = parseInt(req.params.tokenId);
-
         if (isNaN(tokenId) || tokenId < 1) {
             return res.status(400).json({ error: "Invalid token ID" });
         }
 
-        let startupId, edition, isLocked, totalMinted;
-        // On-chain rarity/multiplier from getCardInfo() — used as source of truth
-        let contractRarity = null;  // null = use hardcoded STARTUPS, number = override
-        let contractMultiplier = null;
-
-        // Check cache first
-        const cached = getCachedToken(tokenId);
-        if (cached) {
-            // Return 404 immediately for tokens we already know are burned/non-existent
-            if (cached.nonExistent) {
-                return res.status(404).json({ error: "Token does not exist or has been burned" });
-            }
-            startupId = cached.startupId;
-            edition = cached.edition;
-            isLocked = cached.isLocked;
-            totalMinted = cached.totalMinted;
-            contractRarity = cached.contractRarity ?? null;
-            contractMultiplier = cached.contractMultiplier ?? null;
-        } else {
-            // Try to get data from contract, fallback to mock
-            if (nftContract) {
-                try {
-                    // First try getCardInfo() — returns all data in one call and reverts for non-existent tokens
-                    try {
-                        const cardInfo = await nftContract.getCardInfo(tokenId);
-                        startupId = Number(cardInfo.startupId);
-                        edition = Number(cardInfo.edition);
-                        isLocked = cardInfo.isLocked;
-                        contractRarity = Number(cardInfo.rarity);
-                        contractMultiplier = Number(cardInfo.multiplier);
-                        totalMinted = Number(await nftContract.startupMintCount(startupId));
-                    } catch (cardInfoError) {
-                        // getCardInfo reverted — try individual mappings as fallback
-                        startupId = Number(await nftContract.tokenToStartup(tokenId));
-                        edition = Number(await nftContract.tokenToEdition(tokenId));
-                        isLocked = await nftContract.isLocked(tokenId);
-                        totalMinted = startupId > 0 ? Number(await nftContract.startupMintCount(startupId)) : 0;
-                    }
-
-                    // startupId === 0 means token doesn't exist or was burned
-                    // (Solidity mappings return 0 for non-existent keys — they don't revert)
-                    if (startupId === 0) {
-                        console.log(`🔥 Token ${tokenId} has startupId=0 (burned or non-existent)`);
-                        // Cache as non-existent to avoid repeated RPC calls
-                        setCachedToken(tokenId, { startupId: 0, nonExistent: true });
-                        return res.status(404).json({ error: "Token does not exist or has been burned" });
-                    }
-
-                    // Cache successful blockchain data (including on-chain rarity)
-                    setCachedToken(tokenId, { startupId, edition, isLocked, totalMinted, contractRarity, contractMultiplier });
-                } catch (contractError) {
-                    console.log(`⚠️  Token ${tokenId} contract error: ${contractError.message}`);
-                    // Token likely doesn't exist — cache and return 404
-                    setCachedToken(tokenId, { startupId: 0, nonExistent: true });
-                    return res.status(404).json({ error: "Token does not exist or has been burned" });
-                }
-            } else {
-                // Use mock data for testing
-                const mock = generateMockToken(tokenId);
-                startupId = mock.startupId;
-                edition = mock.edition;
-                isLocked = mock.isLocked;
-                totalMinted = mock.totalMinted;
-            }
+        const tokenData = await fetchTokenData(tokenId);
+        if (tokenData.error) {
+            return res.status(404).json({ error: tokenData.error });
         }
 
-        // Get startup info
-        const startup = STARTUPS[startupId];
-        if (!startup) {
-            return res.status(404).json({ error: "Startup not found" });
+        const metadata = buildMetadata(tokenId, tokenData);
+        if (metadata.error) {
+            return res.status(404).json({ error: metadata.error });
         }
 
-        // Use on-chain rarity/multiplier as source of truth when available
-        // This prevents mismatch between metadata and contract after UUPS upgrades
-        const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
-        const effectiveRarity = (contractRarity !== null && contractRarity >= 0 && contractRarity <= 4)
-            ? RARITY_NAMES[contractRarity]
-            : startup.rarity;
-        const effectiveMultiplier = (contractMultiplier !== null && contractMultiplier > 0)
-            ? contractMultiplier
-            : startup.multiplier;
-
-        // Log mismatch for debugging
-        if (effectiveRarity !== startup.rarity) {
-            console.warn(`⚠️ Rarity mismatch for token ${tokenId} (startup ${startupId}): contract=${effectiveRarity}, hardcoded=${startup.rarity}`);
-        }
-
-        // Get dynamic stats
-        const stats = DYNAMIC_STATS[startupId] || {};
-
-        // Build OpenSea-compatible metadata
-        // Use server URL for images (or IPFS if configured)
-        // Images are now numbered by startup ID (1.png, 2.png, etc.)
-        const imageUrl = IPFS_IMAGE_BASE.startsWith("ipfs://") && !IPFS_IMAGE_BASE.includes("PLACEHOLDER")
-            ? `${IPFS_IMAGE_BASE}/${startupId}.png`
-            : `${SERVER_URL}/images/${startupId}.png`;
-
-        const metadata = {
-            name: `${startup.name} #${edition}`,
-            description: `${effectiveRarity} YC startup card - ${startup.description}. Edition ${edition} of ${totalMinted} minted.`,
-            image: imageUrl,
-            external_url: `https://unicornx.app/card/${tokenId}`,
-            // Include fundraising details for frontend use
-            fundraising: startup.fundraising || null,
-            attributes: [
-                {
-                    trait_type: "Startup",
-                    value: startup.name
-                },
-                {
-                    trait_type: "Startup ID",
-                    value: startupId.toString()
-                },
-                {
-                    trait_type: "Rarity",
-                    value: effectiveRarity
-                },
-                {
-                    trait_type: "Multiplier",
-                    value: effectiveMultiplier.toString() + "x"
-                },
-                {
-                    trait_type: "Edition",
-                    value: edition.toString(),
-                    display_type: "number"
-                },
-                {
-                    trait_type: "Total Minted",
-                    value: totalMinted,
-                    display_type: "number"
-                },
-                {
-                    trait_type: "Locked",
-                    value: isLocked ? "Yes" : "No"
-                },
-                {
-                    trait_type: "Valuation",
-                    value: stats.valuation || "N/A"
-                },
-                {
-                    trait_type: "Partnerships",
-                    value: stats.partnerships || 0,
-                    display_type: "number"
-                },
-                {
-                    trait_type: "Funding",
-                    value: stats.funding || "N/A"
-                },
-                {
-                    trait_type: "Last Updated",
-                    value: new Date().toISOString().split("T")[0]
-                }
-            ]
-        };
-
-        // Set cache headers (1 hour for dynamic data)
         res.set("Cache-Control", "public, max-age=3600");
         res.json(metadata);
-
     } catch (error) {
         console.error("Error generating metadata:", error);
         res.status(500).json({ error: "Failed to generate metadata" });

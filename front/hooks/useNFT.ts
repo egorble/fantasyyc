@@ -15,7 +15,7 @@ const RARITY_STRING_MAP: Record<string, Rarity> = {
     'Legendary': Rarity.LEGENDARY,
 };
 
-// Fetch items in batches to avoid overwhelming nginx rate limits
+// Fetch items in batches (used as fallback when batch endpoint fails)
 async function fetchInBatches<T>(
     items: number[],
     fn: (id: number) => Promise<T>,
@@ -34,6 +34,34 @@ async function fetchInBatches<T>(
     return results;
 }
 
+// Parse single token metadata response into CardData
+function parseMetadataResponse(tokenId: number, data: any): CardData {
+    const attributes = data.attributes || [];
+    const getAttribute = (traitType: string) => {
+        const attr = attributes.find((a: any) => a.trait_type === traitType);
+        return attr?.value;
+    };
+
+    const rarityStr = getAttribute('Rarity') || 'Common';
+    const multiplierStr = getAttribute('Multiplier') || '1x';
+    const edition = parseInt(getAttribute('Edition')) || 1;
+    const startupId = parseInt(getAttribute('Startup ID')) || 1;
+    const isLocked = getAttribute('Locked') === 'Yes';
+
+    return {
+        tokenId,
+        startupId,
+        name: getAttribute('Startup') || data.name?.split(' #')[0] || 'Unknown',
+        rarity: RARITY_STRING_MAP[rarityStr] || Rarity.COMMON,
+        multiplier: parseInt(multiplierStr) || 1,
+        isLocked,
+        image: `/images/${startupId}.png`,
+        edition,
+        fundraising: data.fundraising || null,
+        description: data.description || null,
+    };
+}
+
 export function useNFT() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -46,52 +74,76 @@ export function useNFT() {
         const result = await blockchainCache.getOrFetch(key, async () => {
             try {
                 const response = await fetch(`${METADATA_API}/metadata/${tokenId}`);
-                if (!response.ok) {
-                    return null;
-                }
-
+                if (!response.ok) return null;
                 const data = await response.json();
-
-                // Parse attributes
-                const attributes = data.attributes || [];
-                const getAttribute = (traitType: string) => {
-                    const attr = attributes.find((a: any) => a.trait_type === traitType);
-                    return attr?.value;
-                };
-
-                const rarityStr = getAttribute('Rarity') || 'Common';
-                const multiplierStr = getAttribute('Multiplier') || '1x';
-                const edition = parseInt(getAttribute('Edition')) || 1;
-                const startupId = parseInt(getAttribute('Startup ID')) || 1;
-                const isLocked = getAttribute('Locked') === 'Yes';
-
-                const card: CardData = {
-                    tokenId,
-                    startupId,
-                    name: getAttribute('Startup') || data.name?.split(' #')[0] || 'Unknown',
-                    rarity: RARITY_STRING_MAP[rarityStr] || Rarity.COMMON,
-                    multiplier: parseInt(multiplierStr) || 1,
-                    isLocked,
-                    image: data.image || '',
-                    edition,
-                    fundraising: data.fundraising || null,
-                    description: data.description || null,
-                };
-
-                return card;
+                return parseMetadataResponse(tokenId, data);
             } catch (e) {
                 console.error(`Error fetching metadata for token ${tokenId}:`, e);
                 return null;
             }
-        }, CacheTTL.LONG); // 5 min TTL — metadata is stable
+        }, CacheTTL.LONG);
 
-        // Don't cache null results long — server may be temporarily down
         if (result === null) {
             blockchainCache.invalidate(key);
         }
-
         return result;
     }, []);
+
+    // Batch fetch: single request for all tokens, populates individual cache entries
+    const fetchMetadataBatch = useCallback(async (tokenIds: number[]): Promise<(CardData | null)[]> => {
+        if (tokenIds.length === 0) return [];
+
+        // Check cache first — only fetch uncached tokens
+        const results: (CardData | null)[] = new Array(tokenIds.length).fill(null);
+        const uncachedIndices: number[] = [];
+
+        for (let i = 0; i < tokenIds.length; i++) {
+            const cached = blockchainCache.get<CardData>(CacheKeys.cardMetadata(tokenIds[i]));
+            if (cached !== undefined) {
+                results[i] = cached;
+            } else {
+                uncachedIndices.push(i);
+            }
+        }
+
+        if (uncachedIndices.length === 0) {
+            console.log('   All', tokenIds.length, 'cards served from cache');
+            return results;
+        }
+
+        const uncachedIds = uncachedIndices.map(i => tokenIds[i]);
+        console.log('   Batch fetching', uncachedIds.length, 'tokens (', tokenIds.length - uncachedIds.length, 'cached)');
+
+        try {
+            const response = await fetch(`${METADATA_API}/metadata/batch?tokenIds=${uncachedIds.join(',')}`);
+            if (!response.ok) throw new Error(`Batch fetch failed: ${response.status}`);
+
+            const data = await response.json();
+            const { tokens, errors } = data;
+
+            for (const idx of uncachedIndices) {
+                const tid = tokenIds[idx];
+                const tokenMeta = tokens[tid];
+                if (tokenMeta) {
+                    const card = parseMetadataResponse(tid, tokenMeta);
+                    results[idx] = card;
+                    blockchainCache.set(CacheKeys.cardMetadata(tid), card);
+                } else if (errors?.[tid]) {
+                    console.warn(`   Token ${tid}: ${errors[tid]}`);
+                }
+            }
+
+            return results;
+        } catch (e) {
+            console.warn('Batch fetch failed, falling back to individual requests:', e);
+            // Fallback: fetch uncached tokens one-by-one
+            const fallbackCards = await fetchInBatches(uncachedIds, fetchMetadata, 5, 200);
+            for (let fi = 0; fi < uncachedIndices.length; fi++) {
+                results[uncachedIndices[fi]] = fallbackCards[fi];
+            }
+            return results;
+        }
+    }, [fetchMetadata]);
 
     // Get all tokens owned by address - with caching and polling
     const getOwnedTokens = useCallback(async (address: string): Promise<number[]> => {
@@ -139,7 +191,7 @@ export function useNFT() {
                 rarity,
                 multiplier: Number(info.multiplier),
                 isLocked: info.isLocked,
-                image: `${METADATA_API}/metadata/images/${startupId}.png`,
+                image: `/images/${startupId}.png`,
                 edition: Number(info.edition),
                 fundraising: null,
                 description: null,
@@ -169,7 +221,7 @@ export function useNFT() {
         return await fetchMetadata(tokenId);
     }, [fetchMetadata]);
 
-    // Get all cards for an address
+    // Get all cards for an address — uses batch endpoint for speed
     const getCards = useCallback(async (address: string): Promise<CardData[]> => {
         setIsLoading(true);
         setError(null);
@@ -178,8 +230,8 @@ export function useNFT() {
             const tokenIds = await getOwnedTokens(address);
             console.log('📋 Fetching cards for', address, '- found', tokenIds.length, 'tokens');
 
-            // Fetch metadata in batches to avoid nginx rate limit (burst=10)
-            const cards = await fetchInBatches(tokenIds, fetchMetadata, 5, 200);
+            // Single batch request for all tokens (fallback to individual inside fetchMetadataBatch)
+            const cards = await fetchMetadataBatch(tokenIds);
 
             // For tokens where metadata failed, fall back to contract data
             const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
@@ -222,7 +274,7 @@ export function useNFT() {
         } finally {
             setIsLoading(false);
         }
-    }, [getOwnedTokens, fetchMetadata, fetchCardFromContract]);
+    }, [getOwnedTokens, fetchMetadataBatch, fetchCardFromContract]);
 
     // Rarity names for logging
     const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
