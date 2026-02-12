@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { getNFTContract, METADATA_API } from '../lib/contracts';
 import { CardData, Rarity } from '../types';
-import { blockchainCache, CacheKeys, CacheTTL, POLLING_INTERVALS } from '../lib/cache';
+import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
 
 // Map rarity strings to enum
 const RARITY_STRING_MAP: Record<string, Rarity> = {

@@ -292,11 +292,15 @@ function generateMockToken(tokenId) {
 
 // In-memory cache for token data (avoids repeated blockchain queries)
 const tokenCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;       // 5 minutes for valid tokens
+const CACHE_TTL_NOT_FOUND = 30 * 1000; // 30 seconds for not-found (RPC lag recovery)
 
 function getCachedToken(tokenId) {
     const cached = tokenCache.get(tokenId);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    if (!cached) return null;
+
+    const ttl = cached.data.nonExistent ? CACHE_TTL_NOT_FOUND : CACHE_TTL;
+    if (Date.now() - cached.timestamp < ttl) {
         return cached.data;
     }
     return null;
