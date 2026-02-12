@@ -119,14 +119,28 @@ log "Starting services..."
 systemctl start fantasyyc-api
 systemctl start fantasyyc-metadata
 
+# ─── Reload nginx config (picks up burst/rate limit changes) ───
+if [ -f "${APP_DIR}/deploy/nginx.conf" ]; then
+    log "Updating nginx config..."
+    cp "${APP_DIR}/deploy/nginx.conf" /etc/nginx/sites-available/fantasyyc
+    if nginx -t 2>/dev/null; then
+        systemctl reload nginx
+        log "Nginx reloaded"
+    else
+        warn "Nginx config test failed — skipping reload"
+    fi
+fi
+
 sleep 3
 
 # ─── Verify ───
 API_OK=$(systemctl is-active fantasyyc-api)
 META_OK=$(systemctl is-active fantasyyc-metadata)
+NGINX_OK=$(systemctl is-active nginx)
 
 echo ""
 echo -e "  fantasyyc-api:      ${API_OK} $([ "$API_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
 echo -e "  fantasyyc-metadata: ${META_OK} $([ "$META_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  nginx:              ${NGINX_OK} $([ "$NGINX_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
 echo ""
 log "Update complete!"

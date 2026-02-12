@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { getNFTContract, METADATA_API } from '../lib/contracts';
 import { CardData, Rarity } from '../types';
-import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
+import { blockchainCache, CacheKeys, CacheTTL, POLLING_INTERVALS } from '../lib/cache';
 
 // Map rarity strings to enum
 const RARITY_STRING_MAP: Record<string, Rarity> = {
@@ -38,63 +38,52 @@ export function useNFT() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch metadata from backend API with caching
+    // Fetch metadata from backend API with caching + request deduplication
+    // Uses getOrFetch() so concurrent callers for the same tokenId share one request
     const fetchMetadata = useCallback(async (tokenId: number): Promise<CardData | null> => {
         const key = CacheKeys.cardMetadata(tokenId);
 
-        // Check cache first (null = previously failed, skip retry until cache expires)
-        const cached = blockchainCache.get<CardData | null>(key);
-        if (cached !== undefined) {
-            return cached;
-        }
+        return blockchainCache.getOrFetch(key, async () => {
+            try {
+                const response = await fetch(`${METADATA_API}/metadata/${tokenId}`);
+                if (!response.ok) {
+                    return null; // Cached as null — prevents retries for burned/missing tokens
+                }
 
-        try {
-            const response = await fetch(`${METADATA_API}/metadata/${tokenId}`);
-            if (!response.ok) {
-                // Cache null to prevent polling from retrying burned/missing tokens
-                blockchainCache.set(key, null);
+                const data = await response.json();
+
+                // Parse attributes
+                const attributes = data.attributes || [];
+                const getAttribute = (traitType: string) => {
+                    const attr = attributes.find((a: any) => a.trait_type === traitType);
+                    return attr?.value;
+                };
+
+                const rarityStr = getAttribute('Rarity') || 'Common';
+                const multiplierStr = getAttribute('Multiplier') || '1x';
+                const edition = parseInt(getAttribute('Edition')) || 1;
+                const startupId = parseInt(getAttribute('Startup ID')) || 1;
+                const isLocked = getAttribute('Locked') === 'Yes';
+
+                const card: CardData = {
+                    tokenId,
+                    startupId,
+                    name: getAttribute('Startup') || data.name?.split(' #')[0] || 'Unknown',
+                    rarity: RARITY_STRING_MAP[rarityStr] || Rarity.COMMON,
+                    multiplier: parseInt(multiplierStr) || 1,
+                    isLocked,
+                    image: data.image || '',
+                    edition,
+                    fundraising: data.fundraising || null,
+                    description: data.description || null,
+                };
+
+                return card;
+            } catch (e) {
+                console.error(`Error fetching metadata for token ${tokenId}:`, e);
                 return null;
             }
-
-            const data = await response.json();
-
-            // Parse attributes
-            const attributes = data.attributes || [];
-            const getAttribute = (traitType: string) => {
-                const attr = attributes.find((a: any) => a.trait_type === traitType);
-                return attr?.value;
-            };
-
-            const rarityStr = getAttribute('Rarity') || 'Common';
-            const multiplierStr = getAttribute('Multiplier') || '1x';
-            const edition = parseInt(getAttribute('Edition')) || 1;
-            const startupId = parseInt(getAttribute('Startup ID')) || 1;
-            const isLocked = getAttribute('Locked') === 'Yes';
-
-            const card: CardData = {
-                tokenId,
-                startupId,
-                name: getAttribute('Startup') || data.name?.split(' #')[0] || 'Unknown',
-                rarity: RARITY_STRING_MAP[rarityStr] || Rarity.COMMON,
-                multiplier: parseInt(multiplierStr) || 1,
-                isLocked,
-                image: data.image || '',
-                edition,
-                // Add fundraising data from metadata
-                fundraising: data.fundraising || null,
-                // Add description from metadata
-                description: data.description || null,
-            };
-
-            // Cache the result (long TTL - metadata is stable)
-            blockchainCache.set(key, card);
-
-            return card;
-        } catch (e) {
-            console.error(`Error fetching metadata for token ${tokenId}:`, e);
-            blockchainCache.set(key, null);
-            return null;
-        }
+        }, CacheTTL.LONG); // 5 min TTL — metadata is stable
     }, []);
 
     // Get all tokens owned by address - with caching and polling

@@ -217,7 +217,8 @@ const NFT_ABI = [
     "function startupMintCount(uint256 startupId) view returns (uint256)",
     "function isLocked(uint256 tokenId) view returns (bool)",
     "function ownerOf(uint256 tokenId) view returns (address)",
-    "function totalSupply() view returns (uint256)"
+    "function totalSupply() view returns (uint256)",
+    "function getCardInfo(uint256 tokenId) view returns (tuple(uint256 startupId, uint256 edition, uint8 rarity, uint256 multiplier, bool isLocked, string name))"
 ];
 
 // ============ Provider & Contract ============
@@ -341,6 +342,10 @@ app.get("/metadata/:tokenId", async (req, res) => {
         // Check cache first
         const cached = getCachedToken(tokenId);
         if (cached) {
+            // Return 404 immediately for tokens we already know are burned/non-existent
+            if (cached.nonExistent) {
+                return res.status(404).json({ error: "Token does not exist or has been burned" });
+            }
             startupId = cached.startupId;
             edition = cached.edition;
             isLocked = cached.isLocked;
@@ -349,23 +354,37 @@ app.get("/metadata/:tokenId", async (req, res) => {
             // Try to get data from contract, fallback to mock
             if (nftContract) {
                 try {
-                    startupId = Number(await nftContract.tokenToStartup(tokenId));
-                    edition = Number(await nftContract.tokenToEdition(tokenId));
-                    isLocked = await nftContract.isLocked(tokenId);
-                    totalMinted = Number(await nftContract.startupMintCount(startupId));
+                    // First try getCardInfo() — returns all data in one call and reverts for non-existent tokens
+                    try {
+                        const cardInfo = await nftContract.getCardInfo(tokenId);
+                        startupId = Number(cardInfo.startupId);
+                        edition = Number(cardInfo.edition);
+                        isLocked = cardInfo.isLocked;
+                        totalMinted = Number(await nftContract.startupMintCount(startupId));
+                    } catch (cardInfoError) {
+                        // getCardInfo reverted — try individual mappings as fallback
+                        startupId = Number(await nftContract.tokenToStartup(tokenId));
+                        edition = Number(await nftContract.tokenToEdition(tokenId));
+                        isLocked = await nftContract.isLocked(tokenId);
+                        totalMinted = startupId > 0 ? Number(await nftContract.startupMintCount(startupId)) : 0;
+                    }
+
+                    // startupId === 0 means token doesn't exist or was burned
+                    // (Solidity mappings return 0 for non-existent keys — they don't revert)
+                    if (startupId === 0) {
+                        console.log(`🔥 Token ${tokenId} has startupId=0 (burned or non-existent)`);
+                        // Cache as non-existent to avoid repeated RPC calls
+                        setCachedToken(tokenId, { startupId: 0, nonExistent: true });
+                        return res.status(404).json({ error: "Token does not exist or has been burned" });
+                    }
 
                     // Cache successful blockchain data
                     setCachedToken(tokenId, { startupId, edition, isLocked, totalMinted });
                 } catch (contractError) {
-                    console.log(`⚠️  Token ${tokenId} not found on chain, using mock data`);
-                    const mock = generateMockToken(tokenId);
-                    startupId = mock.startupId;
-                    edition = mock.edition;
-                    isLocked = mock.isLocked;
-                    totalMinted = mock.totalMinted;
-
-                    // Cache mock data too (with shorter TTL - handled by fallback logic)
-                    setCachedToken(tokenId, { startupId, edition, isLocked, totalMinted, isMock: true });
+                    console.log(`⚠️  Token ${tokenId} contract error: ${contractError.message}`);
+                    // Token likely doesn't exist — cache and return 404
+                    setCachedToken(tokenId, { startupId: 0, nonExistent: true });
+                    return res.status(404).json({ error: "Token does not exist or has been burned" });
                 }
             } else {
                 // Use mock data for testing
