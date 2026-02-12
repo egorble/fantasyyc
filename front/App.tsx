@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import RightPanel from './components/RightPanel';
 import HeroBanner from './components/HeroBanner';
@@ -17,6 +17,7 @@ import BottomNav from './components/BottomNav';
 import TournamentCTA from './components/TournamentCTA';
 import DashboardLeaderboard from './components/DashboardLeaderboard';
 import MobileWidgets from './components/MobileWidgets';
+import SplashScreen from './components/SplashScreen';
 import { NavSection, UserProfile, Rarity, CardData } from './types';
 import { Filter, Search, Wallet, Loader2, Sun, Moon, LogOut, User } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
@@ -569,11 +570,18 @@ const AppContent: React.FC = () => {
     );
 };
 
-// Main App with providers
+// Main App with providers + splash screen
 const App: React.FC = () => {
+    const [showSplash, setShowSplash] = useState(true);
+
+    const handleSplashReady = useCallback(() => {
+        setShowSplash(false);
+    }, []);
+
     return (
         <ThemeProvider>
             <WalletProvider>
+                {showSplash && <SplashScreen onReady={handleSplashReady} />}
                 <AppContent />
             </WalletProvider>
         </ThemeProvider>
