@@ -38,6 +38,9 @@ async function fetchInBatches<T>(
 let pendingBatchRequest: Promise<Record<number, any>> | null = null;
 let pendingBatchIds: string = '';
 
+// Deduplication for getCards — if a fetch for an address is already running, reuse its promise
+const pendingGetCards = new Map<string, Promise<CardData[]>>();
+
 // Parse single token metadata response into CardData
 function parseMetadataResponse(tokenId: number, data: any): CardData {
     const attributes = data.attributes || [];
@@ -254,88 +257,102 @@ export function useNFT() {
 
     // Get all cards for an address — instant from localStorage, background refresh
     // Flow: localStorage → cache hit → return instantly → validate in background
+    // Deduplication: if a fetch for this address is already in-flight, reuse it
     const getCards = useCallback(async (address: string): Promise<CardData[]> => {
-        setIsLoading(true);
-        setError(null);
+        const addrKey = address.toLowerCase();
 
-        try {
-            // Phase 1: Check if we have cached cards (from localStorage or previous fetch)
-            const cardsKey = CacheKeys.userCards(address);
-            const cachedCards = blockchainCache.get<CardData[]>(cardsKey);
-            const prevTokensKey = `nft:prevTokenIds:${address}`;
-            const prevTokenIds = blockchainCache.get<number[]>(prevTokensKey);
+        // If already fetching for this address, return the in-flight promise
+        const pending = pendingGetCards.get(addrKey);
+        if (pending) {
+            console.log('📋 getCards already in-flight for', address.slice(0, 8), '— reusing');
+            return pending;
+        }
 
-            // Phase 2: Get current token list from blockchain
-            const tokenIds = await getOwnedTokens(address);
+        const doFetch = async (): Promise<CardData[]> => {
+            setIsLoading(true);
+            setError(null);
 
-            // Smart diff: if token list matches cached, return instantly
-            if (cachedCards && prevTokenIds &&
-                prevTokenIds.length === tokenIds.length &&
-                prevTokenIds.every((id, i) => id === tokenIds[i])) {
-                console.log('📋 Cards unchanged (' + tokenIds.length + '), instant from cache');
-                return cachedCards;
-            }
+            try {
+                // Phase 1: Check if we have cached cards (from localStorage or previous fetch)
+                const cardsKey = CacheKeys.userCards(address);
+                const cachedCards = blockchainCache.get<CardData[]>(cardsKey);
+                const prevTokensKey = `nft:prevTokenIds:${address}`;
+                const prevTokenIds = blockchainCache.get<number[]>(prevTokensKey);
 
-            // Stale-while-revalidate: if we have ANY cached cards, return them immediately
-            // and fetch fresh data — caller will get updated data on next poll (30s)
-            if (cachedCards && cachedCards.length > 0 && prevTokenIds) {
-                const newTokenIds = tokenIds.filter(id => !new Set(prevTokenIds).has(id));
-                if (newTokenIds.length > 0 && newTokenIds.length < tokenIds.length) {
-                    // Some new tokens — return stale cards now, fetch new ones in background
-                    console.log('📋 Returning', cachedCards.length, 'cached cards +', newTokenIds.length, 'new loading in background');
-                    // Background fetch for new tokens
-                    fetchMetadataBatch(tokenIds).then(cards => {
-                        const valid = cards.filter((c): c is CardData => c !== null);
-                        blockchainCache.set(cardsKey, valid);
-                        blockchainCache.set(prevTokensKey, tokenIds);
-                        blockchainCache.persistKeys('nft:');
-                    });
+                // Phase 2: Get current token list from blockchain
+                const tokenIds = await getOwnedTokens(address);
+
+                // Smart diff: if token list matches cached, return instantly
+                if (cachedCards && prevTokenIds &&
+                    prevTokenIds.length === tokenIds.length &&
+                    prevTokenIds.every((id, i) => id === tokenIds[i])) {
+                    console.log('📋 Cards unchanged (' + tokenIds.length + '), instant from cache');
                     return cachedCards;
                 }
+
+                // Stale-while-revalidate: if we have ANY cached cards, return them immediately
+                // and fetch fresh data — caller will get updated data on next poll (30s)
+                if (cachedCards && cachedCards.length > 0 && prevTokenIds) {
+                    const newTokenIds = tokenIds.filter(id => !new Set(prevTokenIds).has(id));
+                    if (newTokenIds.length > 0 && newTokenIds.length < tokenIds.length) {
+                        console.log('📋 Returning', cachedCards.length, 'cached cards +', newTokenIds.length, 'new loading in background');
+                        fetchMetadataBatch(tokenIds).then(cards => {
+                            const valid = cards.filter((c): c is CardData => c !== null);
+                            blockchainCache.set(cardsKey, valid);
+                            blockchainCache.set(prevTokensKey, tokenIds);
+                            blockchainCache.persistKeys('nft:');
+                        });
+                        return cachedCards;
+                    }
+                }
+
+                // Full fetch needed (first load or major change)
+                const prevSet = new Set(prevTokenIds || []);
+                const newTokenIds = tokenIds.filter(id => !prevSet.has(id));
+                console.log('📋 Fetching cards for', address, '-', tokenIds.length, 'tokens (' + newTokenIds.length + ' new)');
+
+                const cards = await fetchMetadataBatch(tokenIds);
+
+                // For tokens where metadata failed, fall back to contract data
+                const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
+                if (nullIndices.length > 0) {
+                    console.log(`⚡ ${nullIndices.length} cards missing metadata, falling back to contract`);
+                    const fallbacks = await fetchInBatches(
+                        nullIndices.map(i => tokenIds[i]),
+                        fetchCardFromContract, 5, 100
+                    );
+                    fallbacks.forEach((card, fi) => {
+                        if (card) cards[nullIndices[fi]] = card;
+                    });
+                }
+
+                const validCards = cards.filter((c): c is CardData => c !== null);
+                console.log('   Loaded', validCards.length, 'cards');
+
+                // Cache + persist to localStorage for instant load on next visit
+                blockchainCache.set(cardsKey, validCards);
+                blockchainCache.set(prevTokensKey, tokenIds);
+                blockchainCache.persistKeys('nft:');
+
+                return validCards;
+            } catch (e: any) {
+                const cardsKey = CacheKeys.userCards(address);
+                const cached = blockchainCache.get<CardData[]>(cardsKey);
+                if (cached && cached.length > 0) {
+                    console.warn('Fetch failed, returning cached cards:', e.message);
+                    return cached;
+                }
+                setError(e.message);
+                return [];
+            } finally {
+                setIsLoading(false);
+                pendingGetCards.delete(addrKey);
             }
+        };
 
-            // Full fetch needed (first load or major change)
-            const prevSet = new Set(prevTokenIds || []);
-            const newTokenIds = tokenIds.filter(id => !prevSet.has(id));
-            console.log('📋 Fetching cards for', address, '-', tokenIds.length, 'tokens (' + newTokenIds.length + ' new)');
-
-            const cards = await fetchMetadataBatch(tokenIds);
-
-            // For tokens where metadata failed, fall back to contract data
-            const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
-            if (nullIndices.length > 0) {
-                console.log(`⚡ ${nullIndices.length} cards missing metadata, falling back to contract`);
-                const fallbacks = await fetchInBatches(
-                    nullIndices.map(i => tokenIds[i]),
-                    fetchCardFromContract, 5, 100
-                );
-                fallbacks.forEach((card, fi) => {
-                    if (card) cards[nullIndices[fi]] = card;
-                });
-            }
-
-            const validCards = cards.filter((c): c is CardData => c !== null);
-            console.log('   Loaded', validCards.length, 'cards');
-
-            // Cache + persist to localStorage for instant load on next visit
-            blockchainCache.set(cardsKey, validCards);
-            blockchainCache.set(prevTokensKey, tokenIds);
-            blockchainCache.persistKeys('nft:');
-
-            return validCards;
-        } catch (e: any) {
-            // On error, return cached cards if available (offline resilience)
-            const cardsKey = CacheKeys.userCards(address);
-            const cached = blockchainCache.get<CardData[]>(cardsKey);
-            if (cached && cached.length > 0) {
-                console.warn('Fetch failed, returning cached cards:', e.message);
-                return cached;
-            }
-            setError(e.message);
-            return [];
-        } finally {
-            setIsLoading(false);
-        }
+        const promise = doFetch();
+        pendingGetCards.set(addrKey, promise);
+        return promise;
     }, [getOwnedTokens, fetchMetadataBatch, fetchCardFromContract]);
 
     // Rarity names for logging
