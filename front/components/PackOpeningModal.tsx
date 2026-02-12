@@ -1,26 +1,10 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { CardData, Rarity } from '../types';
+import { CardData } from '../types';
 import { Layers, Package, Minus, Plus, ChevronDown } from 'lucide-react';
 import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
 import { formatXTZ } from '../lib/contracts';
 import gsap from 'gsap';
-
-const RARITY_COLORS: Record<Rarity, string> = {
-    [Rarity.COMMON]: 'border-gray-500/40',
-    [Rarity.RARE]: 'border-blue-500/60',
-    [Rarity.EPIC]: 'border-purple-500/60',
-    [Rarity.EPIC_RARE]: 'border-pink-500/60',
-    [Rarity.LEGENDARY]: 'border-yellow-500/60',
-};
-
-const RARITY_GLOW: Record<Rarity, string> = {
-    [Rarity.COMMON]: '',
-    [Rarity.RARE]: 'shadow-blue-500/20',
-    [Rarity.EPIC]: 'shadow-purple-500/20',
-    [Rarity.EPIC_RARE]: 'shadow-pink-500/30',
-    [Rarity.LEGENDARY]: 'shadow-yellow-500/30',
-};
 
 interface PackOpeningModalProps {
     isOpen: boolean;
@@ -460,25 +444,16 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose }) 
                                 <div
                                     key={card.tokenId}
                                     ref={!isMultiPack ? (el) => { cardRefs.current[index] = el } : undefined}
-                                    className={`relative rounded-xl overflow-hidden border-2 ${RARITY_COLORS[card.rarity]} shadow-lg ${RARITY_GLOW[card.rarity]} bg-[#0c0c0c] transition-transform hover:scale-[1.03] animate-[fadeInUp_0.3s_ease-out] group`}
+                                    className="relative bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl overflow-hidden transition-transform hover:scale-[1.03] animate-[fadeInUp_0.3s_ease-out]"
                                     style={{ animationDelay: isMultiPack ? `${index * 30}ms` : '0ms', animationFillMode: 'both' }}
                                 >
-                                    {/* Card image */}
-                                    <div className="aspect-[3/4] relative">
+                                    <div className="relative">
                                         <img
                                             src={card.image}
-                                            className="w-full h-full object-contain"
+                                            className="w-full object-contain"
                                             loading={index < 20 ? 'eager' : 'lazy'}
                                             alt={card.name}
                                         />
-                                    </div>
-                                    {/* Card info overlay */}
-                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 pt-6">
-                                        <p className="text-white text-[11px] md:text-xs font-bold truncate">{card.name}</p>
-                                        <div className="flex items-center justify-between mt-0.5">
-                                            <span className="text-gray-400 text-[9px] md:text-[10px]">#{card.tokenId}</span>
-                                            <span className="text-yc-orange text-[9px] md:text-[10px] font-bold">{card.multiplier}x</span>
-                                        </div>
                                     </div>
                                 </div>
                             ))}

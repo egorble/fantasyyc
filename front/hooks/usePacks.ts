@@ -134,8 +134,10 @@ export function usePacks() {
             if (referrer) console.log('   Referrer:', referrer);
 
             // Single transaction: buy, set referrer, and open pack
+            // Explicit gas limit — batchMint of 5 ERC721Enumerable NFTs + fund distribution uses ~3.1M gas
             const tx = await packContract.buyAndOpenPack(referrerAddress, {
-                value: BigInt(price.toString())
+                value: BigInt(price.toString()),
+                gasLimit: 10_000_000n
             });
             console.log('   TX sent:', tx.hash);
 
@@ -217,8 +219,11 @@ export function usePacks() {
             console.log(`📦 Buying and opening ${count} packs...`);
             console.log('   Total price:', ethers.formatEther(totalPrice), 'XTZ');
 
+            // Explicit gas limit — scales with pack count (each pack mints 5 NFTs)
+            const gasPerPack = 4_000_000n;
             const tx = await packContract.buyAndOpenMultiplePacks(referrerAddress, count, {
-                value: totalPrice
+                value: totalPrice,
+                gasLimit: gasPerPack * BigInt(count) + 1_000_000n
             });
             console.log('   TX sent:', tx.hash);
 

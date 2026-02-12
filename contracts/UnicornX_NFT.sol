@@ -435,6 +435,11 @@ contract UnicornX_NFT is
         _setDefaultRoyalty(receiver, ROYALTY_FEE);
     }
 
+    /// @notice Re-initialize startup data after UUPS upgrade (fixes any stale storage)
+    function reinitializeStartups() external onlyAdmin {
+        _initializeStartups();
+    }
+
     // ============ Overrides ============
 
     function _baseURI() internal view override returns (string memory) {

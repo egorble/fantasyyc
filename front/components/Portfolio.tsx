@@ -704,11 +704,10 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                         <div
                                             key={card.tokenId}
                                             ref={el => { if (el) fusionCardsRef.current[idx] = el }}
-                                            className="absolute w-32 h-48 bg-black border-2 border-yc-orange rounded-xl overflow-hidden shadow-[0_0_30px_rgba(242,101,34,0.3)] z-20"
+                                            className="absolute w-32 h-48 rounded-xl overflow-hidden z-20"
                                             style={{ transform: `translate(${x}px, ${y}px)` }}
                                         >
-                                            <img src={card.image} className="w-full h-full object-contain opacity-80" />
-                                            <div className="absolute inset-0 bg-yc-orange/20 mix-blend-overlay"></div>
+                                            <img src={card.image} className="w-full h-full object-contain" />
                                         </div>
                                     );
                                 })}
