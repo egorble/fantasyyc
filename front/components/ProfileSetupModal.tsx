@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Upload, Loader2, Sparkles } from 'lucide-react';
+import { User, Upload, Loader2 } from 'lucide-react';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 
 interface ProfileSetupModalProps {
@@ -102,7 +102,6 @@ const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, address, 
             <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-out]">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-yc-orange to-orange-600 p-6 text-center">
-                    <Sparkles className="w-8 h-8 text-white mx-auto mb-2" />
                     <h2 className="text-white text-xl font-black">Welcome to UnicornX</h2>
                     <p className="text-white/80 text-sm mt-1">Set up your profile to get started</p>
                 </div>

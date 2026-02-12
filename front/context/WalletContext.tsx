@@ -1,9 +1,10 @@
-// Direct wallet context — no Web3Modal, no API keys
-// Uses window.ethereum (MetaMask, Rabby, Trust Wallet, Coinbase, etc.)
-// On mobile: open site in wallet's built-in browser
+// Wallet context with EIP-6963 wallet discovery + selection modal
+// Supports: MetaMask, Rabby, Trust Wallet, Coinbase, any EIP-6963 wallet
+// Mobile: deep links to open in wallet browser (no WalletConnect needed)
 import React, { createContext, useContext, ReactNode, useEffect, useState, useCallback, useRef } from 'react';
 import { BrowserProvider, ethers, Eip1193Provider } from 'ethers';
 import { CHAIN_ID, CHAIN_NAME, RPC_URL, EXPLORER_URL, getProvider } from '../lib/contracts';
+import WalletModal, { DetectedWallet } from '../components/WalletModal';
 
 interface WalletContextType {
     isConnected: boolean;
@@ -13,22 +14,20 @@ interface WalletContextType {
     isCorrectChain: boolean;
     isConnecting: boolean;
     error: string | null;
-    hasMetaMask: boolean;
-    connect: () => Promise<void>;
+    connect: () => void;
     disconnect: () => void;
     switchChain: () => Promise<void>;
     getSigner: () => Promise<ethers.Signer | null>;
     refreshBalance: () => void;
     formatAddress: (address: string) => string;
     formatBalance: (wei: bigint, decimals?: number) => string;
-    // Expose provider for hooks that need it directly
     walletProvider: Eip1193Provider | null;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
 
-// Persist connection state
 const STORAGE_KEY = 'unicornx:wallet:connected';
+const WALLET_RDNS_KEY = 'unicornx:wallet:rdns';
 
 function formatAddress(address: string): string {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -42,26 +41,41 @@ function formatBalance(wei: bigint, decimals = 4): string {
     });
 }
 
-function getEthereum(): any {
-    if (typeof window !== 'undefined' && window.ethereum) {
-        return window.ethereum;
-    }
-    return null;
-}
-
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [address, setAddress] = useState<string | null>(null);
     const [chainId, setChainId] = useState<number | null>(null);
     const [balance, setBalance] = useState<bigint>(0n);
     const [error, setError] = useState<string | null>(null);
     const [isConnecting, setIsConnecting] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [detectedWallets, setDetectedWallets] = useState<DetectedWallet[]>([]);
+    const activeProviderRef = useRef<any>(null);
+    const listenersRef = useRef<{ onAccounts: (a: string[]) => void; onChain: (h: string) => void } | null>(null);
 
-    const ethereum = getEthereum();
-    const hasMetaMask = !!ethereum;
     const isConnected = !!address;
     const isCorrectChain = chainId === CHAIN_ID;
 
-    // Update balance
+    // Discover wallets via EIP-6963
+    useEffect(() => {
+        const wallets: DetectedWallet[] = [];
+
+        const handler = (event: any) => {
+            const detail = event.detail as DetectedWallet;
+            if (!wallets.some(w => w.info.rdns === detail.info.rdns)) {
+                wallets.push(detail);
+                setDetectedWallets([...wallets]);
+            }
+        };
+
+        window.addEventListener('eip6963:announceProvider', handler);
+        window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+        return () => {
+            window.removeEventListener('eip6963:announceProvider', handler);
+        };
+    }, []);
+
+    // Update balance via read-only provider
     const updateBalance = useCallback(async (addr: string) => {
         try {
             const provider = getProvider();
@@ -72,16 +86,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Read chain ID from provider
-    const readChainId = useCallback(async () => {
-        if (!ethereum) return;
+    // Read chain ID from a given provider
+    const readChainId = useCallback(async (provider: any) => {
+        if (!provider) return;
         try {
-            const hexChainId = await ethereum.request({ method: 'eth_chainId' });
+            const hexChainId = await provider.request({ method: 'eth_chainId' });
             setChainId(parseInt(hexChainId, 16));
         } catch { /* ignore */ }
-    }, [ethereum]);
+    }, []);
 
-    // Handle connection result
+    // Handle accounts result
     const handleAccounts = useCallback((accounts: string[]) => {
         if (accounts.length > 0) {
             setAddress(accounts[0]);
@@ -90,21 +104,45 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setAddress(null);
             setBalance(0n);
             localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(WALLET_RDNS_KEY);
         }
     }, []);
 
-    // Connect wallet
-    const connect = useCallback(async () => {
-        if (!ethereum) {
-            setError('No wallet detected. Install MetaMask or open in your wallet browser.');
-            return;
+    // Set up event listeners on a provider
+    const setupListeners = useCallback((provider: any) => {
+        // Remove old listeners first
+        if (listenersRef.current && activeProviderRef.current) {
+            activeProviderRef.current.removeListener?.('accountsChanged', listenersRef.current.onAccounts);
+            activeProviderRef.current.removeListener?.('chainChanged', listenersRef.current.onChain);
         }
+
+        const onAccounts = (accounts: string[]) => handleAccounts(accounts);
+        const onChain = (hexChainId: string) => setChainId(parseInt(hexChainId, 16));
+
+        provider.on?.('accountsChanged', onAccounts);
+        provider.on?.('chainChanged', onChain);
+
+        listenersRef.current = { onAccounts, onChain };
+        activeProviderRef.current = provider;
+    }, [handleAccounts]);
+
+    // Open connect modal
+    const connect = useCallback(() => {
+        setError(null);
+        setShowModal(true);
+    }, []);
+
+    // Connect with a specific wallet provider
+    const connectWithWallet = useCallback(async (provider: any, rdns: string) => {
         setIsConnecting(true);
         setError(null);
         try {
-            const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+            const accounts = await provider.request({ method: 'eth_requestAccounts' });
+            setupListeners(provider);
+            localStorage.setItem(WALLET_RDNS_KEY, rdns);
             handleAccounts(accounts);
-            await readChainId();
+            await readChainId(provider);
+            setShowModal(false);
         } catch (e: any) {
             if (e.code === 4001) {
                 setError('Connection rejected');
@@ -114,31 +152,38 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsConnecting(false);
         }
-    }, [ethereum, handleAccounts, readChainId]);
+    }, [handleAccounts, readChainId, setupListeners]);
 
-    // Disconnect wallet (clear local state — no WalletConnect session to destroy)
+    // Disconnect
     const disconnect = useCallback(() => {
+        if (listenersRef.current && activeProviderRef.current) {
+            activeProviderRef.current.removeListener?.('accountsChanged', listenersRef.current.onAccounts);
+            activeProviderRef.current.removeListener?.('chainChanged', listenersRef.current.onChain);
+        }
+        activeProviderRef.current = null;
+        listenersRef.current = null;
         setAddress(null);
         setBalance(0n);
         setChainId(null);
         setError(null);
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(WALLET_RDNS_KEY);
     }, []);
 
     // Switch to correct chain
     const switchChain = useCallback(async () => {
-        if (!ethereum) return;
+        const provider = activeProviderRef.current || (window as any)?.ethereum;
+        if (!provider) return;
         const hexChainId = '0x' + CHAIN_ID.toString(16);
         try {
-            await ethereum.request({
+            await provider.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: hexChainId }],
             });
         } catch (switchError: any) {
-            // Chain not added — add it
             if (switchError.code === 4902) {
                 try {
-                    await ethereum.request({
+                    await provider.request({
                         method: 'wallet_addEthereumChain',
                         params: [{
                             chainId: hexChainId,
@@ -155,58 +200,66 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 console.error('Failed to switch chain:', switchError);
             }
         }
-    }, [ethereum]);
+    }, []);
 
     // Get signer for transactions
     const getSigner = useCallback(async (): Promise<ethers.Signer | null> => {
-        if (!ethereum || !isConnected) return null;
+        const provider = activeProviderRef.current || (window as any)?.ethereum;
+        if (!provider || !isConnected) return null;
         try {
-            const provider = new BrowserProvider(ethereum as Eip1193Provider);
-            return await provider.getSigner();
+            const browserProvider = new BrowserProvider(provider as Eip1193Provider);
+            return await browserProvider.getSigner();
         } catch (e) {
             console.error('Failed to get signer:', e);
             return null;
         }
-    }, [ethereum, isConnected]);
+    }, [isConnected]);
 
     // Refresh balance
     const refreshBalance = useCallback(() => {
         if (address) updateBalance(address);
     }, [address, updateBalance]);
 
-    // Listen for wallet events
-    useEffect(() => {
-        if (!ethereum) return;
-
-        const onAccountsChanged = (accounts: string[]) => handleAccounts(accounts);
-        const onChainChanged = (hexChainId: string) => setChainId(parseInt(hexChainId, 16));
-
-        ethereum.on('accountsChanged', onAccountsChanged);
-        ethereum.on('chainChanged', onChainChanged);
-
-        return () => {
-            ethereum.removeListener('accountsChanged', onAccountsChanged);
-            ethereum.removeListener('chainChanged', onChainChanged);
-        };
-    }, [ethereum, handleAccounts]);
-
     // Auto-reconnect if previously connected
     useEffect(() => {
-        if (!ethereum) return;
         const wasConnected = localStorage.getItem(STORAGE_KEY);
-        if (wasConnected) {
-            ethereum.request({ method: 'eth_accounts' })
+        if (!wasConnected) return;
+
+        const savedRdns = localStorage.getItem(WALLET_RDNS_KEY);
+
+        // Small delay to let EIP-6963 announcements arrive
+        const timer = setTimeout(() => {
+            let provider: any = null;
+
+            // Try to find the same wallet that was used before
+            if (savedRdns && savedRdns !== 'injected') {
+                const wallet = detectedWallets.find(w => w.info.rdns === savedRdns);
+                if (wallet) provider = wallet.provider;
+            }
+
+            // Fallback to window.ethereum
+            if (!provider && (window as any)?.ethereum) {
+                provider = (window as any).ethereum;
+            }
+
+            if (!provider) return;
+
+            provider.request({ method: 'eth_accounts' })
                 .then((accounts: string[]) => {
                     if (accounts.length > 0) {
+                        setupListeners(provider);
                         handleAccounts(accounts);
-                        readChainId();
+                        readChainId(provider);
                     } else {
                         localStorage.removeItem(STORAGE_KEY);
+                        localStorage.removeItem(WALLET_RDNS_KEY);
                     }
                 })
-                .catch(() => {});
-        }
-    }, [ethereum, handleAccounts, readChainId]);
+                .catch(() => { });
+        }, 150);
+
+        return () => clearTimeout(timer);
+    }, [detectedWallets, handleAccounts, readChainId, setupListeners]);
 
     // Balance polling
     useEffect(() => {
@@ -227,7 +280,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isCorrectChain,
         isConnecting,
         error,
-        hasMetaMask,
         connect,
         disconnect,
         switchChain,
@@ -235,12 +287,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         refreshBalance,
         formatAddress,
         formatBalance,
-        walletProvider: ethereum as Eip1193Provider | null,
+        walletProvider: (activeProviderRef.current || null) as Eip1193Provider | null,
     };
 
     return (
         <WalletContext.Provider value={value}>
             {children}
+            <WalletModal
+                isOpen={showModal}
+                onClose={() => { setShowModal(false); setIsConnecting(false); }}
+                wallets={detectedWallets}
+                onSelectWallet={connectWithWallet}
+                isConnecting={isConnecting}
+            />
         </WalletContext.Provider>
     );
 }
