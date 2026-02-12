@@ -214,6 +214,17 @@ const Leagues: React.FC = () => {
         return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
     };
 
+    // Format remaining seconds into human readable string
+    const formatRemaining = (seconds: number): string => {
+        if (seconds <= 0) return '0m';
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        if (days > 0) return `${days}d ${hours}h`;
+        if (hours > 0) return `${hours}h ${minutes}m`;
+        return `${minutes}m`;
+    };
+
     // Calculate time remaining based on phase
     const getTimeInfo = () => {
         if (!activeTournament) return { label: 'No Tournament', value: '-' };
@@ -221,16 +232,13 @@ const Leagues: React.FC = () => {
         const now = Date.now() / 1000;
 
         if (phase === 'upcoming') {
-            const hours = Math.max(0, Math.ceil((activeTournament.registrationStart - now) / 3600));
-            return { label: 'Registration Opens In', value: hours < 24 ? `${hours}h` : `${Math.ceil(hours / 24)}d` };
+            return { label: 'Registration Opens In', value: formatRemaining(activeTournament.registrationStart - now) };
         }
         if (phase === 'registration') {
-            const hours = Math.max(0, Math.ceil((activeTournament.startTime - now) / 3600));
-            return { label: 'Tournament Starts In', value: hours < 24 ? `${hours}h` : `${Math.ceil(hours / 24)}d` };
+            return { label: 'Tournament Starts In', value: formatRemaining(activeTournament.startTime - now) };
         }
         if (phase === 'active') {
-            const hours = Math.max(0, Math.ceil((activeTournament.endTime - now) / 3600));
-            return { label: 'Ends In', value: hours < 24 ? `${hours}h` : `${Math.ceil(hours / 24)}d` };
+            return { label: 'Ends In', value: formatRemaining(activeTournament.endTime - now) };
         }
         if (phase === 'finalized') return { label: 'Status', value: 'Finalized' };
         return { label: 'Status', value: 'Ended' };

@@ -15,6 +15,7 @@ import ProfileEditModal from './components/ProfileEditModal';
 import BottomNav from './components/BottomNav';
 import TournamentCTA from './components/TournamentCTA';
 import DashboardLeaderboard from './components/DashboardLeaderboard';
+import MobileWidgets from './components/MobileWidgets';
 import { NavSection, UserProfile, Rarity, CardData } from './types';
 import { Filter, Search, Wallet, Loader2, Sun, Moon, LogOut, User } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
@@ -206,6 +207,9 @@ const AppContent: React.FC = () => {
 
                         {/* 3. Tournament CTA */}
                         <TournamentCTA onNavigate={handleSectionChange} />
+
+                        {/* 3.5 Top Startups + Referral (visible below xl where RightPanel is hidden) */}
+                        <MobileWidgets />
 
                         {/* 4. Leaderboard */}
                         <DashboardLeaderboard onNavigate={handleSectionChange} />

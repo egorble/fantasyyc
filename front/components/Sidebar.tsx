@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavSection, UserProfile } from '../types';
-import { LayoutGrid, ShoppingBag, PieChart, Trophy, BarChart2, Settings, Sun, Moon, Shield, LogOut } from 'lucide-react';
+import { Flame, Store, Wallet, Trophy, TrendingUp, Settings, Sun, Moon, ShieldCheck, LogOut } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { isAdmin } from '../hooks/useAdmin';
 import { useWalletContext } from '../context/WalletContext';
@@ -20,13 +20,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
   const userIsAdmin = isAdmin(user.address || null);
 
   const navItems = [
-    { id: NavSection.HOME, icon: LayoutGrid, label: 'Dashboard' },
-    { id: NavSection.MARKETPLACE, icon: ShoppingBag, label: 'Marketplace' },
-    { id: NavSection.PORTFOLIO, icon: PieChart, label: 'My Portfolio' },
+    { id: NavSection.HOME, icon: Flame, label: 'Dashboard' },
+    { id: NavSection.MARKETPLACE, icon: Store, label: 'Marketplace' },
+    { id: NavSection.PORTFOLIO, icon: Wallet, label: 'My Portfolio' },
     { id: NavSection.LEAGUES, icon: Trophy, label: 'Leagues' },
-    { id: NavSection.ANALYTICS, icon: BarChart2, label: 'Analytics' },
-    // Admin tab - only shown for admin
-    ...(userIsAdmin ? [{ id: NavSection.ADMIN, icon: Shield, label: 'Admin' }] : []),
+    { id: NavSection.ANALYTICS, icon: TrendingUp, label: 'Analytics' },
+    ...(userIsAdmin ? [{ id: NavSection.ADMIN, icon: ShieldCheck, label: 'Admin' }] : []),
   ];
 
   return (
