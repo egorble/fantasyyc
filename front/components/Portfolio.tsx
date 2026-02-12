@@ -51,6 +51,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     const coreRef = useRef<HTMLDivElement>(null);
     const flashRef = useRef<HTMLDivElement>(null);
     const animationRanRef = useRef(false); // Prevent animation from running twice
+    const pendingCardFetchRef = useRef<Promise<CardData | null> | null>(null); // Pre-fetched card during animation
 
     // Hooks
     const { isConnected, address, getSigner, connect } = useWalletContext();
@@ -172,7 +173,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
         if (result.success && result.newTokenId) {
             console.log('✅ Merge transaction successful! Token ID:', result.newTokenId);
-            // ONLY NOW start the animation
+            // Start fetching card metadata IMMEDIATELY (parallel with animation)
+            pendingCardFetchRef.current = getCardInfoWithRetry(result.newTokenId, 3, 2000);
             setPendingNewTokenId(result.newTokenId);
             setMergeStatus('processing'); // This triggers the animation
         } else {
@@ -273,21 +275,30 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     }, [mergeStatus, pendingNewTokenId]);
 
     const finalizeMerge = async (newTokenId: number) => {
-        // Fetch with retries + contract fallback (metadata server may be slow after mint)
-        const newCard = await getCardInfoWithRetry(newTokenId, 3, 2000);
-
-        // Then reload all cards
-        if (address) {
-            const cards = await getCards(address);
-            setMyCards(sortByRarity(cards));
-        }
+        // Use the pre-started fetch (kicked off before animation) or fetch now as fallback
+        const newCard = pendingCardFetchRef.current
+            ? await pendingCardFetchRef.current
+            : await getCardInfoWithRetry(newTokenId, 3, 2000);
+        pendingCardFetchRef.current = null;
 
         if (newCard) {
+            // Preload the image fully before showing success screen
+            await new Promise<void>((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+                img.src = newCard.image;
+            });
             setNewlyForgedCard(newCard);
         }
 
         setMergeStatus('success');
         setSelectedCardIds([]);
+
+        // Refresh full card list in background (don't block success screen)
+        if (address) {
+            getCards(address).then(cards => setMyCards(sortByRarity(cards)));
+        }
     };
 
     const closeSuccessModal = () => {
@@ -750,9 +761,6 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
                     {mergeStatus === 'success' && (
                         <div className="flex flex-col items-center animate-[scaleIn_0.4s_cubic-bezier(0.34,1.56,0.64,1)] relative z-50">
-                            <div className="text-yc-orange mb-4">
-                                <Layers className="w-20 h-20 drop-shadow-[0_0_20px_rgba(242,101,34,0.5)]" />
-                            </div>
                             <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-2">Fusion Complete</h2>
                             <p className="text-gray-400 mb-8">A new powerful asset has been forged.</p>
 
