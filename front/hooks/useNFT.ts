@@ -255,9 +255,39 @@ export function useNFT() {
         return await fetchMetadata(tokenId);
     }, [fetchMetadata]);
 
-    // Get all cards for an address — instant from localStorage, background refresh
-    // Flow: localStorage → cache hit → return instantly → validate in background
-    // Deduplication: if a fetch for this address is already in-flight, reuse it
+    // Server API: fetch cards from DB cache (single HTTP request, ~50ms)
+    const fetchCardsFromServer = useCallback(async (address: string): Promise<CardData[] | null> => {
+        try {
+            const res = await fetch(`/api/player/${address.toLowerCase()}/nfts`);
+            if (!res.ok) return null;
+            const json = await res.json();
+            if (!json.success || !json.data) return null;
+
+            return json.data.map((c: any) => ({
+                tokenId: c.tokenId,
+                startupId: c.startupId,
+                name: c.name,
+                rarity: RARITY_STRING_MAP[c.rarity] || Rarity.COMMON,
+                multiplier: c.multiplier,
+                edition: c.edition || 1,
+                isLocked: c.isLocked || false,
+                image: c.image || `/images/${c.startupId}.png`,
+                fundraising: null,
+                description: null,
+            }));
+        } catch {
+            return null;
+        }
+    }, []);
+
+    // Trigger server-side blockchain sync (after pack open, merge, etc.)
+    const syncCardsOnServer = useCallback(async (address: string): Promise<void> => {
+        try {
+            await fetch(`/api/player/${address.toLowerCase()}/nfts/sync`, { method: 'POST' });
+        } catch { /* ignore */ }
+    }, []);
+
+    // Get all cards for an address — server API first, blockchain fallback
     const getCards = useCallback(async (address: string): Promise<CardData[]> => {
         const addrKey = address.toLowerCase();
 
@@ -273,50 +303,25 @@ export function useNFT() {
             setError(null);
 
             try {
-                // Phase 1: Check if we have cached cards (from localStorage or previous fetch)
-                const cardsKey = CacheKeys.userCards(address);
-                const cachedCards = blockchainCache.get<CardData[]>(cardsKey);
-                const prevTokensKey = `nft:prevTokenIds:${address}`;
-                const prevTokenIds = blockchainCache.get<number[]>(prevTokensKey);
+                // Try server API first (instant from DB cache, single HTTP request)
+                const serverCards = await fetchCardsFromServer(address);
+                if (serverCards && serverCards.length > 0) {
+                    console.log('📋 Loaded', serverCards.length, 'cards from server API');
+                    const cardsKey = CacheKeys.userCards(address);
+                    blockchainCache.set(cardsKey, serverCards);
+                    blockchainCache.persistKeys('nft:');
+                    return serverCards;
+                }
 
-                // Phase 2: Get current token list from blockchain
+                // Server returned empty or failed — fall back to blockchain
+                console.log('📋 Server API empty/failed, falling back to blockchain...');
                 const tokenIds = await getOwnedTokens(address);
-
-                // Smart diff: if token list matches cached, return instantly
-                if (cachedCards && prevTokenIds &&
-                    prevTokenIds.length === tokenIds.length &&
-                    prevTokenIds.every((id, i) => id === tokenIds[i])) {
-                    console.log('📋 Cards unchanged (' + tokenIds.length + '), instant from cache');
-                    return cachedCards;
-                }
-
-                // Stale-while-revalidate: if we have ANY cached cards, return them immediately
-                // and fetch fresh data — caller will get updated data on next poll (30s)
-                if (cachedCards && cachedCards.length > 0 && prevTokenIds) {
-                    const newTokenIds = tokenIds.filter(id => !new Set(prevTokenIds).has(id));
-                    if (newTokenIds.length > 0 && newTokenIds.length < tokenIds.length) {
-                        console.log('📋 Returning', cachedCards.length, 'cached cards +', newTokenIds.length, 'new loading in background');
-                        fetchMetadataBatch(tokenIds).then(cards => {
-                            const valid = cards.filter((c): c is CardData => c !== null);
-                            blockchainCache.set(cardsKey, valid);
-                            blockchainCache.set(prevTokensKey, tokenIds);
-                            blockchainCache.persistKeys('nft:');
-                        });
-                        return cachedCards;
-                    }
-                }
-
-                // Full fetch needed (first load or major change)
-                const prevSet = new Set(prevTokenIds || []);
-                const newTokenIds = tokenIds.filter(id => !prevSet.has(id));
-                console.log('📋 Fetching cards for', address, '-', tokenIds.length, 'tokens (' + newTokenIds.length + ' new)');
+                if (tokenIds.length === 0) return [];
 
                 const cards = await fetchMetadataBatch(tokenIds);
 
-                // For tokens where metadata failed, fall back to contract data
                 const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
                 if (nullIndices.length > 0) {
-                    console.log(`⚡ ${nullIndices.length} cards missing metadata, falling back to contract`);
                     const fallbacks = await fetchInBatches(
                         nullIndices.map(i => tokenIds[i]),
                         fetchCardFromContract, 5, 100
@@ -327,12 +332,14 @@ export function useNFT() {
                 }
 
                 const validCards = cards.filter((c): c is CardData => c !== null);
-                console.log('   Loaded', validCards.length, 'cards');
+                console.log('   Loaded', validCards.length, 'cards from blockchain');
 
-                // Cache + persist to localStorage for instant load on next visit
+                const cardsKey = CacheKeys.userCards(address);
                 blockchainCache.set(cardsKey, validCards);
-                blockchainCache.set(prevTokensKey, tokenIds);
                 blockchainCache.persistKeys('nft:');
+
+                // Trigger server sync in background for next time
+                syncCardsOnServer(address);
 
                 return validCards;
             } catch (e: any) {
@@ -353,7 +360,7 @@ export function useNFT() {
         const promise = doFetch();
         pendingGetCards.set(addrKey, promise);
         return promise;
-    }, [getOwnedTokens, fetchMetadataBatch, fetchCardFromContract]);
+    }, [getOwnedTokens, fetchMetadataBatch, fetchCardFromContract, fetchCardsFromServer, syncCardsOnServer]);
 
     // Rarity names for logging
     const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
@@ -467,5 +474,6 @@ export function useNFT() {
         mergeCards,
         isLocked,
         clearCache,
+        syncCardsOnServer,
     };
 }

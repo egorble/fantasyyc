@@ -481,6 +481,55 @@ export function getReferralStats(referrerAddress) {
     `, [referrerAddress]);
 }
 
+// ============ NFT Cards Cache Functions ============
+
+export function saveNFTCards(ownerAddress, cards) {
+    if (!db) throw new Error('Database not initialized');
+    const addr = ownerAddress.toLowerCase();
+
+    // Remove cards this owner no longer has
+    const currentTokenIds = cards.map(c => c.tokenId);
+    if (currentTokenIds.length > 0) {
+        const placeholders = currentTokenIds.map(() => '?').join(',');
+        db.run(
+            `DELETE FROM nft_cards WHERE owner_address = ? AND token_id NOT IN (${placeholders})`,
+            [addr, ...currentTokenIds]
+        );
+    } else {
+        db.run('DELETE FROM nft_cards WHERE owner_address = ?', [addr]);
+    }
+
+    // Upsert each card
+    for (const card of cards) {
+        db.run(`
+            INSERT OR REPLACE INTO nft_cards
+            (token_id, owner_address, startup_id, startup_name, rarity, multiplier, edition, is_locked, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `, [card.tokenId, addr, card.startupId, card.name, card.rarity, card.multiplier, card.edition || 1, card.isLocked ? 1 : 0]);
+    }
+}
+
+export function getNFTCards(ownerAddress) {
+    return all(`
+        SELECT * FROM nft_cards
+        WHERE owner_address = ?
+        ORDER BY
+            CASE rarity
+                WHEN 'Legendary' THEN 0
+                WHEN 'Epic' THEN 1
+                WHEN 'EpicRare' THEN 2
+                WHEN 'Rare' THEN 3
+                WHEN 'Common' THEN 4
+            END,
+            token_id
+    `, [ownerAddress.toLowerCase()]);
+}
+
+export function hasNFTCards(ownerAddress) {
+    const row = get('SELECT COUNT(*) as count FROM nft_cards WHERE owner_address = ?', [ownerAddress.toLowerCase()]);
+    return row && row.count > 0;
+}
+
 // ============ HMAC Migration ============
 
 /**

@@ -699,6 +699,118 @@ app.post('/api/referrals/track', writeLimiter, verifyWalletSignature, (req, res)
     }
 });
 
+// ============= NFT CARDS CACHE =============
+
+const nftABI = [
+    'function getOwnedTokens(address owner) view returns (uint256[])',
+    'function getCardInfo(uint256 tokenId) view returns (tuple(uint256 startupId, uint256 edition, uint8 rarity, uint256 multiplier, bool isLocked, string name))',
+];
+
+const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
+
+// Sync NFT cards from blockchain for a given address and cache in DB
+async function syncNFTCards(address) {
+    const provider = new ethers.JsonRpcProvider(CHAIN.RPC_URL);
+    const nft = new ethers.Contract(CONTRACTS.UnicornX_NFT, nftABI, provider);
+
+    const tokenIds = await nft.getOwnedTokens(address);
+    if (tokenIds.length === 0) {
+        db.saveNFTCards(address, []);
+        return [];
+    }
+
+    // Fetch card info for all tokens in parallel (batches of 10)
+    const cards = [];
+    const ids = tokenIds.map(t => Number(t));
+    for (let i = 0; i < ids.length; i += 10) {
+        const batch = ids.slice(i, i + 10);
+        const infos = await Promise.all(batch.map(id => nft.getCardInfo(id)));
+        for (let j = 0; j < batch.length; j++) {
+            const info = infos[j];
+            cards.push({
+                tokenId: batch[j],
+                startupId: Number(info.startupId),
+                name: info.name,
+                rarity: RARITY_NAMES[Number(info.rarity)] || 'Common',
+                multiplier: Number(info.multiplier),
+                edition: Number(info.edition),
+                isLocked: info.isLocked,
+            });
+        }
+    }
+
+    db.saveNFTCards(address, cards);
+    return cards;
+}
+
+/**
+ * GET /api/player/:address/nfts
+ * Returns cached NFT cards for a player. Triggers background sync on first request.
+ */
+app.get('/api/player/:address/nfts', async (req, res) => {
+    try {
+        const { address } = req.params;
+        if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
+
+        const addr = address.toLowerCase();
+
+        // Return cached data if available
+        const cached = db.getNFTCards(addr);
+        if (cached.length > 0) {
+            // Trigger background refresh (don't await)
+            syncNFTCards(addr).catch(e => console.error('Background NFT sync failed:', e.message));
+
+            return res.json({
+                success: true,
+                data: cached.map(c => ({
+                    tokenId: c.token_id,
+                    startupId: c.startup_id,
+                    name: c.startup_name,
+                    rarity: c.rarity,
+                    multiplier: c.multiplier,
+                    edition: c.edition,
+                    isLocked: !!c.is_locked,
+                    image: `/images/${c.startup_id}.png`,
+                }))
+            });
+        }
+
+        // First time: sync from blockchain (wait for it)
+        const cards = await syncNFTCards(addr);
+        return res.json({
+            success: true,
+            data: cards.map(c => ({
+                ...c,
+                image: `/images/${c.startupId}.png`,
+            }))
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/player/:address/nfts/sync
+ * Force-sync NFT cards from blockchain (called after pack open, merge, etc.)
+ */
+app.post('/api/player/:address/nfts/sync', writeLimiter, async (req, res) => {
+    try {
+        const { address } = req.params;
+        if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
+
+        const cards = await syncNFTCards(address.toLowerCase());
+        return res.json({
+            success: true,
+            data: cards.map(c => ({
+                ...c,
+                image: `/images/${c.startupId}.png`,
+            }))
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 /**
  * GET /api/contracts
  * Returns contract addresses so frontend can auto-configure
@@ -981,6 +1093,8 @@ async function startServer() {
             console.log(`   POST /api/users/bulk`);
             console.log(`   GET /api/referrals/:address`);
             console.log(`   POST /api/referrals/track`);
+            console.log(`   GET /api/player/:address/nfts`);
+            console.log(`   POST /api/player/:address/nfts/sync`);
             console.log(`   GET /api/contracts`);
         });
     } catch (error) {

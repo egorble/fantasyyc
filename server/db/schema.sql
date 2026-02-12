@@ -125,6 +125,20 @@ CREATE TABLE IF NOT EXISTS kv_store (
     value TEXT NOT NULL
 );
 
+-- Cached NFT ownership (synced from blockchain, serves frontend instantly)
+CREATE TABLE IF NOT EXISTS nft_cards (
+    token_id INTEGER NOT NULL,
+    owner_address TEXT NOT NULL,
+    startup_id INTEGER NOT NULL,
+    startup_name TEXT NOT NULL,
+    rarity TEXT NOT NULL CHECK(rarity IN ('Common', 'Rare', 'Epic', 'EpicRare', 'Legendary')),
+    multiplier INTEGER NOT NULL,
+    edition INTEGER DEFAULT 1,
+    is_locked INTEGER DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (token_id)
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_tournament_entries_tournament ON tournament_entries(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_tournament_entries_player ON tournament_entries(player_address);
@@ -138,3 +152,5 @@ CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_address)
 CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals(referred_address);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_address ON user_profiles(address);
 CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments(status);
+CREATE INDEX IF NOT EXISTS idx_nft_cards_owner ON nft_cards(owner_address);
+CREATE INDEX IF NOT EXISTS idx_nft_cards_startup ON nft_cards(startup_id);
