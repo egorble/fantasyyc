@@ -177,7 +177,7 @@ Required variables:
   ADMIN_API_KEY=<your_admin_api_key>
   SCORE_HMAC_SECRET=<your_hmac_secret>
   SERVER_URL=https://${DOMAIN}/metadata
-  NFT_CONTRACT_ADDRESS=0x35066391f772dcb7C13A0a94E721d2A91F85FBC3
+  NFT_CONTRACT_ADDRESS=0x172aC7aa7a6774559b1588E2F4426F7303a97cf1
   RPC_URL=https://node.shadownet.etherlink.com"
 fi
 

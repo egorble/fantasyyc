@@ -1,7 +1,7 @@
 // NFT contract hook with metadata fetching
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { getNFTContract, METADATA_API } from '../lib/contracts';
+import { getNFTContract, METADATA_API, STARTUPS } from '../lib/contracts';
 import { CardData, Rarity } from '../types';
 import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
 
@@ -43,11 +43,11 @@ export function useNFT() {
     const fetchMetadata = useCallback(async (tokenId: number): Promise<CardData | null> => {
         const key = CacheKeys.cardMetadata(tokenId);
 
-        return blockchainCache.getOrFetch(key, async () => {
+        const result = await blockchainCache.getOrFetch(key, async () => {
             try {
                 const response = await fetch(`${METADATA_API}/metadata/${tokenId}`);
                 if (!response.ok) {
-                    return null; // Cached as null — prevents retries for burned/missing tokens
+                    return null;
                 }
 
                 const data = await response.json();
@@ -84,6 +84,13 @@ export function useNFT() {
                 return null;
             }
         }, CacheTTL.LONG); // 5 min TTL — metadata is stable
+
+        // Don't cache null results long — server may be temporarily down
+        if (result === null) {
+            blockchainCache.invalidate(key);
+        }
+
+        return result;
     }, []);
 
     // Get all tokens owned by address - with caching and polling
@@ -113,6 +120,50 @@ export function useNFT() {
         }, CacheTTL.DEFAULT);
     }, []);
 
+    // Fallback: read card info directly from the smart contract when metadata server is down
+    const fetchCardFromContract = useCallback(async (tokenId: number): Promise<CardData | null> => {
+        try {
+            const contract = getNFTContract();
+            const info = await contract.getCardInfo(tokenId);
+            const startupId = Number(info.startupId);
+            const startup = STARTUPS[startupId];
+            if (!startup) return null;
+
+            const rarityEnum = Number(info.rarity);
+            const rarity = [Rarity.COMMON, Rarity.RARE, Rarity.EPIC, Rarity.EPIC_RARE, Rarity.LEGENDARY][rarityEnum] || Rarity.COMMON;
+
+            return {
+                tokenId,
+                startupId,
+                name: startup.name,
+                rarity,
+                multiplier: Number(info.multiplier),
+                isLocked: info.isLocked,
+                image: `${METADATA_API}/metadata/images/${startupId}.png`,
+                edition: Number(info.edition),
+                fundraising: null,
+                description: null,
+            };
+        } catch (e) {
+            console.error(`Contract fallback failed for token ${tokenId}:`, e);
+            return null;
+        }
+    }, []);
+
+    // Get card info with retries + contract fallback (for merge results where metadata may be delayed)
+    const getCardInfoWithRetry = useCallback(async (tokenId: number, retries = 3, delayMs = 2000): Promise<CardData | null> => {
+        for (let i = 0; i < retries; i++) {
+            const card = await fetchMetadata(tokenId);
+            if (card) return card;
+            if (i < retries - 1) {
+                await new Promise(r => setTimeout(r, delayMs));
+            }
+        }
+        // All retries failed — fall back to contract data
+        console.log(`⚡ Metadata unavailable for token ${tokenId}, reading from contract`);
+        return fetchCardFromContract(tokenId);
+    }, [fetchMetadata, fetchCardFromContract]);
+
     // Get card info for a token (from API with proper metadata)
     const getCardInfo = useCallback(async (tokenId: number): Promise<CardData | null> => {
         return await fetchMetadata(tokenId);
@@ -129,6 +180,19 @@ export function useNFT() {
 
             // Fetch metadata in batches to avoid nginx rate limit (burst=10)
             const cards = await fetchInBatches(tokenIds, fetchMetadata, 5, 200);
+
+            // For tokens where metadata failed, fall back to contract data
+            const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
+            if (nullIndices.length > 0) {
+                console.log(`⚡ ${nullIndices.length} cards missing metadata, falling back to contract`);
+                const fallbacks = await fetchInBatches(
+                    nullIndices.map(i => tokenIds[i]),
+                    fetchCardFromContract, 5, 100
+                );
+                fallbacks.forEach((card, fi) => {
+                    if (card) cards[nullIndices[fi]] = card;
+                });
+            }
 
             // Filter out nulls
             const validCards = cards.filter((c): c is CardData => c !== null);
@@ -158,7 +222,10 @@ export function useNFT() {
         } finally {
             setIsLoading(false);
         }
-    }, [getOwnedTokens, fetchMetadata]);
+    }, [getOwnedTokens, fetchMetadata, fetchCardFromContract]);
+
+    // Rarity names for logging
+    const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
 
     // Merge 3 cards into 1 higher rarity
     const mergeCards = useCallback(async (
@@ -171,6 +238,39 @@ export function useNFT() {
         try {
             const contract = getNFTContract(signer);
             console.log('🔥 Merging cards:', tokenIds);
+
+            // Pre-merge on-chain rarity verification to prevent RarityMismatch errors
+            // The cached/metadata rarity might not match on-chain state after upgrades
+            try {
+                const readContract = getNFTContract(); // read-only provider
+                const cardInfos = await Promise.all(
+                    tokenIds.map(id => readContract.getCardInfo(id))
+                );
+                const onChainRarities = cardInfos.map(info => Number(info.rarity));
+                console.log('   On-chain rarities:', onChainRarities.map(r => RARITY_NAMES[r] || `Unknown(${r})`));
+
+                // Check all cards have the same on-chain rarity
+                if (onChainRarities[0] !== onChainRarities[1] || onChainRarities[0] !== onChainRarities[2]) {
+                    const details = tokenIds.map((id, i) =>
+                        `Token #${id}: ${RARITY_NAMES[onChainRarities[i]] || 'Unknown'}`
+                    ).join(', ');
+                    const errorMsg = `On-chain rarity mismatch! ${details}. The contract startups data may need re-initialization.`;
+                    console.error('❌', errorMsg);
+                    setError(errorMsg);
+                    return { success: false, error: errorMsg };
+                }
+
+                // Also check that multipliers are not all 0 (indicates startups mapping is uninitialized)
+                const allMultipliersZero = cardInfos.every(info => Number(info.multiplier) === 0);
+                if (allMultipliersZero) {
+                    const errorMsg = 'Contract startup data appears uninitialized (all multipliers are 0). Admin must call reinitializeStartups().';
+                    console.error('❌', errorMsg);
+                    setError(errorMsg);
+                    return { success: false, error: errorMsg };
+                }
+            } catch (verifyError: any) {
+                console.warn('⚠️ Pre-merge verification failed, proceeding anyway:', verifyError.message);
+            }
 
             const tx = await contract.mergeCards(tokenIds);
             const receipt = await tx.wait();
@@ -188,8 +288,12 @@ export function useNFT() {
                 } catch { }
             }
 
-            // Clear cache for merged cards and invalidate user's card list
+            // Clear cache for merged (burned) cards and invalidate user's card list
             tokenIds.forEach(id => blockchainCache.invalidate(CacheKeys.cardMetadata(id)));
+            // Also invalidate the new card's cache to force fresh fetch
+            if (newTokenId) {
+                blockchainCache.invalidate(CacheKeys.cardMetadata(newTokenId));
+            }
             const signerAddress = await signer.getAddress();
             blockchainCache.invalidatePrefix(`nft:owned:${signerAddress}`);
             blockchainCache.invalidatePrefix(`nft:cards:${signerAddress}`);
@@ -225,6 +329,7 @@ export function useNFT() {
         error,
         getOwnedTokens,
         getCardInfo,
+        getCardInfoWithRetry,
         getCards,
         mergeCards,
         isLocked,

@@ -54,7 +54,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
     // Hooks
     const { isConnected, address, getSigner, connect } = useWalletContext();
-    const { getCards, getCardInfo, mergeCards, isLoading } = useNFT();
+    const { getCards, getCardInfo, getCardInfoWithRetry, mergeCards, isLoading, clearCache } = useNFT();
     const { listCard, createAuction, getBidsForToken, getTokenStats, getTokenSaleHistory, loading: marketplaceLoading } = useMarketplaceV2();
 
     // Auto-refresh cards with polling (disabled when not connected)
@@ -173,8 +173,14 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             console.log('❌ Merge failed:', result.error);
             // Decode common errors
             let errorMsg = result.error || 'Merge failed';
-            if (errorMsg.includes('0x7c0aec15')) {
-                errorMsg = 'Cards must be the same rarity to merge';
+            if (errorMsg.includes('reinitializeStartups')) {
+                // Pass through the detailed message from pre-merge verification
+                errorMsg = result.error!;
+            } else if (errorMsg.includes('On-chain rarity mismatch')) {
+                // Pass through the detailed message from pre-merge verification
+                errorMsg = result.error!;
+            } else if (errorMsg.includes('0x7c0aec15')) {
+                errorMsg = 'Cards have different rarities on-chain. Try refreshing your cards — cached data may be stale.';
             } else if (errorMsg.includes('NotCardOwner')) {
                 errorMsg = 'You do not own all selected cards';
             } else if (errorMsg.includes('CannotMergeLegendary')) {
@@ -261,8 +267,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     }, [mergeStatus, pendingNewTokenId]);
 
     const finalizeMerge = async (newTokenId: number) => {
-        // First, fetch the new card metadata directly
-        const newCard = await getCardInfo(newTokenId);
+        // Fetch with retries + contract fallback (metadata server may be slow after mint)
+        const newCard = await getCardInfoWithRetry(newTokenId, 3, 2000);
 
         // Then reload all cards
         if (address) {
@@ -673,12 +679,28 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             </div>
                             <h2 className="text-2xl font-bold text-white mb-2">Merge Failed</h2>
                             <p className="text-red-400 mb-6">{mergeError}</p>
-                            <button
-                                onClick={() => setMergeError(null)}
-                                className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-colors"
-                            >
-                                Got It
-                            </button>
+                            <div className="flex gap-3 justify-center">
+                                <button
+                                    onClick={() => setMergeError(null)}
+                                    className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-colors"
+                                >
+                                    Got It
+                                </button>
+                                {(mergeError.includes('rarity') || mergeError.includes('Rarity') || mergeError.includes('0x7c0aec15')) && (
+                                    <button
+                                        onClick={async () => {
+                                            setMergeError(null);
+                                            clearCache();
+                                            setIsRefreshing(true);
+                                            await refreshCards();
+                                        }}
+                                        className="px-6 py-3 bg-yc-orange text-white font-bold rounded-xl hover:bg-orange-600 transition-colors flex items-center gap-2"
+                                    >
+                                        <RefreshCw className="w-4 h-4" />
+                                        Refresh Cards
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 

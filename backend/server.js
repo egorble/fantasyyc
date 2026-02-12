@@ -342,6 +342,9 @@ app.get("/metadata/:tokenId", async (req, res) => {
         }
 
         let startupId, edition, isLocked, totalMinted;
+        // On-chain rarity/multiplier from getCardInfo() — used as source of truth
+        let contractRarity = null;  // null = use hardcoded STARTUPS, number = override
+        let contractMultiplier = null;
 
         // Check cache first
         const cached = getCachedToken(tokenId);
@@ -354,6 +357,8 @@ app.get("/metadata/:tokenId", async (req, res) => {
             edition = cached.edition;
             isLocked = cached.isLocked;
             totalMinted = cached.totalMinted;
+            contractRarity = cached.contractRarity ?? null;
+            contractMultiplier = cached.contractMultiplier ?? null;
         } else {
             // Try to get data from contract, fallback to mock
             if (nftContract) {
@@ -364,6 +369,8 @@ app.get("/metadata/:tokenId", async (req, res) => {
                         startupId = Number(cardInfo.startupId);
                         edition = Number(cardInfo.edition);
                         isLocked = cardInfo.isLocked;
+                        contractRarity = Number(cardInfo.rarity);
+                        contractMultiplier = Number(cardInfo.multiplier);
                         totalMinted = Number(await nftContract.startupMintCount(startupId));
                     } catch (cardInfoError) {
                         // getCardInfo reverted — try individual mappings as fallback
@@ -382,8 +389,8 @@ app.get("/metadata/:tokenId", async (req, res) => {
                         return res.status(404).json({ error: "Token does not exist or has been burned" });
                     }
 
-                    // Cache successful blockchain data
-                    setCachedToken(tokenId, { startupId, edition, isLocked, totalMinted });
+                    // Cache successful blockchain data (including on-chain rarity)
+                    setCachedToken(tokenId, { startupId, edition, isLocked, totalMinted, contractRarity, contractMultiplier });
                 } catch (contractError) {
                     console.log(`⚠️  Token ${tokenId} contract error: ${contractError.message}`);
                     // Token likely doesn't exist — cache and return 404
@@ -406,6 +413,21 @@ app.get("/metadata/:tokenId", async (req, res) => {
             return res.status(404).json({ error: "Startup not found" });
         }
 
+        // Use on-chain rarity/multiplier as source of truth when available
+        // This prevents mismatch between metadata and contract after UUPS upgrades
+        const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
+        const effectiveRarity = (contractRarity !== null && contractRarity >= 0 && contractRarity <= 4)
+            ? RARITY_NAMES[contractRarity]
+            : startup.rarity;
+        const effectiveMultiplier = (contractMultiplier !== null && contractMultiplier > 0)
+            ? contractMultiplier
+            : startup.multiplier;
+
+        // Log mismatch for debugging
+        if (effectiveRarity !== startup.rarity) {
+            console.warn(`⚠️ Rarity mismatch for token ${tokenId} (startup ${startupId}): contract=${effectiveRarity}, hardcoded=${startup.rarity}`);
+        }
+
         // Get dynamic stats
         const stats = DYNAMIC_STATS[startupId] || {};
 
@@ -418,7 +440,7 @@ app.get("/metadata/:tokenId", async (req, res) => {
 
         const metadata = {
             name: `${startup.name} #${edition}`,
-            description: `${startup.rarity} YC startup card - ${startup.description}. Edition ${edition} of ${totalMinted} minted.`,
+            description: `${effectiveRarity} YC startup card - ${startup.description}. Edition ${edition} of ${totalMinted} minted.`,
             image: imageUrl,
             external_url: `https://unicornx.app/card/${tokenId}`,
             // Include fundraising details for frontend use
@@ -434,11 +456,11 @@ app.get("/metadata/:tokenId", async (req, res) => {
                 },
                 {
                     trait_type: "Rarity",
-                    value: startup.rarity
+                    value: effectiveRarity
                 },
                 {
                     trait_type: "Multiplier",
-                    value: startup.multiplier.toString() + "x"
+                    value: effectiveMultiplier.toString() + "x"
                 },
                 {
                     trait_type: "Edition",

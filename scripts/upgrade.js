@@ -119,6 +119,25 @@ async function main() {
     console.log(`   ✅ Upgrade confirmed in block ${receipt.blockNumber}`);
     console.log("");
 
+    // Step 2b: For UnicornX_NFT — re-initialize startups mapping to prevent rarity corruption
+    // The startups mapping stores rarity/multiplier data used by mergeCards() and getCardInfo().
+    // After a UUPS upgrade, storage layout changes can corrupt this mapping, causing:
+    //   - RarityMismatch errors during merge (cards show correct rarity in UI but differ on-chain)
+    //   - Wrong rarity on merged cards (e.g. Common instead of Rare)
+    if (contractName === "UnicornX_NFT") {
+        console.log("📦 Step 2b: Re-initializing startups data (NFT-specific)...");
+        try {
+            const reinitTx = await proxyContract.reinitializeStartups();
+            console.log(`   TX Hash: ${reinitTx.hash}`);
+            await reinitTx.wait();
+            console.log("   ✅ Startups data re-initialized successfully");
+        } catch (reinitError) {
+            console.error(`   ⚠️  Failed to reinitialize startups: ${reinitError.message}`);
+            console.error("   You may need to call reinitializeStartups() manually via admin.");
+        }
+        console.log("");
+    }
+
     // Step 3: Update deployment file
     deployment.implementations[contractName] = newImplAddress;
 
