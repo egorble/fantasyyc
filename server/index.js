@@ -859,9 +859,10 @@ app.post('/api/run-scorer', adminLimiter, requireAdmin, async (req, res) => {
         const date = req.body?.date || undefined;
         console.log(`Scorer triggered via API${date ? ` for date ${date}` : ''}`);
         // Run scorer async, respond immediately
-        runDailyScoring(date).then(() => {
+        runDailyScoring(date).then(async () => {
             db.saveDatabase();
-            console.log('Scorer complete, DB saved');
+            console.log('Scorer complete, DB saved. Running AI summarizer...');
+            await runAiSummarizer();
         }).catch(err => {
             console.error('Scorer error:', err.message);
         });
@@ -973,7 +974,8 @@ function scheduleDailyScorer() {
             console.log('[CRON] Daily scorer triggered at', new Date().toISOString());
             await runDailyScoring(); // defaults to yesterday
             db.saveDatabase();
-            console.log('[CRON] Daily scorer complete');
+            console.log('[CRON] Daily scorer complete, running AI summarizer...');
+            await runAiSummarizer();
         } catch (err) {
             console.error('[CRON] Scorer error:', err.message);
         }
@@ -1010,27 +1012,27 @@ function scheduleDailyScorer() {
 
 // ============= AI FEED SUMMARIZER =============
 
-function scheduleAiSummarizer() {
-    async function runSummarizer() {
-        try {
-            const { summarizeFeedEvents } = await import('./services/ai-summarizer.js');
+/** Summarize all unsummarized feed events. Called after scorer completes. */
+async function runAiSummarizer() {
+    try {
+        const { summarizeFeedEvents } = await import('./services/ai-summarizer.js');
+        // Process all unsummarized events in batches of 20
+        let total = 0;
+        while (true) {
             const unsummarized = db.getUnsummarizedFeedEvents(20);
-            if (unsummarized.length === 0) return;
+            if (unsummarized.length === 0) break;
 
             console.log(`[AI] Summarizing ${unsummarized.length} feed events...`);
             const results = await summarizeFeedEvents(unsummarized);
             db.batchUpdateFeedSummaries(results);
-            console.log(`[AI] ${results.length} summaries saved`);
-        } catch (err) {
-            console.error('[AI] Summarizer error:', err.message);
+            total += results.length;
         }
+        if (total > 0) {
+            console.log(`[AI] Done — ${total} summaries generated`);
+        }
+    } catch (err) {
+        console.error('[AI] Summarizer error:', err.message);
     }
-
-    // First run 30 seconds after startup
-    setTimeout(runSummarizer, 30000);
-    // Then every 5 minutes
-    setInterval(runSummarizer, 5 * 60 * 1000);
-    console.log('AI feed summarizer scheduled: every 5m (first in 30s)');
 }
 
 // Start server with database initialization
@@ -1081,8 +1083,7 @@ async function startServer() {
         // Schedule daily scorer at 00:00 UTC
         scheduleDailyScorer();
 
-        // Schedule AI feed summarizer (every 5 minutes)
-        scheduleAiSummarizer();
+        // AI summarizer runs automatically after daily scorer (no separate schedule)
 
         // Start Express server
         app.listen(PORT, () => {

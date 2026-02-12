@@ -48,7 +48,7 @@ function getTweetUrl(event: FeedEvent): string | null {
 }
 
 // Truncate tweet text to a clean headline
-function toHeadline(text: string, maxLen = 80): string {
+function toHeadline(text: string, maxLen = 100): string {
     if (text.length <= maxLen) return text;
     const cut = text.substring(0, maxLen);
     const lastSpace = cut.lastIndexOf(' ');
