@@ -117,37 +117,49 @@ export function useNFT() {
         }
 
         const uncachedIds = uncachedIndices.map(i => tokenIds[i]);
-        const batchKey = uncachedIds.sort((a, b) => a - b).join(',');
 
         try {
-            let batchData: Record<string, any>;
+            // Chunk into batches of 50 (server limit)
+            const BATCH_SIZE = 50;
+            const allTokens: Record<string, any> = {};
+            const allErrors: Record<string, string> = {};
 
-            // Dedup: if identical batch is already in-flight, reuse it
-            if (pendingBatchRequest && pendingBatchIds === batchKey) {
-                console.log('   Dedup: reusing in-flight batch request');
-                batchData = await pendingBatchRequest;
-            } else {
-                console.log('   Batch fetching', uncachedIds.length, 'tokens (', tokenIds.length - uncachedIds.length, 'cached)');
-                const request = fetch(`${METADATA_API}/metadata/batch?tokenIds=${uncachedIds.join(',')}`)
-                    .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });
-                pendingBatchIds = batchKey;
-                pendingBatchRequest = request;
-                batchData = await request;
-                pendingBatchRequest = null;
-                pendingBatchIds = '';
+            for (let ci = 0; ci < uncachedIds.length; ci += BATCH_SIZE) {
+                const chunk = uncachedIds.slice(ci, ci + BATCH_SIZE);
+                const chunkKey = chunk.sort((a, b) => a - b).join(',');
+
+                let batchData: Record<string, any>;
+
+                // Dedup: if identical batch is already in-flight, reuse it
+                if (pendingBatchRequest && pendingBatchIds === chunkKey) {
+                    console.log('   Dedup: reusing in-flight batch request');
+                    batchData = await pendingBatchRequest;
+                } else {
+                    console.log('   Batch fetching', chunk.length, 'tokens (chunk', Math.floor(ci / BATCH_SIZE) + 1, ')');
+                    const request = fetch(`${METADATA_API}/metadata/batch?tokenIds=${chunk.join(',')}`)
+                        .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });
+                    pendingBatchIds = chunkKey;
+                    pendingBatchRequest = request;
+                    batchData = await request;
+                    pendingBatchRequest = null;
+                    pendingBatchIds = '';
+                }
+
+                Object.assign(allTokens, batchData.tokens || {});
+                Object.assign(allErrors, batchData.errors || {});
             }
 
-            const { tokens, errors } = batchData;
+            console.log('   Fetched', Object.keys(allTokens).length, 'tokens,', tokenIds.length - uncachedIds.length, 'from cache');
 
             for (const idx of uncachedIndices) {
                 const tid = tokenIds[idx];
-                const tokenMeta = tokens[tid];
+                const tokenMeta = allTokens[tid];
                 if (tokenMeta) {
                     const card = parseMetadataResponse(tid, tokenMeta);
                     results[idx] = card;
                     blockchainCache.set(CacheKeys.cardMetadata(tid), card);
-                } else if (errors?.[tid]) {
-                    console.warn(`   Token ${tid}: ${errors[tid]}`);
+                } else if (allErrors[tid]) {
+                    console.warn(`   Token ${tid}: ${allErrors[tid]}`);
                 }
             }
 
