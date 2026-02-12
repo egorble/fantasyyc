@@ -307,8 +307,8 @@ const AppContent: React.FC = () => {
                                                     });
                                                 }}
                                             >
-                                                <div className="overflow-hidden">
-                                                    <img src={card.image} alt={card.name} className="w-full object-contain transition-transform duration-500 group-hover:scale-105" />
+                                                <div className="overflow-hidden" style={{ aspectRatio: '591/1004' }}>
+                                                    <img src={card.image} alt={card.name} className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" />
                                                 </div>
                                                 <div className="p-1.5 md:p-3">
                                                     <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm leading-tight truncate">{card.name}</p>

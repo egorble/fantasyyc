@@ -619,12 +619,13 @@ const Marketplace: React.FC = () => {
                                 >
                                     <div
                                         className="relative overflow-hidden cursor-pointer"
+                                        style={{ aspectRatio: '591/1004' }}
                                         onClick={() => openStatsModal(listing)}
                                     >
                                         <img
                                             src={listing.cardImage}
                                             alt={listing.cardName}
-                                            className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                                         />
                                     </div>
                                     <div className="p-1.5 md:p-4">
@@ -701,12 +702,13 @@ const Marketplace: React.FC = () => {
                                 >
                                     <div
                                         className="relative overflow-hidden cursor-pointer"
+                                        style={{ aspectRatio: '591/1004' }}
                                         onClick={() => openStatsModal(auction)}
                                     >
                                         <img
                                             src={auction.cardImage}
                                             alt={auction.cardName}
-                                            className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                                         />
                                         {/* Timer */}
                                         <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 dark:bg-black/80 text-yc-orange'}`}>
@@ -1004,7 +1006,7 @@ const Marketplace: React.FC = () => {
                                                     onClick={() => setSelectedNFT(nft)}
                                                     className="cursor-pointer rounded-xl border border-gray-200 dark:border-[#2A2A2A] overflow-hidden hover:border-yc-orange transition-colors bg-white dark:bg-[#121212]"
                                                 >
-                                                    <img src={nft.image} alt={nft.name} className="w-full object-contain" />
+                                                    <img src={nft.image} alt={nft.name} className="w-full object-contain" style={{ aspectRatio: '591/1004' }} />
                                                 </div>
                                             ))}
                                         </div>

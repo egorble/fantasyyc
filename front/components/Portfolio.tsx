@@ -598,8 +598,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                             </div>
                                         )}
 
-                                        <div className="relative">
-                                            <img src={card.image} alt={card.name} className="w-full object-contain" />
+                                        <div className="relative" style={{ aspectRatio: '591/1004' }}>
+                                            <img src={card.image} alt={card.name} className="w-full h-full object-contain" />
                                         </div>
                                     </div>
                                 );

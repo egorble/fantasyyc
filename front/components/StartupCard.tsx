@@ -17,11 +17,11 @@ const StartupCard: React.FC<StartupCardProps> = ({ startup, onClick }) => {
     >
       
       {/* Image Container */}
-      <div className="relative w-full overflow-hidden bg-gray-100 dark:bg-[#121212]">
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: '591/1004' }}>
         <img
             src={startup.coverImage}
             alt={startup.name}
-            className="w-full object-contain transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
         />
       </div>
 

@@ -26,12 +26,30 @@ export function getPreloadedTournamentId(): number | null {
     return _tournamentId;
 }
 
+// ── Preload all 19 startup images into browser cache ──
+function preloadImages(): Promise<void> {
+    const STARTUP_COUNT = 19;
+    const promises: Promise<void>[] = [];
+    for (let i = 1; i <= STARTUP_COUNT; i++) {
+        promises.push(new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve();
+            img.onerror = () => resolve(); // don't block on error
+            img.src = `/images/${i}.png`;
+        }));
+    }
+    return Promise.all(promises).then(() => {});
+}
+
 // ── Main preload function ──
 async function preloadAll() {
     const start = performance.now();
 
+    // Fire image preloads in parallel with API calls
+    const imagePromise = preloadImages();
+
     try {
-        // Phase 1: tournament + live feed in parallel
+        // Phase 1: tournament + live feed + images in parallel
         const [tournamentRes, feedRes] = await Promise.all([
             fetch(`${API}/tournaments/active`).then(r => r.json()).catch(() => null),
             fetch(`${API}/live-feed?limit=15`).then(r => r.json()).catch(() => null),
@@ -61,8 +79,11 @@ async function preloadAll() {
             }
         }
 
+        // Wait for images to finish (they started in parallel with API calls)
+        await imagePromise;
+
         const elapsed = (performance.now() - start).toFixed(0);
-        console.log(`⚡ Preload complete in ${elapsed}ms`);
+        console.log(`⚡ Preload complete in ${elapsed}ms (API + 19 images)`);
     } catch (e) {
         console.warn('Preload failed:', e);
     }
