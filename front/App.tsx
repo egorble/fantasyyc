@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import RightPanel from './components/RightPanel';
 import HeroBanner from './components/HeroBanner';
-import StartupCard from './components/StartupCard';
 import LiveFeed from './components/LiveFeed';
 import PackOpeningModal from './components/PackOpeningModal';
 import Marketplace from './components/Marketplace';
@@ -16,7 +15,7 @@ import ProfileEditModal from './components/ProfileEditModal';
 import BottomNav from './components/BottomNav';
 import TournamentCTA from './components/TournamentCTA';
 import DashboardLeaderboard from './components/DashboardLeaderboard';
-import { NavSection, UserProfile, Startup, Rarity, CardData } from './types';
+import { NavSection, UserProfile, Rarity, CardData } from './types';
 import { Filter, Search, Wallet, Loader2, Sun, Moon, LogOut, User } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -69,7 +68,8 @@ const AppContent: React.FC = () => {
     const { theme, toggleTheme } = useTheme();
 
     // Marketplace hook
-    const { getActiveListings } = useMarketplaceV2();
+    const { getActiveListings, buyCard } = useMarketplaceV2();
+    const [buyingId, setBuyingId] = useState<number | null>(null);
 
     // NFT hook
     const { getCardInfo } = useNFT();
@@ -274,41 +274,49 @@ const AppContent: React.FC = () => {
                             ) : (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
                                     {filteredAndSortedListings.length > 0 ? (
-                                        filteredAndSortedListings.map(({ listing, card }) => {
-                                            const startupData: Startup = {
-                                                id: card.tokenId.toString(),
-                                                name: card.name,
-                                                batch: `Edition ${card.edition}`,
-                                                description: card.description || `${card.rarity} rarity NFT card with ${card.multiplier}x multiplier`,
-                                                value: Number(ethers.formatEther(listing.price)),
-                                                change: card.multiplier * 10,
-                                                logo: card.image,
-                                                coverImage: card.image,
-                                                stage: card.rarity,
-                                                score: card.multiplier * 10,
-                                                trend: [0, 0, 0, 0, 0, Number(ethers.formatEther(listing.price))],
-                                            };
-
-                                            return (
-                                                <StartupCard
-                                                    key={`${listing.listingId}-${card.tokenId}`}
-                                                    startup={startupData}
-                                                    onClick={() => {
-                                                        setDashboardSelectedCard(card);
-                                                        setDashboardSelectedStartup({
-                                                            id: card.tokenId.toString(),
-                                                            image: card.image,
-                                                            name: card.name,
-                                                            value: Number(ethers.formatEther(listing.price)),
-                                                            rarity: card.rarity,
-                                                            multiplier: `${card.multiplier}x`,
-                                                            batch: `Edition ${card.edition}`,
-                                                            stage: card.rarity
-                                                        });
-                                                    }}
-                                                />
-                                            );
-                                        })
+                                        filteredAndSortedListings.map(({ listing, card }) => (
+                                            <div
+                                                key={`${listing.listingId}-${card.tokenId}`}
+                                                className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all duration-300 group cursor-pointer"
+                                                onClick={() => {
+                                                    setDashboardSelectedCard(card);
+                                                    setDashboardSelectedStartup({
+                                                        id: card.tokenId.toString(),
+                                                        image: card.image,
+                                                        name: card.name,
+                                                        value: Number(ethers.formatEther(listing.price)),
+                                                        rarity: card.rarity,
+                                                        multiplier: `${card.multiplier}x`,
+                                                        batch: `Edition ${card.edition}`,
+                                                        stage: card.rarity
+                                                    });
+                                                }}
+                                            >
+                                                <div className="overflow-hidden">
+                                                    <img src={card.image} alt={card.name} className="w-full object-contain transition-transform duration-500 group-hover:scale-105" />
+                                                </div>
+                                                <div className="p-1.5 md:p-3">
+                                                    <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm leading-tight truncate">{card.name}</p>
+                                                    <p className="text-yc-orange font-bold text-[11px] md:text-base mt-0.5">{formatXTZ(listing.price)} XTZ</p>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (!isConnected) { alert('Please connect your wallet first'); return; }
+                                                            if (listing.seller.toLowerCase() === address?.toLowerCase()) { alert("You can't buy your own listing"); return; }
+                                                            setBuyingId(Number(listing.listingId));
+                                                            buyCard(listing.listingId, listing.price)
+                                                                .then(() => { alert('Purchase successful!'); window.location.reload(); })
+                                                                .catch((err: any) => alert(`Error: ${err.message}`))
+                                                                .finally(() => setBuyingId(null));
+                                                        }}
+                                                        disabled={buyingId === Number(listing.listingId)}
+                                                        className="w-full mt-1.5 md:mt-2 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm bg-yc-orange hover:bg-orange-600 text-white transition-all active:scale-95 disabled:opacity-50"
+                                                    >
+                                                        {buyingId === Number(listing.listingId) ? 'Buying...' : 'Buy Now'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
                                     ) : (
                                         <div className="col-span-2 sm:col-span-3 lg:col-span-4 xl:col-span-5 text-center py-20">
                                             <p className="text-xl font-bold text-gray-400">
