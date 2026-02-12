@@ -133,7 +133,7 @@ export const MARKETPLACE_V2_ABI = [
     'function getAuction(uint256 auctionId) view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status))',
 
     // ===== History & Stats =====
-    'function getTokenSaleHistory(uint256 tokenId) view returns (tuple(uint256 tokenId, address seller, address buyer, uint256 price, uint256 timestamp, uint8 saleType)[])',
+    'function getTokenSaleHistory(uint256 tokenId) view returns (tuple(uint256 saleId, uint256 tokenId, address seller, address buyer, uint256 price, uint256 timestamp, uint8 saleType)[])',
     'function getTokenStats(uint256 tokenId) view returns (tuple(uint256 lastSalePrice, uint256 totalVolume, uint256 salesCount, uint256 highestSale, uint256 lowestSale))',
     'function getGlobalStats() view returns (uint256 _totalVolume, uint256 _totalSales, uint256 _activeListings, uint256 _activeAuctions)',
 
