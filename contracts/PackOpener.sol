@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 interface IUnicornX_NFT {
     function batchMint(address to, uint256[5] calldata startupIds) external returns (uint256[5] memory);
@@ -17,13 +19,9 @@ interface ITournamentManager {
 /**
  * @title PackOpener
  * @author UnicornX Team
- * @notice Pack purchases with referral system
- * @dev Distribution:
- *   - With referrer: 10% referrer, 10% platform, 80% tournament
- *   - Without referrer: 10% platform, 90% tournament
- *   - If no active tournament: funds held in pendingPrizePool until tournament starts
+ * @notice Pack purchases with referral system (UUPS upgradeable)
  */
-contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
+contract PackOpener is Initializable, Ownable2StepUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
 
     // ============ Constants ============
 
@@ -31,19 +29,14 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     uint256 public constant MAX_PACKS = 10000;
     uint256 public constant CARDS_PER_PACK = 5;
 
-    // Distribution percentages
     uint256 public constant REFERRAL_PERCENT = 10;
     uint256 public constant PLATFORM_PERCENT = 10;
-    // Tournament gets remainder (80% with referral, 90% without)
 
-    /// @notice Hardcoded second admin address
     address public constant SECOND_ADMIN = 0xB36402e87a86206D3a114a98B53f31362291fe1B;
 
-    // Rarity Distribution
     uint256 private constant COMMON_THRESHOLD = 70;
     uint256 private constant RARE_THRESHOLD = 95;
 
-    // Startup ID ranges by rarity
     uint256 private constant LEGENDARY_START = 1;
     uint256 private constant LEGENDARY_END = 4;
     uint256 private constant EPIC_RARE_ID = 5;
@@ -62,17 +55,10 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     ITournamentManager public tournamentManager;
     uint256 public activeTournamentId;
     uint256 public currentPackPrice;
-
-    /// @notice Pending prize pool funds when no tournament is active
     uint256 public pendingPrizePool;
 
-    /// @notice Referrer mapping: user -> their referrer
     mapping(address => address) public referrers;
-
-    /// @notice Referral earnings: referrer -> total earned
     mapping(address => uint256) public referralEarnings;
-
-    /// @notice Number of referrals per referrer
     mapping(address => uint256) public referralCount;
 
     // ============ Structs ============
@@ -84,27 +70,13 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         uint256[5] cardIds;
     }
 
-    // ============ Mappings ============
-
     mapping(uint256 => PackPurchase) public packs;
     mapping(address => uint256[]) public userPacks;
 
     // ============ Events ============
 
-    event PackPurchased(
-        address indexed buyer,
-        uint256 indexed packId,
-        uint256 price,
-        uint256 timestamp
-    );
-
-    event PackOpened(
-        address indexed owner,
-        uint256 indexed packId,
-        uint256[5] cardIds,
-        uint256[5] startupIds
-    );
-
+    event PackPurchased(address indexed buyer, uint256 indexed packId, uint256 price, uint256 timestamp);
+    event PackOpened(address indexed owner, uint256 indexed packId, uint256[5] cardIds, uint256[5] startupIds);
     event ReferralRegistered(address indexed user, address indexed referrer);
     event ReferralRewardPaid(address indexed referrer, address indexed buyer, uint256 amount);
     event FundsDistributed(uint256 prizePoolAmount, uint256 platformAmount, uint256 referralAmount);
@@ -135,48 +107,49 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         _;
     }
 
-    // ============ Constructor ============
+    // ============ Constructor (disabled for proxy) ============
 
-    constructor(
-        address _nftContract,
-        address _treasury,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============ Initializer ============
+
+    function initialize(address _nftContract, address _treasury, address initialOwner) public initializer {
         if (_nftContract == address(0)) revert ZeroAddress();
         if (_treasury == address(0)) revert ZeroAddress();
         if (initialOwner == address(0)) revert ZeroAddress();
+
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
+        __Pausable_init();
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
 
         nftContract = IUnicornX_NFT(_nftContract);
         treasury = _treasury;
         currentPackPrice = PACK_PRICE;
     }
 
+    // ============ UUPS Upgrade Authorization ============
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyAdmin {}
+
     // ============ Referral Functions ============
 
-    /**
-     * @notice Get referrer for a user
-     */
     function getReferrer(address user) external view returns (address) {
         return referrers[user];
     }
 
-    /**
-     * @notice Get referral stats for a referrer
-     */
-    function getReferralStats(address referrer) external view returns (
-        uint256 count,
-        uint256 totalEarned
-    ) {
+    function getReferralStats(address referrer) external view returns (uint256 count, uint256 totalEarned) {
         return (referralCount[referrer], referralEarnings[referrer]);
     }
 
-    /**
-     * @dev Auto-register referrer if buyer doesn't have one yet
-     */
     function _trySetReferrer(address buyer, address referrer) internal {
         if (referrer == address(0)) return;
         if (referrer == buyer) return;
-        if (referrers[buyer] != address(0)) return; // already has referrer
+        if (referrers[buyer] != address(0)) return;
 
         referrers[buyer] = referrer;
         referralCount[referrer]++;
@@ -185,15 +158,10 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
 
     // ============ Pack Purchase Functions ============
 
-    /**
-     * @notice Purchase a pack with optional referrer
-     * @param referrer Address of referrer (pass address(0) if none)
-     */
     function buyPack(address referrer) external payable whenNotPaused nonReentrant returns (uint256 packId) {
         if (msg.value < currentPackPrice) revert InsufficientPayment();
         if (packsSold >= MAX_PACKS) revert MaxPacksReached();
 
-        // Auto-register referrer on first purchase
         _trySetReferrer(msg.sender, referrer);
 
         packId = packsSold + 1;
@@ -207,10 +175,8 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         });
 
         userPacks[msg.sender].push(packId);
-
         _distributeFunds(currentPackPrice, msg.sender);
 
-        // Refund excess
         if (msg.value > currentPackPrice) {
             (bool refundSuccess, ) = msg.sender.call{value: msg.value - currentPackPrice}("");
             if (!refundSuccess) revert WithdrawFailed();
@@ -220,10 +186,6 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         return packId;
     }
 
-    /**
-     * @notice Purchase and immediately open a pack with optional referrer
-     * @param referrer Address of referrer (pass address(0) if none)
-     */
     function buyAndOpenPack(address referrer) external payable whenNotPaused nonReentrant returns (
         uint256[5] memory cardIds,
         uint256[5] memory startupIds
@@ -231,7 +193,6 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         if (msg.value < currentPackPrice) revert InsufficientPayment();
         if (packsSold >= MAX_PACKS) revert MaxPacksReached();
 
-        // Auto-register referrer on first purchase
         _trySetReferrer(msg.sender, referrer);
 
         uint256 packId = packsSold + 1;
@@ -248,10 +209,8 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         });
 
         userPacks[msg.sender].push(packId);
-
         _distributeFunds(currentPackPrice, msg.sender);
 
-        // Refund excess
         if (msg.value > currentPackPrice) {
             (bool refundSuccess, ) = msg.sender.call{value: msg.value - currentPackPrice}("");
             if (!refundSuccess) revert WithdrawFailed();
@@ -263,9 +222,6 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         return (cardIds, startupIds);
     }
 
-    /**
-     * @notice Open a previously purchased pack
-     */
     function openPack(uint256 packId) external whenNotPaused nonReentrant returns (
         uint256[5] memory cardIds,
         uint256[5] memory startupIds
@@ -322,9 +278,6 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         return startupId;
     }
 
-    /**
-     * @dev Distribute pack payment: referral + platform + tournament
-     */
     function _distributeFunds(uint256 amount, address buyer) internal {
         address referrer = referrers[buyer];
         uint256 referralShare = 0;
@@ -332,37 +285,27 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 tournamentShare;
 
         if (referrer != address(0)) {
-            // Has referrer: 10% referrer, 10% platform, 80% tournament
             referralShare = (amount * REFERRAL_PERCENT) / 100;
             tournamentShare = amount - platformShare - referralShare;
 
-            // Pay referrer
             (bool refSuccess, ) = referrer.call{value: referralShare}("");
             if (refSuccess) {
                 referralEarnings[referrer] += referralShare;
                 emit ReferralRewardPaid(referrer, buyer, referralShare);
             } else {
-                // If referral payment fails, add to tournament pool
                 tournamentShare += referralShare;
                 referralShare = 0;
             }
         } else {
-            // No referrer: 10% platform, 90% tournament
             tournamentShare = amount - platformShare;
         }
 
-        // Platform share stays in contract for treasury withdrawal
-
-        // Tournament share: send to active tournament or hold as pending
         if (address(tournamentManager) != address(0) && activeTournamentId > 0) {
             try tournamentManager.addToPrizePool{value: tournamentShare}(activeTournamentId) {
-                // Success
             } catch {
-                // If transfer fails, hold as pending
                 pendingPrizePool += tournamentShare;
             }
         } else {
-            // No active tournament - hold funds
             pendingPrizePool += tournamentShare;
         }
 
@@ -380,10 +323,7 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     function getPackInfo(uint256 packId) external view returns (
-        address buyer,
-        uint256 purchaseTime,
-        bool opened,
-        uint256[5] memory cardIds
+        address buyer, uint256 purchaseTime, bool opened, uint256[5] memory cardIds
     ) {
         PackPurchase storage pack = packs[packId];
         return (pack.buyer, pack.purchaseTime, pack.opened, pack.cardIds);
@@ -401,9 +341,6 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
 
     // ============ Admin Functions ============
 
-    /**
-     * @notice Forward pending prize pool to active tournament
-     */
     function forwardPendingFunds() external onlyAdmin nonReentrant {
         require(address(tournamentManager) != address(0), "No tournament manager");
         require(activeTournamentId > 0, "No active tournament");
@@ -417,7 +354,6 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     function withdraw() external onlyAdmin nonReentrant {
-        // Only withdraw platform fees (not pending prize pool)
         uint256 platformBalance = address(this).balance - pendingPrizePool;
         if (platformBalance == 0) revert WithdrawFailed();
 
@@ -452,22 +388,18 @@ contract PackOpener is Ownable2Step, Pausable, ReentrancyGuard {
         emit TournamentManagerUpdated(oldTM, newTournamentManager);
     }
 
-    /**
-     * @notice Set active tournament. Auto-forwards pending funds if any.
-     */
     function setActiveTournament(uint256 tournamentId) external onlyAdmin {
         uint256 oldId = activeTournamentId;
         activeTournamentId = tournamentId;
         emit ActiveTournamentUpdated(oldId, tournamentId);
 
-        // Auto-forward pending funds to new tournament
         if (tournamentId > 0 && pendingPrizePool > 0 && address(tournamentManager) != address(0)) {
             uint256 amount = pendingPrizePool;
             pendingPrizePool = 0;
             try tournamentManager.addToPrizePool{value: amount}(tournamentId) {
                 emit PendingFundsForwarded(tournamentId, amount);
             } catch {
-                pendingPrizePool = amount; // Revert if fails
+                pendingPrizePool = amount;
             }
         }
     }

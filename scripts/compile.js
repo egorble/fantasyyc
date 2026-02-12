@@ -22,7 +22,8 @@ const contractFiles = [
     "UnicornX_NFT.sol",
     "PackOpener.sol",
     "TournamentManager.sol",
-    "MarketplaceV2.sol"
+    "MarketplaceV2.sol",
+    "ERC1967Proxy.sol"
 ];
 
 // Read contract sources
@@ -99,29 +100,60 @@ if (output.errors) {
 // Process compiled contracts
 const compiledContracts = {};
 
-for (const file of contractFiles) {
-    const contractName = file.replace(".sol", "");
+// Map .sol file -> contract name to extract (ERC1967Proxy is imported from OZ)
+const contractNameMap = {
+    "ERC1967Proxy.sol": "ERC1967Proxy"
+};
 
-    if (output.contracts && output.contracts[file]) {
+for (const file of contractFiles) {
+    const contractName = contractNameMap[file] || file.replace(".sol", "");
+
+    if (output.contracts && output.contracts[file] && output.contracts[file][contractName]) {
         const contract = output.contracts[file][contractName];
 
-        if (contract) {
-            compiledContracts[contractName] = {
-                abi: contract.abi,
-                bytecode: "0x" + contract.evm.bytecode.object,
-                deployedBytecode: "0x" + contract.evm.deployedBytecode.object
-            };
+        compiledContracts[contractName] = {
+            abi: contract.abi,
+            bytecode: "0x" + contract.evm.bytecode.object,
+            deployedBytecode: "0x" + contract.evm.deployedBytecode.object
+        };
 
-            // Save individual contract artifacts
-            const artifactPath = path.join(BUILD_DIR, `${contractName}.json`);
-            fs.writeFileSync(
-                artifactPath,
-                JSON.stringify(compiledContracts[contractName], null, 2)
-            );
+        // Save individual contract artifacts
+        const artifactPath = path.join(BUILD_DIR, `${contractName}.json`);
+        fs.writeFileSync(
+            artifactPath,
+            JSON.stringify(compiledContracts[contractName], null, 2)
+        );
 
-            console.log(`✅ Compiled: ${contractName}`);
-            console.log(`   ABI entries: ${contract.abi.length}`);
-            console.log(`   Bytecode size: ${(contract.evm.bytecode.object.length / 2).toLocaleString()} bytes`);
+        console.log(`✅ Compiled: ${contractName}`);
+        console.log(`   ABI entries: ${contract.abi.length}`);
+        console.log(`   Bytecode size: ${(contract.evm.bytecode.object.length / 2).toLocaleString()} bytes`);
+    } else if (output.contracts) {
+        // For files that re-export (like ERC1967Proxy.sol), search all compiled outputs
+        let found = false;
+        for (const [sourceFile, contracts] of Object.entries(output.contracts)) {
+            if (contracts[contractName]) {
+                const contract = contracts[contractName];
+                compiledContracts[contractName] = {
+                    abi: contract.abi,
+                    bytecode: "0x" + contract.evm.bytecode.object,
+                    deployedBytecode: "0x" + contract.evm.deployedBytecode.object
+                };
+
+                const artifactPath = path.join(BUILD_DIR, `${contractName}.json`);
+                fs.writeFileSync(
+                    artifactPath,
+                    JSON.stringify(compiledContracts[contractName], null, 2)
+                );
+
+                console.log(`✅ Compiled: ${contractName} (from ${sourceFile})`);
+                console.log(`   ABI entries: ${contract.abi.length}`);
+                console.log(`   Bytecode size: ${(contract.evm.bytecode.object.length / 2).toLocaleString()} bytes`);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            console.warn(`⚠️  Could not find compiled output for: ${contractName}`);
         }
     }
 }
@@ -147,5 +179,6 @@ console.log("   - UnicornX_NFT.json");
 console.log("   - PackOpener.json");
 console.log("   - TournamentManager.json");
 console.log("   - MarketplaceV2.json");
+console.log("   - ERC1967Proxy.json");
 console.log("   - contracts.json (combined)");
 console.log("");
