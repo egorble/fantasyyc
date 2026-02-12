@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ExternalLink, Smartphone } from 'lucide-react';
+import { X, ExternalLink, Smartphone, QrCode } from 'lucide-react';
 
 export interface DetectedWallet {
     info: {
@@ -15,31 +15,17 @@ interface WalletModalProps {
     isOpen: boolean;
     onClose: () => void;
     wallets: DetectedWallet[];
-    onSelectWallet: (provider: any, rdns: string) => void;
+    onSelectInjected: (provider: any, rdns: string) => void;
+    onSelectWalletConnect: () => void;
     isConnecting: boolean;
+    hasWalletConnect: boolean;
 }
-
-const MOBILE_WALLETS = [
-    {
-        name: 'MetaMask',
-        color: '#E8831D',
-        getLink: () => `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`,
-    },
-    {
-        name: 'Trust Wallet',
-        color: '#0500FF',
-        getLink: () => `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(window.location.href)}`,
-    },
-    {
-        name: 'Coinbase Wallet',
-        color: '#0052FF',
-        getLink: () => `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(window.location.href)}`,
-    },
-];
 
 const isMobile = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, wallets, onSelectWallet, isConnecting }) => {
+const WalletModal: React.FC<WalletModalProps> = ({
+    isOpen, onClose, wallets, onSelectInjected, onSelectWalletConnect, isConnecting, hasWalletConnect
+}) => {
     if (!isOpen) return null;
 
     const mobile = isMobile();
@@ -73,13 +59,13 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, wallets, onS
                     </div>
                 )}
 
-                {/* Detected wallets (EIP-6963) */}
-                {!isConnecting && wallets.length > 0 && (
+                {!isConnecting && (
                     <div className="space-y-2">
+                        {/* Detected wallets (EIP-6963) */}
                         {wallets.map(wallet => (
                             <button
                                 key={wallet.info.uuid}
-                                onClick={() => onSelectWallet(wallet.provider, wallet.info.rdns)}
+                                onClick={() => onSelectInjected(wallet.provider, wallet.info.rdns)}
                                 className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-[#2A2A2A] hover:border-yc-orange hover:bg-yc-orange/5 transition-all active:scale-[0.98]"
                             >
                                 <img
@@ -93,96 +79,68 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, wallets, onS
                                 <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Detected</span>
                             </button>
                         ))}
-                    </div>
-                )}
 
-                {/* Fallback: window.ethereum without EIP-6963 (desktop) */}
-                {!isConnecting && wallets.length === 0 && !mobile && hasInjected && (
-                    <div className="space-y-2">
-                        <button
-                            onClick={() => onSelectWallet((window as any).ethereum, 'injected')}
-                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-[#2A2A2A] hover:border-yc-orange hover:bg-yc-orange/5 transition-all active:scale-[0.98]"
-                        >
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-lg font-bold">
-                                W
-                            </div>
-                            <span className="text-gray-900 dark:text-white font-bold text-sm flex-1 text-left">
-                                Browser Wallet
-                            </span>
-                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Detected</span>
-                        </button>
-                    </div>
-                )}
-
-                {/* Mobile deep links — show when no wallet detected (regular browser) */}
-                {!isConnecting && mobile && !hasInjected && (
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Smartphone className="w-4 h-4 text-gray-400" />
-                            <p className="text-gray-500 text-xs font-medium">Open in wallet app</p>
-                        </div>
-                        {MOBILE_WALLETS.map(wallet => (
-                            <a
-                                key={wallet.name}
-                                href={wallet.getLink()}
-                                rel="noopener noreferrer"
-                                className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-[#2A2A2A] hover:border-yc-orange hover:bg-yc-orange/5 transition-all active:scale-[0.98] block"
+                        {/* Fallback: window.ethereum without EIP-6963 */}
+                        {wallets.length === 0 && hasInjected && (
+                            <button
+                                onClick={() => onSelectInjected((window as any).ethereum, 'injected')}
+                                className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-[#2A2A2A] hover:border-yc-orange hover:bg-yc-orange/5 transition-all active:scale-[0.98]"
                             >
-                                <div
-                                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold"
-                                    style={{ backgroundColor: wallet.color }}
-                                >
-                                    {wallet.name[0]}
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-lg font-bold">
+                                    W
                                 </div>
                                 <span className="text-gray-900 dark:text-white font-bold text-sm flex-1 text-left">
-                                    {wallet.name}
+                                    Browser Wallet
                                 </span>
-                                <ExternalLink className="w-4 h-4 text-gray-400" />
-                            </a>
-                        ))}
-                    </div>
-                )}
+                                <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Detected</span>
+                            </button>
+                        )}
 
-                {/* Mobile deep links — also show below detected wallets for "other wallet" option */}
-                {!isConnecting && mobile && hasInjected && wallets.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-[#2A2A2A]">
-                        <p className="text-gray-500 text-xs font-medium mb-2">Or open in another wallet</p>
-                        <div className="flex gap-2">
-                            {MOBILE_WALLETS.map(wallet => (
-                                <a
-                                    key={wallet.name}
-                                    href={wallet.getLink()}
-                                    rel="noopener noreferrer"
-                                    className="flex-1 flex flex-col items-center gap-1 p-2 rounded-xl border border-gray-200 dark:border-[#2A2A2A] hover:border-yc-orange transition-all"
-                                >
-                                    <div
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                                        style={{ backgroundColor: wallet.color }}
-                                    >
-                                        {wallet.name[0]}
+                        {/* WalletConnect — works on mobile & desktop */}
+                        {hasWalletConnect && (
+                            <>
+                                {(wallets.length > 0 || hasInjected) && (
+                                    <div className="relative my-3">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-gray-200 dark:border-[#2A2A2A]" />
+                                        </div>
+                                        <div className="relative flex justify-center">
+                                            <span className="bg-white dark:bg-[#121212] px-3 text-xs text-gray-400 font-medium">or</span>
+                                        </div>
                                     </div>
-                                    <span className="text-[10px] text-gray-500 font-medium">{wallet.name.split(' ')[0]}</span>
-                                </a>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                                )}
+                                <button
+                                    onClick={onSelectWalletConnect}
+                                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-[#2A2A2A] hover:border-[#3B99FC] hover:bg-[#3B99FC]/5 transition-all active:scale-[0.98]"
+                                >
+                                    <div className="w-9 h-9 rounded-xl bg-[#3B99FC] flex items-center justify-center">
+                                        <QrCode className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                        <span className="text-gray-900 dark:text-white font-bold text-sm block">WalletConnect</span>
+                                        <span className="text-[11px] text-gray-400">{mobile ? 'Connect mobile wallet' : 'Scan with phone'}</span>
+                                    </div>
+                                </button>
+                            </>
+                        )}
 
-                {/* No wallet at all (desktop) */}
-                {!isConnecting && !mobile && wallets.length === 0 && !hasInjected && (
-                    <div className="text-center py-6">
-                        <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
-                            <Smartphone className="w-7 h-7 text-gray-400" />
-                        </div>
-                        <p className="text-gray-500 text-sm mb-4">No wallet detected</p>
-                        <a
-                            href="https://metamask.io/download/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-yc-orange font-bold text-sm hover:underline"
-                        >
-                            Install MetaMask <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
+                        {/* No wallet and no WalletConnect */}
+                        {!hasWalletConnect && wallets.length === 0 && !hasInjected && (
+                            <div className="text-center py-6">
+                                <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
+                                    <Smartphone className="w-7 h-7 text-gray-400" />
+                                </div>
+                                <p className="text-gray-500 text-sm mb-4">No wallet detected</p>
+                                <a
+                                    href="https://metamask.io/download/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-yc-orange font-bold text-sm hover:underline"
+                                >
+                                    Install MetaMask <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                            </div>
+                        )}
                     </div>
                 )}
 

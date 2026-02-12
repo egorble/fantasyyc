@@ -1,10 +1,11 @@
-// Wallet context with EIP-6963 wallet discovery + selection modal
-// Supports: MetaMask, Rabby, Trust Wallet, Coinbase, any EIP-6963 wallet
-// Mobile: deep links to open in wallet browser (no WalletConnect needed)
+// Wallet context with EIP-6963 discovery + WalletConnect for mobile
 import React, { createContext, useContext, ReactNode, useEffect, useState, useCallback, useRef } from 'react';
 import { BrowserProvider, ethers, Eip1193Provider } from 'ethers';
 import { CHAIN_ID, CHAIN_NAME, RPC_URL, EXPLORER_URL, getProvider } from '../lib/contracts';
+import EthereumProvider from '@walletconnect/ethereum-provider';
 import WalletModal, { DetectedWallet } from '../components/WalletModal';
+
+const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
 
 interface WalletContextType {
     isConnected: boolean;
@@ -27,7 +28,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | null>(null);
 
 const STORAGE_KEY = 'unicornx:wallet:connected';
-const WALLET_RDNS_KEY = 'unicornx:wallet:rdns';
+const WALLET_TYPE_KEY = 'unicornx:wallet:type'; // 'injected:<rdns>' or 'walletconnect'
 
 function formatAddress(address: string): string {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -50,7 +51,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const [showModal, setShowModal] = useState(false);
     const [detectedWallets, setDetectedWallets] = useState<DetectedWallet[]>([]);
     const activeProviderRef = useRef<any>(null);
-    const listenersRef = useRef<{ onAccounts: (a: string[]) => void; onChain: (h: string) => void } | null>(null);
+    const wcProviderRef = useRef<InstanceType<typeof EthereumProvider> | null>(null);
+    const listenersRef = useRef<{ onAccounts: (a: string[]) => void; onChain: (h: string) => void; onDisconnect: () => void } | null>(null);
 
     const isConnected = !!address;
     const isCorrectChain = chainId === CHAIN_ID;
@@ -58,7 +60,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // Discover wallets via EIP-6963
     useEffect(() => {
         const wallets: DetectedWallet[] = [];
-
         const handler = (event: any) => {
             const detail = event.detail as DetectedWallet;
             if (!wallets.some(w => w.info.rdns === detail.info.rdns)) {
@@ -66,13 +67,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 setDetectedWallets([...wallets]);
             }
         };
-
         window.addEventListener('eip6963:announceProvider', handler);
         window.dispatchEvent(new Event('eip6963:requestProvider'));
-
-        return () => {
-            window.removeEventListener('eip6963:announceProvider', handler);
-        };
+        return () => window.removeEventListener('eip6963:announceProvider', handler);
     }, []);
 
     // Update balance via read-only provider
@@ -86,7 +83,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Read chain ID from a given provider
+    // Read chain ID
     const readChainId = useCallback(async (provider: any) => {
         if (!provider) return;
         try {
@@ -95,7 +92,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } catch { /* ignore */ }
     }, []);
 
-    // Handle accounts result
+    // Handle accounts
     const handleAccounts = useCallback((accounts: string[]) => {
         if (accounts.length > 0) {
             setAddress(accounts[0]);
@@ -104,27 +101,41 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setAddress(null);
             setBalance(0n);
             localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem(WALLET_RDNS_KEY);
+            localStorage.removeItem(WALLET_TYPE_KEY);
         }
+    }, []);
+
+    // Clean up old listeners
+    const cleanupListeners = useCallback(() => {
+        if (listenersRef.current && activeProviderRef.current) {
+            activeProviderRef.current.removeListener?.('accountsChanged', listenersRef.current.onAccounts);
+            activeProviderRef.current.removeListener?.('chainChanged', listenersRef.current.onChain);
+            activeProviderRef.current.removeListener?.('disconnect', listenersRef.current.onDisconnect);
+        }
+        listenersRef.current = null;
     }, []);
 
     // Set up event listeners on a provider
     const setupListeners = useCallback((provider: any) => {
-        // Remove old listeners first
-        if (listenersRef.current && activeProviderRef.current) {
-            activeProviderRef.current.removeListener?.('accountsChanged', listenersRef.current.onAccounts);
-            activeProviderRef.current.removeListener?.('chainChanged', listenersRef.current.onChain);
-        }
+        cleanupListeners();
 
         const onAccounts = (accounts: string[]) => handleAccounts(accounts);
-        const onChain = (hexChainId: string) => setChainId(parseInt(hexChainId, 16));
+        const onChain = (hexChainId: string) => setChainId(parseInt(typeof hexChainId === 'string' ? hexChainId : String(hexChainId), 16));
+        const onDisconnect = () => {
+            setAddress(null);
+            setBalance(0n);
+            setChainId(null);
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(WALLET_TYPE_KEY);
+        };
 
         provider.on?.('accountsChanged', onAccounts);
         provider.on?.('chainChanged', onChain);
+        provider.on?.('disconnect', onDisconnect);
 
-        listenersRef.current = { onAccounts, onChain };
+        listenersRef.current = { onAccounts, onChain, onDisconnect };
         activeProviderRef.current = provider;
-    }, [handleAccounts]);
+    }, [handleAccounts, cleanupListeners]);
 
     // Open connect modal
     const connect = useCallback(() => {
@@ -132,14 +143,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setShowModal(true);
     }, []);
 
-    // Connect with a specific wallet provider
-    const connectWithWallet = useCallback(async (provider: any, rdns: string) => {
+    // Connect with injected wallet (EIP-6963 or window.ethereum)
+    const connectInjected = useCallback(async (provider: any, rdns: string) => {
         setIsConnecting(true);
         setError(null);
         try {
             const accounts = await provider.request({ method: 'eth_requestAccounts' });
             setupListeners(provider);
-            localStorage.setItem(WALLET_RDNS_KEY, rdns);
+            localStorage.setItem(WALLET_TYPE_KEY, `injected:${rdns}`);
             handleAccounts(accounts);
             await readChainId(provider);
             setShowModal(false);
@@ -154,23 +165,68 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
     }, [handleAccounts, readChainId, setupListeners]);
 
+    // Connect with WalletConnect
+    const connectWalletConnect = useCallback(async () => {
+        if (!WC_PROJECT_ID) {
+            setError('WalletConnect project ID not configured');
+            return;
+        }
+        setIsConnecting(true);
+        setError(null);
+        try {
+            const wcProvider = await EthereumProvider.init({
+                projectId: WC_PROJECT_ID,
+                chains: [CHAIN_ID],
+                rpcMap: { [CHAIN_ID]: RPC_URL },
+                showQrModal: true,
+                metadata: {
+                    name: 'UnicornX',
+                    description: 'Fantasy YC Trading Card Game',
+                    url: window.location.origin,
+                    icons: [`${window.location.origin}/icon.png`],
+                },
+            });
+
+            wcProviderRef.current = wcProvider;
+            await wcProvider.connect();
+
+            setupListeners(wcProvider);
+            localStorage.setItem(WALLET_TYPE_KEY, 'walletconnect');
+
+            const accounts = wcProvider.accounts;
+            handleAccounts(accounts);
+            setChainId(wcProvider.chainId);
+            setShowModal(false);
+        } catch (e: any) {
+            if (e.message?.includes('User rejected') || e.code === 4001) {
+                setError('Connection rejected');
+            } else {
+                console.error('WalletConnect error:', e);
+                setError(e.message || 'Failed to connect');
+            }
+        } finally {
+            setIsConnecting(false);
+        }
+    }, [handleAccounts, setupListeners]);
+
     // Disconnect
-    const disconnect = useCallback(() => {
-        if (listenersRef.current && activeProviderRef.current) {
-            activeProviderRef.current.removeListener?.('accountsChanged', listenersRef.current.onAccounts);
-            activeProviderRef.current.removeListener?.('chainChanged', listenersRef.current.onChain);
+    const disconnect = useCallback(async () => {
+        cleanupListeners();
+        // Disconnect WC session if active
+        if (wcProviderRef.current) {
+            try { await wcProviderRef.current.disconnect(); } catch { /* ignore */ }
+            wcProviderRef.current = null;
         }
         activeProviderRef.current = null;
-        listenersRef.current = null;
         setAddress(null);
         setBalance(0n);
         setChainId(null);
         setError(null);
         localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(WALLET_RDNS_KEY);
-    }, []);
+        localStorage.removeItem(WALLET_TYPE_KEY);
+    }, [cleanupListeners]);
 
-    // Switch to correct chain
+    // Switch chain
     const switchChain = useCallback(async () => {
         const provider = activeProviderRef.current || (window as any)?.ethereum;
         if (!provider) return;
@@ -202,7 +258,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Get signer for transactions
+    // Get signer
     const getSigner = useCallback(async (): Promise<ethers.Signer | null> => {
         const provider = activeProviderRef.current || (window as any)?.ethereum;
         if (!provider || !isConnected) return null;
@@ -215,29 +271,56 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
     }, [isConnected]);
 
-    // Refresh balance
     const refreshBalance = useCallback(() => {
         if (address) updateBalance(address);
     }, [address, updateBalance]);
 
-    // Auto-reconnect if previously connected
+    // Auto-reconnect
     useEffect(() => {
         const wasConnected = localStorage.getItem(STORAGE_KEY);
         if (!wasConnected) return;
 
-        const savedRdns = localStorage.getItem(WALLET_RDNS_KEY);
+        const savedType = localStorage.getItem(WALLET_TYPE_KEY);
 
-        // Small delay to let EIP-6963 announcements arrive
+        // WalletConnect auto-reconnect
+        if (savedType === 'walletconnect' && WC_PROJECT_ID) {
+            EthereumProvider.init({
+                projectId: WC_PROJECT_ID,
+                chains: [CHAIN_ID],
+                rpcMap: { [CHAIN_ID]: RPC_URL },
+                showQrModal: false,
+                metadata: {
+                    name: 'UnicornX',
+                    description: 'Fantasy YC Trading Card Game',
+                    url: window.location.origin,
+                    icons: [`${window.location.origin}/icon.png`],
+                },
+            }).then(wcProvider => {
+                if (wcProvider.session) {
+                    wcProviderRef.current = wcProvider;
+                    setupListeners(wcProvider);
+                    handleAccounts(wcProvider.accounts);
+                    setChainId(wcProvider.chainId);
+                } else {
+                    localStorage.removeItem(STORAGE_KEY);
+                    localStorage.removeItem(WALLET_TYPE_KEY);
+                }
+            }).catch(() => { });
+            return;
+        }
+
+        // Injected wallet auto-reconnect
         const timer = setTimeout(() => {
             let provider: any = null;
 
-            // Try to find the same wallet that was used before
-            if (savedRdns && savedRdns !== 'injected') {
-                const wallet = detectedWallets.find(w => w.info.rdns === savedRdns);
-                if (wallet) provider = wallet.provider;
+            if (savedType?.startsWith('injected:')) {
+                const rdns = savedType.replace('injected:', '');
+                if (rdns !== 'injected') {
+                    const wallet = detectedWallets.find(w => w.info.rdns === rdns);
+                    if (wallet) provider = wallet.provider;
+                }
             }
 
-            // Fallback to window.ethereum
             if (!provider && (window as any)?.ethereum) {
                 provider = (window as any).ethereum;
             }
@@ -252,7 +335,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                         readChainId(provider);
                     } else {
                         localStorage.removeItem(STORAGE_KEY);
-                        localStorage.removeItem(WALLET_RDNS_KEY);
+                        localStorage.removeItem(WALLET_TYPE_KEY);
                     }
                 })
                 .catch(() => { });
@@ -297,8 +380,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 isOpen={showModal}
                 onClose={() => { setShowModal(false); setIsConnecting(false); }}
                 wallets={detectedWallets}
-                onSelectWallet={connectWithWallet}
+                onSelectInjected={connectInjected}
+                onSelectWalletConnect={connectWalletConnect}
                 isConnecting={isConnecting}
+                hasWalletConnect={!!WC_PROJECT_ID}
             />
         </WalletContext.Provider>
     );

@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@walletconnect/ethereum-provider": "^2.23.5",
+    "@walletconnect/modal": "^2.7.0",
     "ethers": "^6.16.0",
     "gsap": "3.12.5",
     "lucide-react": "^0.563.0",
