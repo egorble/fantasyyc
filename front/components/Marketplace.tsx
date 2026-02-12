@@ -331,7 +331,16 @@ const Marketplace: React.FC = () => {
             setBidAmount('');
             alert('Bid placed successfully!');
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            const msg = e.message || '';
+            if (msg.includes('0xa0d26eb6') || msg.includes('BidTooLow')) {
+                const hb = bidModal.auction.highestBid;
+                const min = hb === 0n ? bidModal.auction.startPrice : hb + hb / 20n;
+                alert(`Bid too low! Minimum: ${safeFormatXTZ(min)} XTZ (+5% above current bid)`);
+            } else if (msg.includes('user rejected') || msg.includes('denied')) {
+                // User cancelled — no alert needed
+            } else {
+                alert(`Error: ${msg}`);
+            }
         }
         setBiddingId(null);
     };
@@ -758,9 +767,20 @@ const Marketplace: React.FC = () => {
                                         step="0.01"
                                         value={bidAmount}
                                         onChange={(e) => setBidAmount(e.target.value)}
-                                        placeholder="0.00"
+                                        placeholder={(() => {
+                                            const hb = bidModal.auction!.highestBid;
+                                            const min = hb === 0n ? bidModal.auction!.startPrice : hb + hb / 20n;
+                                            return safeFormatXTZ(min);
+                                        })()}
                                         className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold text-lg focus:border-yc-orange focus:outline-none"
                                     />
+                                    <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                                        Min bid: {(() => {
+                                            const hb = bidModal.auction!.highestBid;
+                                            const min = hb === 0n ? bidModal.auction!.startPrice : hb + hb / 20n;
+                                            return safeFormatXTZ(min);
+                                        })()} XTZ {bidModal.auction!.highestBid > 0n && '(+5%)'}
+                                    </p>
                                 </div>
 
                                 <button
@@ -861,7 +881,21 @@ const Marketplace: React.FC = () => {
                                 <>
                                     {statsTab === 'bids' && (
                                         cardBids.length === 0 ? (
-                                            <p className="text-gray-500 dark:text-gray-500 text-center py-4">No active offers</p>
+                                            <div className="py-4">
+                                                {/* Show auction bid if this is an auction with a bid */}
+                                                {statsItem && 'highestBid' in statsItem && (statsItem as AuctionWithMeta).highestBid > 0n ? (
+                                                    <div className="p-3 bg-gray-50 dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-[#2A2A2A]">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ((statsItem as AuctionWithMeta).highestBid)} XTZ</span>
+                                                            <span className="text-gray-500 dark:text-gray-500 text-xs">from</span>
+                                                            <span className="text-gray-500 dark:text-gray-400 text-xs">{(statsItem as AuctionWithMeta).highestBidder?.slice(0, 6)}...{(statsItem as AuctionWithMeta).highestBidder?.slice(-4)}</span>
+                                                            <span className="text-xs bg-yc-orange/20 text-yc-orange px-2 py-0.5 rounded-full font-bold">Auction bid</span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-500 dark:text-gray-500 text-center">No active offers</p>
+                                                )}
+                                            </div>
                                         ) : (
                                             <div className="space-y-2">
                                                 {cardBids.map((bid: any, i: number) => (
