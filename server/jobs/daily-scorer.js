@@ -148,8 +148,9 @@ function getYesterdayUTC() {
 /**
  * Run daily scoring for the active tournament.
  * @param {string} [dateOverride] - Optional date to score (YYYY-MM-DD). Defaults to yesterday UTC.
+ * @param {boolean} [force] - If true, clear old scores/feed for this date and re-score.
  */
-async function runDailyScoring(dateOverride) {
+async function runDailyScoring(dateOverride, force = false) {
     const scoringDate = dateOverride || getYesterdayUTC();
     console.log(`\n--- Daily Scorer ---`);
     console.log(`Scoring date: ${scoringDate}`);
@@ -182,8 +183,14 @@ async function runDailyScoring(dateOverride) {
     // Check if this date was already scored (prevent double scoring)
     const existingScores = db.getDailyScores(tournament.id, scoringDate);
     if (existingScores.length > 0) {
-        console.log(`Date ${scoringDate} already has ${existingScores.length} startup scores for tournament #${tournament.id}. Skipping to avoid duplicates.`);
-        return;
+        if (force) {
+            console.log(`[FORCE] Clearing old scores and feed for ${scoringDate}...`);
+            db.clearDailyScoresForDate(tournament.id, scoringDate);
+            db.clearLiveFeedForDate(scoringDate);
+        } else {
+            console.log(`Date ${scoringDate} already has ${existingScores.length} startup scores for tournament #${tournament.id}. Skipping to avoid duplicates.`);
+            return;
+        }
     }
 
     // 2. Get participants from blockchain
@@ -235,18 +242,20 @@ async function runDailyScoring(dateOverride) {
                 dailyHmac
             );
 
-            // Save events to live feed
+            // Save to live feed — one entry per tweet
             for (const tweet of result.tweets) {
-                for (const event of (tweet.events || [])) {
-                    db.saveLiveFeedEvent(
-                        name,
-                        event.type,
-                        tweet.text ? tweet.text.substring(0, 200) : `${name}: ${event.type}`,
-                        event.score || 0,
-                        tweet.id || null,
-                        scoringDate
-                    );
-                }
+                const events = tweet.events || [];
+                if (events.length === 0) continue;
+                const primary = events[0] || { type: 'ENGAGEMENT', score: 0 };
+                db.saveLiveFeedEvent(
+                    name,
+                    primary.type,
+                    tweet.text ? tweet.text.substring(0, 200) : `${name}: ${primary.type}`,
+                    tweet.points || primary.score || 0,
+                    tweet.id || null,
+                    scoringDate,
+                    tweet.headline || null
+                );
             }
         } catch (error) {
             console.error(`  Error scoring ${name}: ${error.message}`);

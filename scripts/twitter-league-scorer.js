@@ -60,14 +60,15 @@ const STARTUP_MAPPING = {
 const EVENT_SCORES = {
     FUNDING: {
         base: 500,
-        perMillion: 100,
+        perMillion: 10,
         seedMax: 800,
         seriesAPlus: 1500,
+        maxScore: 3000,
         keywords: [
-            'raised', 'funding', 'seed', 'series a', 'series b', 'series c', 'series d',
-            'round', 'investment', 'investors', 'backed by', 'led by', 'capital',
-            'venture', 'financing', 'fundraise', 'fundraising', 'raise', 'closed',
-            'pre-seed', 'angel', 'vc', 'valuation', 'invested', 'funding round',
+            'raised $', 'funding', 'seed round', 'series a', 'series b', 'series c', 'series d',
+            'funding round', 'investment', 'investors', 'backed by', 'led by', 'capital',
+            'venture', 'financing', 'fundraise', 'fundraising', 'raise $', 'closed $',
+            'pre-seed', 'angel round', 'vc funding', 'valuation', 'invested', 'raised a $',
             // Portuguese
             'investimento', 'investidores', 'rodada', 'captação', 'financiamento',
             'levantou', 'aporte', 'capitalização', 'investiu'
@@ -98,12 +99,13 @@ const EVENT_SCORES = {
             'new team member', 'joining our team', 'pleased to announce',
             // Portuguese
             'contratou', 'contratação', 'bem-vindo', 'novo membro', 'entrou para',
-            'nomeado', 'promovido', 'equipe', 'time'
+            'nomeado', 'promovido', 'nossa equipe'
         ]
     },
     REVENUE: {
         base: 400,
-        perMillion: 100,
+        perMillion: 10,
+        maxScore: 2000,
         keywords: [
             'arr', 'mrr', 'revenue', 'sales', 'annual recurring revenue',
             'monthly recurring revenue', 'run rate', 'bookings', 'billing',
@@ -223,6 +225,7 @@ function analyzeTweet(tweet) {
                 score = Math.min(score, EVENT_SCORES.FUNDING.seriesAPlus);
             }
         }
+        score = Math.min(score, EVENT_SCORES.FUNDING.maxScore);
         points.events.push({ type: 'FUNDING', score, details: `Amount: $${amount}M` });
         points.total += score;
     }
@@ -249,6 +252,7 @@ function analyzeTweet(tweet) {
         const amount = extractAmount(text);
         let score = EVENT_SCORES.REVENUE.base;
         if (amount > 0) score += Math.floor(amount) * EVENT_SCORES.REVENUE.perMillion;
+        score = Math.min(score, EVENT_SCORES.REVENUE.maxScore);
         points.events.push({ type: 'REVENUE', score, details: `Amount: $${amount}M` });
         points.total += score;
     }
@@ -296,6 +300,115 @@ function analyzeTweet(tweet) {
     }
 
     return points;
+}
+
+// ============ AI-based tweet analysis ============
+
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+const AI_SCORER_PROMPT = `You are a senior financial news analyst covering the tech startup ecosystem. Your job is to analyze tweets from startups and:
+1. Determine the news significance (event type and score)
+2. Write a professional headline in the style of Bloomberg, BBC Business, or NYT
+
+EVENT TYPES AND SCORING GUIDE:
+- FUNDING (200-3000): Company raised money, investment round, valuation. Score based on amount: seed <$5M=500, Series A $5-20M=1000, Series B+ $20M+=1500, mega-round $1B+=3000
+- PARTNERSHIP (200-800): Strategic partnership, integration with another company. 300 base, +200 for major tech partner (Google, AWS, Microsoft, etc.)
+- PRODUCT_LAUNCH (200-500): New product, feature launch, beta release. 250 base, +100 if major update
+- KEY_HIRE (100-300): Hiring announcement, new team member. 150 base, +100 for C-level
+- ACQUISITION (1000-2000): Company acquired or merged with another
+- REVENUE (200-2000): Revenue milestone, profitability, ARR numbers
+- GROWTH (100-500): User growth, milestone numbers, scaling achievement
+- MEDIA_MENTION (100-300): Press coverage, interview, article mention
+- ENGAGEMENT (50-500): General post with high social engagement but no specific news event. Score based on likes/retweets
+
+SCORING RULES:
+- Score ONLY based on information actually in the tweet. Never invent facts.
+- A routine product update with no significant news = ENGAGEMENT with low score (50-150)
+- Mundane tweets (greetings, memes, polls, casual posts) = ENGAGEMENT with score 50
+- Major announcements deserve higher scores
+- One tweet can only have ONE event type (pick the most significant)
+
+HEADLINE RULES:
+- Write like Bloomberg Terminal or BBC News
+- Active voice, present tense ("Raises", "Launches", "Partners With")
+- Include specific numbers/names from the tweet when available
+- 60-100 characters. No emojis, no hashtags, no exclamation marks
+- Be factual — never add information not in the tweet
+
+Respond with a JSON array. For each tweet, return:
+{"type": "EVENT_TYPE", "score": number, "headline": "Professional headline here"}
+
+Order must match the input tweets.`;
+
+/**
+ * Analyze tweets using AI — returns event type, score, and headline for each tweet.
+ * Falls back to keyword analysis if AI fails.
+ */
+async function analyzeTweetsWithAI(startupName, tweets) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+        console.log('   [AI] No API key — using keyword fallback');
+        return null; // signals to use keyword fallback
+    }
+
+    if (tweets.length === 0) return [];
+
+    const tweetList = tweets.map((t, i) => {
+        const metrics = `[Likes: ${t.likeCount || 0}, RT: ${t.retweetCount || 0}, Views: ${t.viewCount || 0}]`;
+        return `${i + 1}. ${metrics}\n"${(t.text || '').substring(0, 280)}"`;
+    }).join('\n\n');
+
+    const prompt = `Analyze these ${tweets.length} tweets from ${startupName}:\n\n${tweetList}`;
+
+    try {
+        const response = await fetch(OPENROUTER_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: process.env.AI_SCORER_MODEL || 'google/gemma-3-4b-it:free',
+                messages: [
+                    { role: 'user', content: AI_SCORER_PROMPT + '\n\n---\n\n' + prompt },
+                ],
+                temperature: 0.3,
+                max_tokens: 2000,
+            }),
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            console.log(`   [AI] API error ${response.status}: ${err.substring(0, 100)}`);
+            return null;
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content?.trim();
+        if (!content) {
+            console.log('   [AI] Empty response. Raw:', JSON.stringify(data).substring(0, 200));
+            return null;
+        }
+
+        const cleaned = content.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
+        const results = JSON.parse(cleaned);
+
+        if (!Array.isArray(results) || results.length !== tweets.length) {
+            console.log(`   [AI] Result count mismatch (got ${results?.length}, expected ${tweets.length})`);
+            return null;
+        }
+
+        // Validate and cap scores
+        return results.map((r, i) => ({
+            type: r.type || 'ENGAGEMENT',
+            score: Math.min(Math.max(Number(r.score) || 50, 0), 3000),
+            headline: (r.headline || '').substring(0, 120) || null,
+        }));
+
+    } catch (err) {
+        console.log(`   [AI] Error: ${err.message}`);
+        return null;
+    }
 }
 
 // ============ API functions ============
@@ -398,12 +511,32 @@ async function processStartupForDate(userName, date) {
         };
     }
 
+    const startupName = STARTUP_MAPPING[userName] || userName;
     const filtered = rawTweets.length - tweets.length;
     console.log(`   Found ${tweets.length} tweets for @${userName} on ${date}${filtered > 0 ? ` (filtered ${filtered} replies/RTs)` : ''}`);
 
-    const results = tweets.map(tweet => {
-        const analysis = analyzeTweet(tweet);
-        logTweet(userName, tweet, { points: analysis.total, events: analysis.events });
+    // Try AI analysis first, fall back to keyword matching
+    const aiResults = await analyzeTweetsWithAI(startupName, tweets);
+    const useAI = aiResults !== null;
+    if (useAI) console.log('   [AI] Analysis complete');
+
+    const results = tweets.map((tweet, i) => {
+        let eventType, score, headline;
+
+        if (useAI && aiResults[i]) {
+            eventType = aiResults[i].type;
+            score = aiResults[i].score;
+            headline = aiResults[i].headline;
+        } else {
+            // Keyword fallback
+            const analysis = analyzeTweet(tweet);
+            const primary = analysis.events.reduce((best, e) => (e.score > best.score ? e : best), analysis.events[0] || { type: 'ENGAGEMENT', score: 50 });
+            eventType = primary.type;
+            score = analysis.total;
+            headline = null;
+        }
+
+        logTweet(userName, tweet, { points: score, events: [{ type: eventType, score }] });
 
         return {
             id: tweet.id,
@@ -414,8 +547,9 @@ async function processStartupForDate(userName, date) {
                 retweets: tweet.retweetCount || 0,
                 replies: tweet.replyCount || 0
             },
-            points: analysis.total,
-            events: analysis.events
+            points: score,
+            events: [{ type: eventType, score, details: useAI ? 'AI' : 'keywords' }],
+            headline
         };
     });
 

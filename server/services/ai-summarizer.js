@@ -64,10 +64,9 @@ ${eventList}`;
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'openai/gpt-4o-mini',
+                model: process.env.AI_SCORER_MODEL || 'google/gemma-3-4b-it:free',
                 messages: [
-                    { role: 'system', content: SYSTEM_PROMPT },
-                    { role: 'user', content: prompt },
+                    { role: 'user', content: SYSTEM_PROMPT + '\n\n---\n\n' + prompt },
                 ],
                 temperature: 0.4,
                 max_tokens: 2000,

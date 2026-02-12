@@ -857,9 +857,10 @@ app.post('/api/run-scorer', adminLimiter, requireAdmin, async (req, res) => {
     try {
         const { runDailyScoring } = await import('./jobs/daily-scorer.js');
         const date = req.body?.date || undefined;
-        console.log(`Scorer triggered via API${date ? ` for date ${date}` : ''}`);
+        const force = req.body?.force === true;
+        console.log(`Scorer triggered via API${date ? ` for date ${date}` : ''}${force ? ' [FORCE]' : ''}`);
         // Run scorer async, respond immediately
-        runDailyScoring(date).then(async () => {
+        runDailyScoring(date, force).then(async () => {
             db.saveDatabase();
             console.log('Scorer complete, DB saved. Running AI summarizer...');
             await runAiSummarizer();

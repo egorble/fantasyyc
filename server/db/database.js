@@ -234,6 +234,10 @@ export function saveDailyScore(tournamentId, startupName, date, basePoints, twee
     `, [tournamentId, startupName, date, basePoints, tweetsAnalyzed, eventsJson, hmac, integrityHash]);
 }
 
+export function clearDailyScoresForDate(tournamentId, date) {
+    exec('DELETE FROM daily_scores WHERE tournament_id = ? AND date = ?', [tournamentId, date]);
+}
+
 export function getDailyScores(tournamentId, date) {
     const rows = all(`
         SELECT * FROM daily_scores
@@ -422,12 +426,16 @@ export function getTopStartups(tournamentId, limit = 5) {
 
 // ============ Live Feed Functions ============
 
-export function saveLiveFeedEvent(startupName, eventType, description, points, tweetId, date) {
+export function saveLiveFeedEvent(startupName, eventType, description, points, tweetId, date, headline = null) {
     exec(`
         INSERT INTO live_feed
-        (startup_name, event_type, description, points, tweet_id, date)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `, [startupName, eventType, description, points, tweetId || null, date]);
+        (startup_name, event_type, description, points, tweet_id, date, ai_summary)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [startupName, eventType, description, points, tweetId || null, date, headline]);
+}
+
+export function clearLiveFeedForDate(date) {
+    exec('DELETE FROM live_feed WHERE date = ?', [date]);
 }
 
 export function getLiveFeed(limit = 20) {
