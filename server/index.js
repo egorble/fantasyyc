@@ -860,10 +860,10 @@ app.post('/api/run-scorer', adminLimiter, requireAdmin, async (req, res) => {
         const force = req.body?.force === true;
         console.log(`Scorer triggered via API${date ? ` for date ${date}` : ''}${force ? ' [FORCE]' : ''}`);
         // Run scorer async, respond immediately
-        runDailyScoring(date, force).then(async () => {
+        // Note: daily-scorer step [7] already runs the AI summarizer internally
+        runDailyScoring(date, force).then(() => {
             db.saveDatabase();
-            console.log('Scorer complete, DB saved. Running AI summarizer...');
-            await runAiSummarizer();
+            console.log('Scorer complete, DB saved.');
         }).catch(err => {
             console.error('Scorer error:', err.message);
         });
@@ -883,6 +883,36 @@ app.post('/api/finalize', adminLimiter, requireAdmin, async (req, res) => {
         console.log('Finalization triggered via API');
         const result = await checkAndFinalize();
         return res.json({ success: true, ...result });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/admin/clear-news
+ * Clear all live feed / news events from DB.
+ */
+app.post('/api/admin/clear-news', adminLimiter, requireAdmin, (req, res) => {
+    try {
+        db.clearAllLiveFeed();
+        db.saveDatabase();
+        console.log('[Admin] All live feed events cleared');
+        return res.json({ success: true, message: 'All news cleared' });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/admin/reset-scores
+ * Reset all scores: daily_scores, score_history, leaderboard.
+ */
+app.post('/api/admin/reset-scores', adminLimiter, requireAdmin, (req, res) => {
+    try {
+        db.resetAllScores();
+        db.saveDatabase();
+        console.log('[Admin] All scores reset (daily_scores, score_history, leaderboard)');
+        return res.json({ success: true, message: 'All scores reset' });
     } catch (error) {
         return res.status(500).json({ success: false, error: error.message });
     }

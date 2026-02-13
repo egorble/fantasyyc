@@ -356,6 +356,7 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const AI_MODELS = [
     process.env.AI_SCORER_MODEL || 'google/gemma-3-4b-it:free',
     'google/gemma-3-4b-it:free',
+    'stepfun/step-3.5-flash:free',
     'arcee-ai/trinity-large-preview:free',
 ].filter((v, i, arr) => arr.indexOf(v) === i); // deduplicate
 

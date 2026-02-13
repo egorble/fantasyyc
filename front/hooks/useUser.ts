@@ -4,11 +4,32 @@ import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { createSignedAuth } from '../lib/auth';
 
 const API_BASE = '/api';
+const PROFILE_CACHE_KEY = 'fantasyyc_profile';
 
 export interface UserProfileData {
     address: string;
     username: string;
     avatar: string | null;
+}
+
+function getCachedProfile(addr: string): UserProfileData | null {
+    try {
+        const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+        if (!raw) return null;
+        const cached = JSON.parse(raw);
+        if (cached.address === addr.toLowerCase()) return cached;
+    } catch { /* ignore */ }
+    return null;
+}
+
+function cacheProfile(profile: UserProfileData) {
+    try {
+        localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+    } catch { /* ignore */ }
+}
+
+function clearProfileCache() {
+    try { localStorage.removeItem(PROFILE_CACHE_KEY); } catch { /* ignore */ }
 }
 
 export function useUser() {
@@ -20,31 +41,54 @@ export function useUser() {
 
     // Check if user exists in backend
     const checkUser = useCallback(async (addr: string) => {
+        const lowerAddr = addr.toLowerCase();
+
+        // Try localStorage cache first — instant, no flicker
+        const cached = getCachedProfile(lowerAddr);
+        if (cached) {
+            setProfile(cached);
+            setNeedsRegistration(false);
+            setIsNewUser(false);
+        }
+
         try {
             setLoading(true);
-            const res = await fetch(`${API_BASE}/users/${addr}`);
+            const res = await fetch(`${API_BASE}/users/${lowerAddr}`);
+
+            // Only treat 200 OK as authoritative — anything else is an error, not "user not found"
+            if (!res.ok) {
+                // Server error / rate limit — don't show registration modal
+                console.warn(`[useUser] checkUser got ${res.status}, skipping`);
+                if (!cached) {
+                    setNeedsRegistration(false);
+                }
+                return;
+            }
+
             const data = await res.json();
 
             if (data.success && data.data) {
-                setProfile({
+                const p: UserProfileData = {
                     address: data.data.address,
                     username: data.data.username,
-                    avatar: data.data.avatar || generatePixelAvatar(addr),
-                });
+                    avatar: data.data.avatar || generatePixelAvatar(lowerAddr),
+                };
+                setProfile(p);
+                cacheProfile(p);
                 setNeedsRegistration(false);
                 setIsNewUser(false);
             } else {
-                // Backend confirmed user doesn't exist
+                // Backend explicitly confirmed user doesn't exist (200 + success:false)
                 setProfile(null);
+                clearProfileCache();
                 setNeedsRegistration(true);
                 setIsNewUser(true);
             }
         } catch {
-            // Backend unreachable - don't show registration modal, just skip
-            // The user can still use the app, and we'll check again on next connect
-            setProfile(null);
-            setNeedsRegistration(false);
-            setIsNewUser(false);
+            // Network error — don't show registration modal, keep cached profile if any
+            if (!cached) {
+                setNeedsRegistration(false);
+            }
         } finally {
             setLoading(false);
         }
@@ -87,11 +131,13 @@ export function useUser() {
             const data = await res.json();
 
             if (data.success) {
-                setProfile({
+                const p: UserProfileData = {
                     address: data.data.address,
                     username: data.data.username,
                     avatar: data.data.avatar || generatePixelAvatar(address),
-                });
+                };
+                setProfile(p);
+                cacheProfile(p);
                 setNeedsRegistration(false);
                 setIsNewUser(data.isNew);
                 return data.isNew;
@@ -130,11 +176,13 @@ export function useUser() {
             const data = await res.json();
 
             if (data.success) {
-                setProfile({
+                const p: UserProfileData = {
                     address: data.data.address,
                     username: data.data.username,
                     avatar: data.data.avatar || generatePixelAvatar(address),
-                });
+                };
+                setProfile(p);
+                cacheProfile(p);
                 return true;
             }
             return false;
@@ -156,6 +204,7 @@ export function useUser() {
             checkUser(address);
         } else {
             setProfile(null);
+            clearProfileCache();
             setNeedsRegistration(false);
             setIsNewUser(false);
         }

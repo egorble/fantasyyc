@@ -14,7 +14,10 @@ import {
     Check,
     Calendar,
     Users,
-    Clock
+    Clock,
+    Trash2,
+    Database,
+    Key
 } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useAdmin, isAdmin, ContractBalances, AdminStats, TournamentData } from '../hooks/useAdmin';
@@ -49,6 +52,11 @@ const AdminPanel: React.FC = () => {
     // Points finalization modal
     const [showPointsModal, setShowPointsModal] = useState<TournamentData | null>(null);
     const [pointsValues, setPointsValues] = useState<string[]>(Array(19).fill('0'));
+
+    // Database management
+    const [adminKey, setAdminKey] = useState('');
+    const [dbActionLoading, setDbActionLoading] = useState<string | null>(null);
+    const [confirmAction, setConfirmAction] = useState<string | null>(null);
 
 
     // Startup names for points UI (from UnicornX_NFT.sol)
@@ -327,6 +335,38 @@ const AdminPanel: React.FC = () => {
         setActionLoading(null);
     };
 
+    // Database management handlers
+    const handleDbAction = async (action: 'clear-news' | 'reset-scores') => {
+        if (!adminKey.trim()) {
+            showMessage('error', 'Enter admin key first');
+            return;
+        }
+        if (confirmAction !== action) {
+            setConfirmAction(action);
+            return;
+        }
+        setDbActionLoading(action);
+        setConfirmAction(null);
+        try {
+            const res = await fetch(`/api/admin/${action}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Key': adminKey.trim(),
+                },
+            });
+            const data = await res.json();
+            if (data.success) {
+                showMessage('success', data.message);
+            } else {
+                showMessage('error', data.error || 'Action failed');
+            }
+        } catch {
+            showMessage('error', 'Network error');
+        }
+        setDbActionLoading(null);
+    };
+
     // Don't render if not admin
     if (!isConnected || !userIsAdmin) {
         return null;
@@ -565,6 +605,65 @@ const AdminPanel: React.FC = () => {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* Database Management */}
+                <div className="mt-6 bg-white dark:bg-[#121212] border border-red-200 dark:border-red-500/30 rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <Database className="w-5 h-5 text-red-500" />
+                        Database Management
+                    </h3>
+                    <p className="text-gray-500 text-sm mb-4">
+                        Dangerous actions. Enter admin API key to unlock.
+                    </p>
+
+                    <div className="mb-4">
+                        <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block flex items-center gap-1">
+                            <Key className="w-3.5 h-3.5" /> Admin API Key
+                        </label>
+                        <input
+                            type="password"
+                            value={adminKey}
+                            onChange={(e) => { setAdminKey(e.target.value); setConfirmAction(null); }}
+                            placeholder="Paste admin key..."
+                            className="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-[#333] rounded-lg px-4 py-2 text-gray-900 dark:text-white font-mono text-sm"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                            onClick={() => handleDbAction('clear-news')}
+                            disabled={!adminKey.trim() || dbActionLoading !== null}
+                            className={`py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-40 ${
+                                confirmAction === 'clear-news'
+                                    ? 'bg-red-500 text-white animate-pulse'
+                                    : 'bg-red-50 dark:bg-red-500/20 hover:bg-red-500 text-red-600 dark:text-red-400 hover:text-white'
+                            }`}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            {dbActionLoading === 'clear-news'
+                                ? 'Clearing...'
+                                : confirmAction === 'clear-news'
+                                    ? 'Click again to confirm'
+                                    : 'Clear All News'}
+                        </button>
+                        <button
+                            onClick={() => handleDbAction('reset-scores')}
+                            disabled={!adminKey.trim() || dbActionLoading !== null}
+                            className={`py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-40 ${
+                                confirmAction === 'reset-scores'
+                                    ? 'bg-red-500 text-white animate-pulse'
+                                    : 'bg-red-50 dark:bg-red-500/20 hover:bg-red-500 text-red-600 dark:text-red-400 hover:text-white'
+                            }`}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            {dbActionLoading === 'reset-scores'
+                                ? 'Resetting...'
+                                : confirmAction === 'reset-scores'
+                                    ? 'Click again to confirm'
+                                    : 'Reset All Scores'}
+                        </button>
                     </div>
                 </div>
 

@@ -438,6 +438,16 @@ export function clearLiveFeedForDate(date) {
     exec('DELETE FROM live_feed WHERE date = ?', [date]);
 }
 
+export function clearAllLiveFeed() {
+    exec('DELETE FROM live_feed');
+}
+
+export function resetAllScores() {
+    exec('DELETE FROM daily_scores');
+    exec('DELETE FROM score_history');
+    exec('DELETE FROM leaderboard');
+}
+
 export function getLiveFeed(limit = 20) {
     return all(`
         SELECT * FROM live_feed
