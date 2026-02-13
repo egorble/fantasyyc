@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const API_BASE_URL = '/api';
 
@@ -32,18 +32,21 @@ export interface TournamentStats {
 }
 
 /**
- * Hook to fetch leaderboard data
+ * Hook to fetch leaderboard data.
+ * Uses stale-while-revalidate: shows existing data during refetch, no loading flicker.
  */
 export function useLeaderboard(tournamentId: number | null, limit: number = 100) {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const hasFetched = useRef(false);
 
     useEffect(() => {
         if (!tournamentId) return;
+        hasFetched.current = false;
 
         const fetchLeaderboard = async () => {
-            setLoading(true);
+            if (!hasFetched.current) setLoading(true);
             setError(null);
 
             try {
@@ -59,13 +62,13 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
                 setError('Network error');
                 console.error('Error fetching leaderboard:', err);
             } finally {
+                hasFetched.current = true;
                 setLoading(false);
             }
         };
 
         fetchLeaderboard();
 
-        // Auto-refresh every 10 seconds
         const interval = setInterval(fetchLeaderboard, 10000);
         return () => clearInterval(interval);
     }, [tournamentId, limit]);
@@ -74,18 +77,20 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
 }
 
 /**
- * Hook to fetch player's rank
+ * Hook to fetch player's rank.
  */
 export function usePlayerRank(tournamentId: number | null, playerAddress: string | null) {
     const [rank, setRank] = useState<PlayerRank | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const hasFetched = useRef(false);
 
     useEffect(() => {
         if (!tournamentId || !playerAddress) return;
+        hasFetched.current = false;
 
         const fetchRank = async () => {
-            setLoading(true);
+            if (!hasFetched.current) setLoading(true);
             setError(null);
 
             try {
@@ -102,13 +107,13 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
                 setError('Network error');
                 console.error('Error fetching player rank:', err);
             } finally {
+                hasFetched.current = true;
                 setLoading(false);
             }
         };
 
         fetchRank();
 
-        // Auto-refresh every 10 seconds
         const interval = setInterval(fetchRank, 10000);
         return () => clearInterval(interval);
     }, [tournamentId, playerAddress]);
@@ -117,18 +122,20 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
 }
 
 /**
- * Hook to fetch daily scores
+ * Hook to fetch daily scores.
  */
 export function useDailyScores(tournamentId: number | null, date: string) {
     const [scores, setScores] = useState<DailyScore[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const hasFetched = useRef(false);
 
     useEffect(() => {
         if (!tournamentId || !date) return;
+        hasFetched.current = false;
 
         const fetchScores = async () => {
-            setLoading(true);
+            if (!hasFetched.current) setLoading(true);
             setError(null);
 
             try {
@@ -144,6 +151,7 @@ export function useDailyScores(tournamentId: number | null, date: string) {
                 setError('Network error');
                 console.error('Error fetching daily scores:', err);
             } finally {
+                hasFetched.current = true;
                 setLoading(false);
             }
         };
@@ -155,18 +163,20 @@ export function useDailyScores(tournamentId: number | null, date: string) {
 }
 
 /**
- * Hook to fetch tournament stats
+ * Hook to fetch tournament stats.
  */
 export function useTournamentStats(tournamentId: number | null) {
     const [stats, setStats] = useState<TournamentStats | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const hasFetched = useRef(false);
 
     useEffect(() => {
         if (!tournamentId) return;
+        hasFetched.current = false;
 
         const fetchStats = async () => {
-            setLoading(true);
+            if (!hasFetched.current) setLoading(true);
             setError(null);
 
             try {
@@ -182,13 +192,13 @@ export function useTournamentStats(tournamentId: number | null) {
                 setError('Network error');
                 console.error('Error fetching stats:', err);
             } finally {
+                hasFetched.current = true;
                 setLoading(false);
             }
         };
 
         fetchStats();
 
-        // Auto-refresh every minute
         const interval = setInterval(fetchStats, 60000);
         return () => clearInterval(interval);
     }, [tournamentId]);

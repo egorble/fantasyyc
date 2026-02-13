@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Newspaper, ExternalLink, RefreshCw, ChevronDown, Loader2, TrendingUp } from 'lucide-react';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
@@ -138,11 +138,12 @@ const Feed: React.FC = () => {
     const [loadingMore, setLoadingMore] = useState(false);
     const [pagination, setPagination] = useState<Pagination | null>(null);
     const [filterStartup, setFilterStartup] = useState<string | null>(null);
+    const hasFetched = useRef(false);
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('feed');
 
     const fetchFeed = useCallback(async (offset = 0, append = false) => {
-        if (offset === 0) setLoading(true);
-        else setLoadingMore(true);
+        if (offset === 0 && !hasFetched.current) setLoading(true);
+        else if (offset > 0) setLoadingMore(true);
 
         try {
             const res = await fetch(`/api/feed?limit=20&offset=${offset}`);
@@ -158,6 +159,7 @@ const Feed: React.FC = () => {
         } catch (err) {
             console.error('Failed to fetch feed:', err);
         } finally {
+            hasFetched.current = true;
             setLoading(false);
             setLoadingMore(false);
         }
