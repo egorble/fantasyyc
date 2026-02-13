@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 build/
+front/dist/
 
 # Environment files
 .env
@@ -20,6 +21,12 @@ test-results.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# Database (production data — never overwrite via git)
+server/db/*.db
+
+# Server logs
+server/logs/
 
 # Logs
 *.log

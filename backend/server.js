@@ -74,7 +74,7 @@ const STARTUPS = {
         slug: "browser-use",
         rarity: "Epic",
         multiplier: 5,
-        description: "AI browser automation",
+        description: "AI browser autortion",
         fundraising: { round: "Seed", amount: "$17M", valuation: null }
     },
     7: {
