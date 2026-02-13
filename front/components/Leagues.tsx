@@ -25,7 +25,7 @@ const Leagues: React.FC = () => {
 
     // Hooks
     const { isConnected, address, getSigner, connect } = useWalletContext();
-    const { getCards, isLoading: nftLoading } = useNFT();
+    const { getCards, clearCache, isLoading: nftLoading } = useNFT();
     const {
         getActiveTournamentId: fetchActiveTournamentId,
         getTournament,
@@ -154,6 +154,12 @@ const Leagues: React.FC = () => {
         const result = await enterTournament(signer, activeTournamentId, cardIds);
 
         if (result.success) {
+            // Refetch cards from blockchain so isLocked updates
+            if (address) {
+                clearCache();
+                getCards(address, true);
+            }
+
             // Run success animation
             const ctx = gsap.context(() => {
                 const tl = gsap.timeline({
@@ -204,6 +210,11 @@ const Leagues: React.FC = () => {
         const result = await claimPrize(signer, activeTournamentId);
         if (result.success) {
             setHasClaimed(true);
+            // Refetch cards from blockchain — cards get unlocked after claim
+            if (address) {
+                clearCache();
+                getCards(address, true);
+            }
         }
         setIsClaiming(false);
     };
@@ -445,7 +456,7 @@ const Leagues: React.FC = () => {
                 </div>
 
                 <div className="relative z-10 max-w-2xl">
-                    <div className="flex items-center space-x-2 mb-4">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                         <span className="px-2 py-0.5 bg-yc-orange text-white text-[10px] font-bold uppercase rounded">
                             Tournament #{activeTournamentId}
                         </span>
@@ -461,24 +472,24 @@ const Leagues: React.FC = () => {
                             </span>
                         )}
                     </div>
-                    <h2 className="text-4xl font-black text-gray-900 dark:text-white mb-4 uppercase tracking-tighter">Global UnicornX League</h2>
-                    <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                    <h2 className="text-2xl sm:text-4xl font-black text-gray-900 dark:text-white mb-3 sm:mb-4 uppercase tracking-tighter">Global UnicornX League</h2>
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6 leading-relaxed">
                         Compete against other investors. Build a portfolio of 5 NFT startup cards.
                         Cards are locked during the tournament. Top players win from the prize pool!
                     </p>
 
-                    <div className="flex items-center gap-6 mb-8">
+                    <div className="flex items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
                         <div>
-                            <p className="text-gray-500 dark:text-gray-500 text-xs uppercase font-bold">Prize Pool</p>
-                            <p className="text-2xl font-black text-yc-orange font-mono">
+                            <p className="text-gray-500 dark:text-gray-500 text-[10px] sm:text-xs uppercase font-bold">Prize Pool</p>
+                            <p className="text-xl sm:text-2xl font-black text-yc-orange font-mono">
                                 {activeTournament ? formatXTZ(activeTournament.prizePool) : '0'} XTZ
                             </p>
                         </div>
                         <div className="w-px h-10 bg-gray-300 dark:bg-gray-800"></div>
                         <div>
-                            <p className="text-gray-500 dark:text-gray-500 text-xs uppercase font-bold">Participants</p>
-                            <p className="text-2xl font-black text-gray-900 dark:text-white font-mono flex items-center">
-                                <Users className="w-5 h-5 mr-2 text-gray-400 dark:text-gray-600" />
+                            <p className="text-gray-500 dark:text-gray-500 text-[10px] sm:text-xs uppercase font-bold">Participants</p>
+                            <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white font-mono flex items-center">
+                                <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 text-gray-400 dark:text-gray-600" />
                                 {activeTournament?.entryCount || 0}
                             </p>
                         </div>
@@ -487,7 +498,7 @@ const Leagues: React.FC = () => {
                     {!isConnected ? (
                         <button
                             onClick={connect}
-                            className="bg-yc-orange hover:bg-orange-600 text-white px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wide transition-all flex items-center shadow-lg"
+                            className="bg-yc-orange hover:bg-orange-600 text-white px-5 sm:px-8 py-2.5 sm:py-3 rounded-lg font-black text-xs sm:text-sm uppercase tracking-wide transition-all flex items-center shadow-lg"
                         >
                             <Wallet className="w-4 h-4 mr-2" /> Connect to Enter
                         </button>
@@ -500,7 +511,7 @@ const Leagues: React.FC = () => {
                             <button
                                 onClick={handleClaimPrize}
                                 disabled={isClaiming}
-                                className="bg-yellow-500 hover:bg-yellow-600 text-black px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wide transition-all flex items-center shadow-lg"
+                                className="bg-yellow-500 hover:bg-yellow-600 text-black px-5 sm:px-8 py-2.5 sm:py-3 rounded-lg font-black text-xs sm:text-sm uppercase tracking-wide transition-all flex items-center shadow-lg"
                             >
                                 {isClaiming ? (
                                     <span className="animate-pulse">Claiming...</span>
@@ -522,7 +533,7 @@ const Leagues: React.FC = () => {
                     ) : (phase === 'registration' || phase === 'active') ? (
                         <button
                             onClick={() => setIsJoining(true)}
-                            className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-yc-orange hover:text-white px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wide transition-all flex items-center shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(242,101,34,0.4)]"
+                            className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-yc-orange hover:text-white px-5 sm:px-8 py-2.5 sm:py-3 rounded-lg font-black text-xs sm:text-sm uppercase tracking-wide transition-all flex items-center shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(242,101,34,0.4)]"
                         >
                             Enter League <ArrowRight className="w-4 h-4 ml-2" />
                         </button>
@@ -536,17 +547,17 @@ const Leagues: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-xl text-yc-text-primary dark:text-white flex items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-1">
+                <h3 className="font-bold text-lg sm:text-xl text-yc-text-primary dark:text-white flex items-center">
                     Live Leaderboard
                     {leaderboardLoading && <RefreshCw className="w-4 h-4 ml-2 animate-spin text-gray-400" />}
                 </h3>
                 {playerRank && (
-                    <div className="text-sm">
+                    <div className="text-xs sm:text-sm">
                         <span className="text-gray-500 dark:text-gray-400">Your Rank: </span>
                         <span className="font-bold text-yc-orange">#{playerRank.rank}</span>
                         <span className="text-gray-500 dark:text-gray-400 ml-2">Score: </span>
-                        <span className="font-mono font-bold text-yc-text-primary dark:text-white">{playerRank.score.toFixed(2)}</span>
+                        <span className="font-mono font-bold text-yc-text-primary dark:text-white">{playerRank.score.toFixed(1)}</span>
                     </div>
                 )}
             </div>
@@ -562,65 +573,56 @@ const Leagues: React.FC = () => {
                         <p className="text-gray-500 dark:text-gray-400">No players yet. Be the first to enter!</p>
                     </div>
                 ) : (
-                    <div className="p-0">
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-100 dark:bg-[#0F0F0F] text-xs uppercase text-gray-500 font-bold border-b border-yc-light-border dark:border-[#2A2A2A]">
-                                <tr>
-                                    <th className="px-6 py-4">Rank</th>
-                                    <th className="px-6 py-4">Player</th>
-                                    <th className="px-6 py-4 text-right">Score</th>
-                                    <th className="px-6 py-4 text-right">Last Updated</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-[#2A2A2A]">
-                                {leaderboardData.map((player) => {
-                                    const isCurrentUser = address && player.address.toLowerCase() === address.toLowerCase();
-                                    return (
-                                        <tr
-                                            key={player.address}
-                                            className={`hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors group ${isCurrentUser ? 'bg-yc-orange/5 dark:bg-yc-orange/5' : ''}`}
-                                        >
-                                            <td className="px-6 py-4">
-                                                <div className={`
-                                                    w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm
-                                                    ${player.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
-                                                        player.rank === 2 ? 'bg-gray-400/20 text-gray-400' :
-                                                        player.rank === 3 ? 'bg-orange-700/20 text-orange-700' : 'text-gray-500 dark:text-gray-400'}
-                                                `}>
-                                                    {player.rank}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-[#333] mr-3 border border-gray-300 dark:border-gray-700 overflow-hidden">
-                                                        <img
-                                                            src={player.avatar || generatePixelAvatar(player.address, 64)}
-                                                            alt=""
-                                                            className="w-full h-full object-cover"
-                                                            style={{ imageRendering: player.avatar ? 'auto' : 'pixelated' }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className={`font-bold group-hover:text-yc-orange transition-colors ${isCurrentUser ? 'text-yc-orange' : 'text-yc-text-primary dark:text-white'}`}>
-                                                            {player.username || formatAddress(player.address)}
-                                                        </span>
-                                                        <span className={`text-[10px] font-mono ${isCurrentUser ? 'text-yc-orange font-bold' : 'text-gray-400'}`}>
-                                                            {isCurrentUser ? 'You' : formatAddress(player.address)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-mono font-bold text-yc-text-primary dark:text-white">
-                                                {player.score.toFixed(2)}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-mono text-xs text-gray-500 dark:text-gray-400">
-                                                {new Date(player.lastUpdated).toLocaleDateString()}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                    <div className="divide-y divide-gray-200 dark:divide-[#2A2A2A]">
+                        {leaderboardData.map((player) => {
+                            const isCurrentUser = address && player.address.toLowerCase() === address.toLowerCase();
+                            return (
+                                <div
+                                    key={player.address}
+                                    className={`flex items-center px-3 sm:px-5 py-3 hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors ${isCurrentUser ? 'bg-yc-orange/5' : ''}`}
+                                >
+                                    {/* Rank */}
+                                    <div className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full font-bold text-xs sm:text-sm shrink-0 ${
+                                        player.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
+                                        player.rank === 2 ? 'bg-gray-400/20 text-gray-400' :
+                                        player.rank === 3 ? 'bg-orange-700/20 text-orange-700' : 'text-gray-500 dark:text-gray-400'
+                                    }`}>
+                                        {player.rank}
+                                    </div>
+
+                                    {/* Avatar + Name */}
+                                    <div className="flex items-center ml-2 sm:ml-3 flex-1 min-w-0">
+                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-200 dark:bg-[#333] border border-gray-300 dark:border-gray-700 overflow-hidden shrink-0">
+                                            <img
+                                                src={player.avatar || generatePixelAvatar(player.address, 64)}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                                style={{ imageRendering: player.avatar ? 'auto' : 'pixelated' }}
+                                            />
+                                        </div>
+                                        <div className="ml-2 min-w-0">
+                                            <p className={`text-sm font-bold truncate ${isCurrentUser ? 'text-yc-orange' : 'text-yc-text-primary dark:text-white'}`}>
+                                                {player.username || formatAddress(player.address)}
+                                                {isCurrentUser && <span className="text-[10px] text-yc-orange ml-1">(You)</span>}
+                                            </p>
+                                            <p className="text-[10px] font-mono text-gray-400 truncate hidden sm:block">
+                                                {formatAddress(player.address)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Score */}
+                                    <div className="text-right shrink-0 ml-2">
+                                        <p className="text-sm font-bold font-mono text-yc-text-primary dark:text-white">
+                                            {player.score.toFixed(1)}
+                                        </p>
+                                        <p className="text-[10px] text-gray-400 font-mono hidden sm:block">
+                                            {new Date(player.lastUpdated).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
