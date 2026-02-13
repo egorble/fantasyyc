@@ -64,6 +64,17 @@ function getTweetUrl(event: FeedEvent): string | null {
     return `https://x.com/i/status/${event.tweetId}`;
 }
 
+function makeHeadline(event: FeedEvent): string {
+    if (event.summary && event.summary.length > 10) return event.summary;
+    // Fallback: create headline from startup + event type + first sentence
+    const typeLabel = EVENT_TYPE_LABELS[event.eventType] || '';
+    const firstSentence = (event.description || '').split(/[.\n!?]/)[0].trim();
+    if (firstSentence.length > 15) {
+        return firstSentence.length > 100 ? firstSentence.substring(0, 97) + '...' : firstSentence;
+    }
+    return `${event.startup}: ${typeLabel || 'Update'}`;
+}
+
 function timeAgo(dateStr: string): string {
     const now = new Date();
     const date = new Date(dateStr);
@@ -204,7 +215,8 @@ const Feed: React.FC = () => {
                     {filteredEvents.map(event => {
                         const tweetUrl = getTweetUrl(event);
                         const typeLabel = EVENT_TYPE_LABELS[event.eventType] || event.eventType;
-                        const headline = event.summary || event.description;
+                        const headline = makeHeadline(event);
+                        const snippet = event.description?.substring(0, 120);
 
                         return (
                             <article
@@ -212,7 +224,7 @@ const Feed: React.FC = () => {
                                 className="bg-white dark:bg-[#0E0E0E] p-4 sm:p-5 hover:bg-gray-50 dark:hover:bg-[#141414] transition-colors"
                             >
                                 {/* Source line */}
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
                                     <span className="text-xs font-extrabold uppercase tracking-wider text-yc-orange">{event.startup}</span>
                                     <span className="text-gray-300 dark:text-[#333]">|</span>
                                     <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{typeLabel}</span>
@@ -225,21 +237,28 @@ const Feed: React.FC = () => {
                                 </div>
 
                                 {/* Headline */}
-                                <h3 className="text-[15px] sm:text-base font-bold text-gray-900 dark:text-white leading-snug mb-1.5">
+                                <h3 className="text-[15px] sm:text-base font-bold text-gray-900 dark:text-white leading-snug">
                                     {headline}
                                 </h3>
 
-                                {/* Source link */}
-                                {tweetUrl && (
-                                    <a
-                                        href={tweetUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-yc-orange transition-colors mt-1"
-                                    >
-                                        Source <ExternalLink className="w-3 h-3" />
-                                    </a>
-                                )}
+                                {/* Snippet + Source */}
+                                <div className="flex items-end justify-between mt-1.5 gap-4">
+                                    {snippet && headline !== snippet && (
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed line-clamp-2 flex-1">
+                                            {snippet}{snippet.length >= 120 ? '...' : ''}
+                                        </p>
+                                    )}
+                                    {tweetUrl && (
+                                        <a
+                                            href={tweetUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-yc-orange transition-colors shrink-0"
+                                        >
+                                            Source <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                    )}
+                                </div>
                             </article>
                         );
                     })}

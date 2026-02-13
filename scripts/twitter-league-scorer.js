@@ -528,11 +528,11 @@ async function processStartupForDate(userName, date) {
             score = aiResults[i].score;
             headline = aiResults[i].headline;
         } else {
-            // Keyword fallback
+            // Keyword fallback — use primary event score only (not sum of all events)
             const analysis = analyzeTweet(tweet);
             const primary = analysis.events.reduce((best, e) => (e.score > best.score ? e : best), analysis.events[0] || { type: 'ENGAGEMENT', score: 50 });
             eventType = primary.type;
-            score = analysis.total;
+            score = Math.min(primary.score, 3000);
             headline = null;
         }
 
