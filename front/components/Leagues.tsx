@@ -425,54 +425,56 @@ const Leagues: React.FC = () => {
 
                     <div className="league-overlay absolute inset-0 pointer-events-none transition-colors duration-500 z-0"></div>
 
-                    {/* Two-column Layout: Slots Left, Cards Right */}
-                    <div className="relative z-10 flex gap-6">
+                    {/* Layout: stacked on mobile, side-by-side on desktop */}
+                    <div className="relative z-10 flex flex-col sm:flex-row gap-4 sm:gap-6">
 
-                        {/* Left Side - Deck Slots (Vertical) */}
-                        <div className="flex flex-col gap-3 w-48 shrink-0">
+                        {/* Squad Slots - horizontal row on mobile, vertical list on desktop */}
+                        <div className="sm:w-48 sm:shrink-0">
                             <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Your Squad</h4>
-                            {deck.map((slot, idx) => (
-                                <div
-                                    key={idx}
-                                    onDragOver={handleDragOver}
-                                    onDrop={(e) => handleDrop(e, idx)}
-                                    className={`
-                                        h-16 rounded-lg border-2 transition-all relative flex items-center gap-3 px-3 group
-                                        ${slot
-                                            ? 'border-yc-orange bg-black/80 deck-slot-card'
-                                            : 'border-dashed border-gray-600 bg-black/20 hover:border-gray-400'}
-                                    `}
-                                >
-                                    {slot ? (
-                                        <>
-                                            <img src={slot.image} alt={slot.name} className="w-10 h-10 rounded object-contain" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-white truncate">{slot.name}</p>
+                            <div className="flex sm:flex-col gap-1.5 sm:gap-3">
+                                {deck.map((slot, idx) => (
+                                    <div
+                                        key={idx}
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) => handleDrop(e, idx)}
+                                        className={`
+                                            flex-1 sm:flex-none aspect-square sm:aspect-auto sm:h-16 rounded-lg border-2 transition-all relative flex items-center justify-center sm:justify-start gap-2 sm:gap-3 sm:px-3 group
+                                            ${slot
+                                                ? 'border-yc-orange bg-black/80 deck-slot-card'
+                                                : 'border-dashed border-gray-600 bg-black/20 hover:border-gray-400'}
+                                        `}
+                                    >
+                                        {slot ? (
+                                            <>
+                                                <img src={slot.image} alt={slot.name} className="w-9 h-9 sm:w-10 sm:h-10 rounded object-contain" />
+                                                <div className="flex-1 min-w-0 hidden sm:block">
+                                                    <p className="text-sm font-bold text-white truncate">{slot.name}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeCard(idx)}
+                                                    className="absolute -top-1.5 -right-1.5 sm:static w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-red-500 sm:bg-red-500/20 hover:bg-red-600 text-white sm:text-red-400 hover:text-white flex items-center justify-center transition-colors z-10"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-center gap-2 text-gray-500">
+                                                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gray-800 flex items-center justify-center text-[10px] sm:text-xs font-bold border border-gray-700">
+                                                    {idx + 1}
+                                                </div>
+                                                <span className="text-[10px] uppercase font-bold tracking-wider hidden sm:inline">Empty</span>
                                             </div>
-                                            <button
-                                                onClick={() => removeCard(idx)}
-                                                className="w-6 h-6 rounded-full bg-red-500/20 hover:bg-red-600 text-red-400 hover:text-white flex items-center justify-center transition-colors"
-                                            >
-                                                <X size={12} />
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <div className="flex items-center gap-2 text-gray-500">
-                                            <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold border border-gray-700">
-                                                {idx + 1}
-                                            </div>
-                                            <span className="text-[10px] uppercase font-bold tracking-wider">Empty</span>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
 
-                            {/* Submit Button */}
+                            {/* Submit Button - desktop only (below slots) */}
                             <button
                                 disabled={deck.includes(null) || submissionState !== 'idle'}
                                 onClick={handleSubmit}
                                 className={`
-                                    mt-2 w-full py-3 rounded-lg font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center
+                                    mt-3 w-full py-2.5 sm:py-3 rounded-lg font-black text-xs sm:text-sm uppercase tracking-wider transition-all hidden sm:flex items-center justify-center
                                     ${deck.includes(null)
                                         ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
                                         : submissionState === 'submitting'
@@ -491,7 +493,7 @@ const Leagues: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* Right Side - Available Cards */}
+                        {/* Available Cards - full width on mobile */}
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-3">
                                 <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center">
@@ -506,7 +508,7 @@ const Leagues: React.FC = () => {
                                     <p className="text-gray-500">No available cards. Buy packs to get started!</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 max-h-[50vh] sm:max-h-[400px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
                                     {availableCards.map((card) => {
                                         const isSelected = deck.some(c => c?.tokenId === card.tokenId);
                                         const canAdd = !isSelected && submissionState === 'idle' && deck.includes(null);
@@ -562,6 +564,30 @@ const Leagues: React.FC = () => {
                                 </div>
                             )}
                         </div>
+
+                        {/* Submit Button - mobile only (after available cards) */}
+                        <button
+                            disabled={deck.includes(null) || submissionState !== 'idle'}
+                            onClick={handleSubmit}
+                            className={`
+                                sm:hidden w-full py-3 rounded-lg font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center
+                                ${deck.includes(null)
+                                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                    : submissionState === 'submitting'
+                                        ? 'bg-yc-orange text-white cursor-wait opacity-80'
+                                        : 'bg-yc-orange hover:bg-orange-600 text-white shadow-lg active:scale-95'}
+                            `}
+                        >
+                            {submissionState === 'submitting' ? (
+                                <span className="animate-pulse">Locking...</span>
+                            ) : (
+                                <>
+                                    <Zap className="w-4 h-4 mr-2 fill-current" />
+                                    Submit Squad
+                                </>
+                            )}
+                        </button>
+
                     {/* UnicornX AI — Overlay (open) */}
                     {aiRecommendation && aiRecommendation.source !== 'insufficient_cards' && aiOverlayOpen && (
                         <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm rounded-2xl">
