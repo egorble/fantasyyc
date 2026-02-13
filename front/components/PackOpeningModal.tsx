@@ -196,7 +196,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
         const cards = cardRefs.current;
         if (!cards || cards.length === 0) return;
         const stackX = window.innerWidth / 2;
-        const stackY = window.innerHeight - 150;
+        const isMobile = window.innerWidth < 640;
+        const stackY = window.innerHeight - (isMobile ? 100 : 150);
 
         cards.forEach((card, i) => {
             if (!card) return;
@@ -242,53 +243,53 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
             {/* --- STAGE: PACK SELECTION --- */}
             {stage === 'select' && (
-                <div className="flex flex-col items-center justify-center w-full h-full relative px-4">
+                <div className="flex flex-col items-center w-full h-full relative px-4 overflow-y-auto py-6 sm:py-0 sm:justify-center">
                     {/* Pack visual */}
-                    <div className="relative w-52 h-72 mb-8 group">
+                    <div className="relative w-36 h-48 sm:w-52 sm:h-72 mb-4 sm:mb-8 group shrink-0">
                         <div className="absolute inset-0 rounded-xl overflow-hidden border bg-[#151515] border-white/20 shadow-2xl shadow-orange-500/10">
                             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <div className="w-20 h-20 border-2 border-yc-orange rounded-full flex items-center justify-center mb-3 bg-black/50">
-                                    <span className="text-white font-black text-2xl">YC</span>
+                                <div className="w-14 h-14 sm:w-20 sm:h-20 border-2 border-yc-orange rounded-full flex items-center justify-center mb-2 sm:mb-3 bg-black/50">
+                                    <span className="text-white font-black text-xl sm:text-2xl">YC</span>
                                 </div>
-                                <div className="px-3 py-1 bg-yc-orange text-white text-[10px] font-black uppercase tracking-[0.2em]">Season 4</div>
+                                <div className="px-2 sm:px-3 py-1 bg-yc-orange text-white text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em]">Season 4</div>
                             </div>
                         </div>
                         {/* Pack count badge */}
                         {packCount > 1 && (
-                            <div className="absolute -top-3 -right-3 w-10 h-10 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-lg shadow-lg shadow-orange-500/30 z-10">
+                            <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-8 h-8 sm:w-10 sm:h-10 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-sm sm:text-lg shadow-lg shadow-orange-500/30 z-10">
                                 {packCount}x
                             </div>
                         )}
                     </div>
 
                     {/* Pack count selector */}
-                    <div className="flex items-center gap-4 mb-6">
+                    <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 shrink-0">
                         <button
                             onClick={() => setPackCount(Math.max(1, packCount - 1))}
-                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
                         >
-                            <Minus className="w-5 h-5" />
+                            <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
-                        <div className="text-center min-w-[100px]">
-                            <p className="text-3xl font-black text-white">{packCount}</p>
-                            <p className="text-gray-500 text-xs uppercase tracking-wider">{packCount === 1 ? 'Pack' : 'Packs'} ({packCount * 5} cards)</p>
+                        <div className="text-center min-w-[80px] sm:min-w-[100px]">
+                            <p className="text-2xl sm:text-3xl font-black text-white">{packCount}</p>
+                            <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">{packCount === 1 ? 'Pack' : 'Packs'} ({packCount * 5} cards)</p>
                         </div>
                         <button
                             onClick={() => setPackCount(Math.min(10, packCount + 1))}
-                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
                         >
-                            <Plus className="w-5 h-5" />
+                            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                     </div>
 
                     {/* Quick select buttons */}
-                    <div className="flex gap-2 mb-6">
+                    <div className="flex gap-2 mb-4 sm:mb-6 shrink-0">
                         {[1, 3, 5, 10].map(n => (
                             <button
                                 key={n}
                                 onClick={() => setPackCount(n)}
-                                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${packCount === n
+                                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${packCount === n
                                     ? 'bg-yc-orange text-white shadow-lg shadow-orange-500/30'
                                     : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
                                     }`}
@@ -299,8 +300,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     </div>
 
                     {/* Price */}
-                    <div className="text-center mb-6">
-                        <p className="text-yc-orange font-mono font-bold text-2xl">{formatXTZ(totalPrice)} XTZ</p>
+                    <div className="text-center mb-4 sm:mb-6 shrink-0">
+                        <p className="text-yc-orange font-mono font-bold text-xl sm:text-2xl">{formatXTZ(totalPrice)} XTZ</p>
                         {packCount > 1 && (
                             <p className="text-gray-500 text-xs mt-1">{formatXTZ(packPrice)} per pack</p>
                         )}
@@ -308,7 +309,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
                     {/* Error */}
                     {txError && (
-                        <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-4">
+                        <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-3 shrink-0">
                             {txError}
                         </div>
                     )}
@@ -316,13 +317,13 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     {/* Buy button */}
                     <button
                         onClick={handleBuyAndOpen}
-                        className="bg-yc-orange hover:bg-orange-600 text-white px-10 py-3.5 rounded-xl font-black text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3"
+                        className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
                     >
-                        <Package className="w-5 h-5 inline-block mr-2 -mt-0.5" />
+                        <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
                         {packCount === 1 ? 'Buy & Open Pack' : `Buy & Open ${packCount} Packs`}
                     </button>
 
-                    <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors">
+                    <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
                         Cancel
                     </button>
                 </div>
@@ -347,21 +348,21 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             {/* --- STAGE: TEARING & EXPLODING (single pack only) --- */}
             {(stage === 'tearing' || stage === 'exploding') && (
                 <div className="flex flex-col items-center justify-center w-full h-full relative cursor-pointer" onClick={handleTapPack}>
-                    <h2 className="absolute top-1/4 text-3xl font-black text-white italic uppercase tracking-tighter drop-shadow-glow pointer-events-none select-none animate-pulse">
+                    <h2 className="absolute top-[15%] sm:top-1/4 text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tighter drop-shadow-glow pointer-events-none select-none animate-pulse">
                         {cuts.length === 0 ? "TAP TO BREACH" :
                             cuts.length < maxTaps - 1 ? "TEAR IT OPEN" : "CRITICAL OVERLOAD"}
                     </h2>
 
-                    <div className="absolute top-[32%] w-48 h-1 bg-gray-800 rounded-full overflow-hidden pointer-events-none">
+                    <div className="absolute top-[22%] sm:top-[32%] w-40 sm:w-48 h-1 bg-gray-800 rounded-full overflow-hidden pointer-events-none">
                         <div className="h-full bg-yc-orange transition-all duration-100" style={{ width: `${(cuts.length / maxTaps) * 100}%` }} />
                     </div>
 
-                    <div ref={packRef} className="relative w-72 h-[420px] shadow-2xl z-10 transition-transform">
+                    <div ref={packRef} className="relative w-52 h-[300px] sm:w-72 sm:h-[420px] shadow-2xl z-10 transition-transform">
                         <div className="absolute inset-0 rounded-xl overflow-hidden border bg-[#151515] border-white/20">
                             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <div className="w-24 h-24 border-2 border-yc-orange rounded-full flex items-center justify-center mb-4 backdrop-blur-sm bg-black/50">
-                                    <span className="text-white font-black text-3xl">YC</span>
+                                <div className="w-16 h-16 sm:w-24 sm:h-24 border-2 border-yc-orange rounded-full flex items-center justify-center mb-3 sm:mb-4 backdrop-blur-sm bg-black/50">
+                                    <span className="text-white font-black text-2xl sm:text-3xl">YC</span>
                                 </div>
                                 <div className="px-3 py-1 bg-yc-orange text-white text-[10px] font-black uppercase tracking-[0.2em]">Season 4</div>
                             </div>
@@ -378,13 +379,13 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
             {/* --- STAGE: DEALING (single pack - tap to reveal) --- */}
             {stage === 'dealing' && !isMultiPack && (
-                <div className="w-full h-full flex flex-col items-center relative z-40 pt-20">
-                    <div ref={cardsContainerRef} className="flex flex-wrap justify-center gap-4 md:gap-8 perspective-1000 w-full max-w-6xl px-4 mt-10">
+                <div className="w-full h-full flex flex-col items-center relative z-40 pt-10 sm:pt-20">
+                    <div ref={cardsContainerRef} className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-8 perspective-1000 w-full max-w-6xl px-4 mt-4 sm:mt-10">
                         {mintedCards.map((card, index) => (
                             <div
                                 key={card.tokenId}
                                 ref={(el) => { cardRefs.current[index] = el }}
-                                className="relative w-48 h-72 md:w-56 md:h-80 group cursor-pointer opacity-0"
+                                className="relative w-36 h-52 sm:w-48 sm:h-72 md:w-56 md:h-80 group cursor-pointer opacity-0"
                             >
                                 <div className="card-inner w-full h-full relative preserve-3d">
                                     <div className="absolute inset-0 backface-hidden rounded-xl overflow-hidden shadow-2xl">
@@ -407,7 +408,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     </div>
 
                     <div
-                        className="fixed bottom-0 left-0 w-full h-[40vh] z-50 flex items-end justify-center pb-12 cursor-pointer touch-manipulation group"
+                        className="fixed bottom-0 left-0 w-full h-[25vh] sm:h-[40vh] z-50 flex items-end justify-center pb-8 sm:pb-12 cursor-pointer touch-manipulation group"
                         onClick={dealNextCard}
                     >
                         <div className="flex flex-col items-center animate-pulse group-active:scale-95 transition-transform">
@@ -422,11 +423,11 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             {stage === 'finished' && (
                 <div className="w-full h-full flex flex-col relative z-40">
                     {/* Header */}
-                    <div className="flex-shrink-0 pt-8 pb-4 text-center">
-                        <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter animate-[fadeInUp_0.5s_ease-out]">
+                    <div className="flex-shrink-0 pt-4 sm:pt-8 pb-2 sm:pb-4 text-center">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white uppercase tracking-tighter animate-[fadeInUp_0.5s_ease-out]">
                             {isMultiPack ? `${packCount} Packs Opened!` : 'Acquisition Complete'}
                         </h2>
-                        <p className="text-gray-400 text-sm mt-1">{mintedCards.length} cards acquired</p>
+                        <p className="text-gray-400 text-xs sm:text-sm mt-1">{mintedCards.length} cards acquired</p>
                         {/* Scroll hint for multi-pack */}
                         {isMultiPack && mintedCards.length > 10 && (
                             <div className="flex items-center justify-center gap-1 mt-2 text-gray-500 text-xs animate-bounce">
@@ -437,8 +438,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     </div>
 
                     {/* Scrollable card grid */}
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-24 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                        <div className={`grid gap-3 md:gap-4 max-w-6xl mx-auto ${isMultiPack
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 pb-28 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                        <div className={`grid gap-2 sm:gap-3 md:gap-4 max-w-6xl mx-auto ${isMultiPack
                             ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'
                             : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'
                             }`}>
@@ -463,10 +464,10 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     </div>
 
                     {/* Fixed bottom button */}
-                    <div className="fixed bottom-0 left-0 right-0 flex justify-center pb-6 pt-4 bg-gradient-to-t from-black via-black/80 to-transparent z-50">
+                    <div className="fixed bottom-0 left-0 right-0 flex justify-center pb-4 sm:pb-6 pt-3 sm:pt-4 bg-gradient-to-t from-black via-black/80 to-transparent z-50" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
                         <button
                             onClick={onClose}
-                            className="px-10 py-3 bg-yc-orange hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-wider transition-all shadow-lg shadow-orange-500/30 active:scale-95"
+                            className="px-8 sm:px-10 py-3 bg-yc-orange hover:bg-orange-600 text-white rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/30 active:scale-95"
                         >
                             Collect All
                         </button>
