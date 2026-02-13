@@ -9,6 +9,26 @@ import { useMarketplaceV2 } from '../hooks/useMarketplaceV2';
 import { usePollingData } from '../hooks/usePollingData';
 import { formatXTZ } from '../lib/contracts';
 import gsap from 'gsap';
+import { useOnboarding } from '../hooks/useOnboarding';
+import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
+
+const PORTFOLIO_GUIDE: OnboardingStep[] = [
+    {
+        title: 'Your Collection',
+        description: 'Buy your first pack and unlock your squad to compete in Leagues. Each pack contains 5 random startup NFT cards.',
+        icon: '\uD83C\uDCCF',
+    },
+    {
+        title: 'Merge Cards',
+        description: 'Combine 3 cards of the same startup and rarity to forge a higher rarity card with a bigger score multiplier.',
+        icon: '\u2728',
+    },
+    {
+        title: 'Sell & Trade',
+        description: 'List unwanted cards on the Marketplace or create auctions. Use the profits to buy the cards you really need.',
+        icon: '\uD83D\uDCB0',
+    },
+];
 
 interface PortfolioProps {
     onBuyPack: () => void;
@@ -57,6 +77,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     const { isConnected, address, getSigner, connect } = useWalletContext();
     const { getCards, getCardInfo, getCardInfoWithRetry, mergeCards, isLoading, clearCache, updateServerCache } = useNFT();
     const { listCard, createAuction, getBidsForToken, getTokenStats, getTokenSaleHistory, loading: marketplaceLoading } = useMarketplaceV2();
+    const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('portfolio');
 
     // Auto-refresh cards with polling (disabled when not connected)
     const {
@@ -1203,6 +1224,15 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                 </div>
             )}
 
+            {/* Onboarding Guide */}
+            {showGuide && isConnected && (
+                <OnboardingGuide
+                    steps={PORTFOLIO_GUIDE}
+                    currentStep={guideStep}
+                    onNext={() => guideNext(PORTFOLIO_GUIDE.length)}
+                    onDismiss={guideDismiss}
+                />
+            )}
         </div>
     );
 };

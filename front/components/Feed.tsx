@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Newspaper, ExternalLink, RefreshCw, ChevronDown, Loader2, TrendingUp } from 'lucide-react';
+import { useOnboarding } from '../hooks/useOnboarding';
+import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
+
+const FEED_GUIDE: OnboardingStep[] = [
+    {
+        title: 'Live News Feed',
+        description: 'Track real-time startup activity that drives your card scores. Funding announcements, partnerships, and social media buzz all contribute to daily points.',
+        icon: '\uD83D\uDCF0',
+    },
+    {
+        title: 'How Scoring Works',
+        description: 'Our AI scans Twitter every night for startup activity. Events like funding rounds, product launches, and viral tweets earn base points. Your card multiplier amplifies those points.',
+        icon: '\uD83E\uDD16',
+    },
+];
 
 interface FeedEvent {
     id: number;
@@ -123,6 +138,7 @@ const Feed: React.FC = () => {
     const [loadingMore, setLoadingMore] = useState(false);
     const [pagination, setPagination] = useState<Pagination | null>(null);
     const [filterStartup, setFilterStartup] = useState<string | null>(null);
+    const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('feed');
 
     const fetchFeed = useCallback(async (offset = 0, append = false) => {
         if (offset === 0) setLoading(true);
@@ -312,6 +328,16 @@ const Feed: React.FC = () => {
                         </>
                     )}
                 </button>
+            )}
+
+            {/* Onboarding Guide */}
+            {showGuide && (
+                <OnboardingGuide
+                    steps={FEED_GUIDE}
+                    currentStep={guideStep}
+                    onNext={() => guideNext(FEED_GUIDE.length)}
+                    onDismiss={guideDismiss}
+                />
             )}
         </div>
     );

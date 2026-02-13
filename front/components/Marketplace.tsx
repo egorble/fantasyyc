@@ -7,6 +7,8 @@ import { usePollingData } from '../hooks/usePollingData';
 import { formatXTZ } from '../lib/contracts';
 import { blockchainCache, CacheKeys } from '../lib/cache';
 import { CardData, Rarity, sortByRarity } from '../types';
+import { useOnboarding } from '../hooks/useOnboarding';
+import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
 
 // Rarity colors
 const RARITY_COLORS: Record<string, string> = {
@@ -71,6 +73,19 @@ function formatTimeLeft(endTime: bigint): { text: string; isEnded: boolean } {
     return { text: `${hours}h ${minutes}m ${seconds}s`, isEnded: false };
 }
 
+const MARKETPLACE_GUIDE: OnboardingStep[] = [
+    {
+        title: 'NFT Marketplace',
+        description: 'Buy cards from other players or list yours for sale. Place bids through auctions to get the best deals and strengthen your deck.',
+        icon: '\uD83D\uDECD\uFE0F',
+    },
+    {
+        title: 'Auctions & Bidding',
+        description: 'Place bids on cards you want. If you\'re the highest bidder when the timer runs out, the card is yours. Outbid others to secure rare cards.',
+        icon: '\uD83D\uDD28',
+    },
+];
+
 const Marketplace: React.FC = () => {
     const {
         getActiveListings,
@@ -95,6 +110,7 @@ const Marketplace: React.FC = () => {
     } = useMarketplaceV2();
     const { getCardInfo, getCards, clearCache } = useNFT();
     const { address, isConnected } = useWalletContext();
+    const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('marketplace');
 
     // State
     const [activeTab, setActiveTab] = useState<MarketTab>('listings');
@@ -1325,6 +1341,16 @@ const Marketplace: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Onboarding Guide */}
+            {showGuide && (
+                <OnboardingGuide
+                    steps={MARKETPLACE_GUIDE}
+                    currentStep={guideStep}
+                    onNext={() => guideNext(MARKETPLACE_GUIDE.length)}
+                    onDismiss={guideDismiss}
+                />
             )}
         </div>
     );

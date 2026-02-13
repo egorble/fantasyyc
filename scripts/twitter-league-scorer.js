@@ -30,6 +30,34 @@ function logTweet(userName, tweet, analysis) {
     appendFileSync(logFile, JSON.stringify(logEntry) + '\n');
 }
 
+// AI-specific logging — writes to server/logs/ai-scorer-YYYY-MM-DD.log
+function logAI(entry) {
+    const logFile = join(LOG_DIR, `ai-scorer-${new Date().toISOString().split('T')[0]}.log`);
+    appendFileSync(logFile, JSON.stringify({ timestamp: new Date().toISOString(), ...entry }) + '\n');
+}
+
+// Tracks AI stats across a full scoring run
+const aiStats = {
+    totalStartups: 0,
+    aiSuccessStartups: 0,
+    keywordFallbackStartups: 0,
+    totalTweetsAnalyzed: 0,
+    aiScoredTweets: 0,
+    keywordScoredTweets: 0,
+    modelAttempts: {},   // model -> { tried, succeeded, failed }
+    errors: [],
+    reset() {
+        this.totalStartups = 0;
+        this.aiSuccessStartups = 0;
+        this.keywordFallbackStartups = 0;
+        this.totalTweetsAnalyzed = 0;
+        this.aiScoredTweets = 0;
+        this.keywordScoredTweets = 0;
+        this.modelAttempts = {};
+        this.errors = [];
+    }
+};
+
 const API_KEY = 'new1_d1be13bf77c84f1886c5a79cdb692816';
 const API_BASE_URL = 'https://api.twitterapi.io/twitter';
 

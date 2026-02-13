@@ -7,7 +7,28 @@ import { useTournament, Tournament } from '../hooks/useTournament';
 import { useLeaderboard, usePlayerRank } from '../hooks/useLeaderboard';
 import { formatXTZ } from '../lib/contracts';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
+import { blockchainCache, CacheKeys } from '../lib/cache';
 import gsap from 'gsap';
+import { useOnboarding } from '../hooks/useOnboarding';
+import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
+
+const LEAGUES_GUIDE: OnboardingStep[] = [
+    {
+        title: 'Build Your Squad',
+        description: 'Choose your 5 strongest cards. They\'ll earn points daily based on startup activity: funding rounds, partnerships, Twitter engagement, and more.',
+        icon: '\uD83C\uDFC6',
+    },
+    {
+        title: 'Daily Scoring',
+        description: 'Every night, our system scans Twitter for startup activity. The more active a startup is, the more points your card earns. Higher rarity cards have bigger multipliers.',
+        icon: '\uD83D\uDCCA',
+    },
+    {
+        title: 'Prize Pool',
+        description: 'The prize pool grows with every pack sold this season. At the end of the tournament, players earn tokens proportional to their total points.',
+        icon: '\uD83D\uDCB8',
+    },
+];
 
 interface SquadCard {
     tokenId: number;
@@ -57,6 +78,7 @@ const Leagues: React.FC = () => {
     // Hooks
     const { isConnected, address, getSigner, connect } = useWalletContext();
     const { getCards, clearCache, isLoading: nftLoading } = useNFT();
+    const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('leagues');
     const {
         getActiveTournamentId: fetchActiveTournamentId,
         getTournament,
@@ -241,8 +263,10 @@ const Leagues: React.FC = () => {
         const result = await claimPrize(signer, activeTournamentId);
         if (result.success) {
             setHasClaimed(true);
-            // Refetch cards from blockchain — cards get unlocked after claim
+            setUserPrize(0n);
+            // Invalidate lineup cache so re-mount reads claimed=true
             if (address) {
+                blockchainCache.invalidate(CacheKeys.userLineup(activeTournamentId, address));
                 clearCache();
                 getCards(address, true);
             }
@@ -737,6 +761,16 @@ const Leagues: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Onboarding Guide */}
+            {showGuide && (
+                <OnboardingGuide
+                    steps={LEAGUES_GUIDE}
+                    currentStep={guideStep}
+                    onNext={() => guideNext(LEAGUES_GUIDE.length)}
+                    onDismiss={guideDismiss}
+                />
+            )}
         </div>
     );
 };
