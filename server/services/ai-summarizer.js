@@ -3,6 +3,23 @@
  * Generates Bloomberg/BBC-style financial news headlines from raw tweets.
  */
 
+import { appendFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const LOG_DIR = join(__dirname, '../logs');
+
+if (!existsSync(LOG_DIR)) {
+    mkdirSync(LOG_DIR, { recursive: true });
+}
+
+function logAISummarizer(entry) {
+    const logFile = join(LOG_DIR, `ai-summarizer-${new Date().toISOString().split('T')[0]}.log`);
+    appendFileSync(logFile, JSON.stringify({ timestamp: new Date().toISOString(), ...entry }) + '\n');
+}
+
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Model fallback chain — try each in order until one succeeds
@@ -46,6 +63,11 @@ export async function summarizeFeedEvents(events) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
         console.warn('[AI] No OPENROUTER_API_KEY set, using fallback truncation');
+        logAISummarizer({
+            type: 'summarizer_skip', reason: 'no_api_key',
+            eventCount: events.length,
+            events: events.map(e => ({ id: e.id, startup: e.startup_name, eventType: e.event_type }))
+        });
         return fallbackSummaries(events);
     }
 
@@ -62,6 +84,7 @@ ${eventList}`;
 
     // Try each model in fallback chain
     for (const model of AI_MODELS) {
+        const startTime = Date.now();
         try {
             console.log(`[AI Summarizer] Trying model: ${model}`);
             const response = await fetch(OPENROUTER_URL, {
@@ -80,9 +103,16 @@ ${eventList}`;
                 }),
             });
 
+            const latencyMs = Date.now() - startTime;
+
             if (!response.ok) {
                 const err = await response.text();
                 console.error(`[AI Summarizer] ${model} error ${response.status}: ${err.substring(0, 100)}`);
+                logAISummarizer({
+                    type: 'summarizer_model_fail', model, reason: 'http_error',
+                    status: response.status, error: err.substring(0, 200),
+                    latencyMs, eventCount: events.length
+                });
                 continue; // try next model
             }
 
@@ -91,6 +121,10 @@ ${eventList}`;
 
             if (!content) {
                 console.error(`[AI Summarizer] ${model} empty response`);
+                logAISummarizer({
+                    type: 'summarizer_model_fail', model, reason: 'empty_response',
+                    latencyMs, eventCount: events.length
+                });
                 continue;
             }
 
@@ -101,26 +135,69 @@ ${eventList}`;
                 headlines = JSON.parse(cleaned);
             } catch (parseErr) {
                 console.error(`[AI Summarizer] ${model} failed to parse:`, content.substring(0, 200));
+                logAISummarizer({
+                    type: 'summarizer_model_fail', model, reason: 'json_parse_error',
+                    rawResponse: content.substring(0, 300), latencyMs, eventCount: events.length
+                });
                 continue;
             }
 
             if (!Array.isArray(headlines) || headlines.length !== events.length) {
                 console.warn(`[AI Summarizer] ${model} headline count mismatch (got ${headlines?.length}, expected ${events.length}), using partial`);
+                logAISummarizer({
+                    type: 'summarizer_model_fail', model, reason: 'count_mismatch',
+                    expected: events.length, got: headlines?.length, latencyMs
+                });
             }
 
-            console.log(`[AI Summarizer] ${model} succeeded — ${events.length} headlines`);
-            return events.map((e, i) => ({
-                id: e.id,
-                summary: (headlines[i] || truncateFallback(e.description)).substring(0, 120),
-            }));
+            console.log(`[AI Summarizer] ${model} succeeded — ${events.length} headlines (${latencyMs}ms)`);
+
+            const result = events.map((e, i) => {
+                const aiHeadline = headlines[i];
+                const usedFallback = !aiHeadline;
+                return {
+                    id: e.id,
+                    summary: (aiHeadline || truncateFallback(e.description)).substring(0, 120),
+                    _usedFallback: usedFallback,
+                };
+            });
+
+            // Log detailed success with per-event breakdown
+            logAISummarizer({
+                type: 'summarizer_success', model, latencyMs,
+                eventCount: events.length,
+                aiHeadlines: result.filter(r => !r._usedFallback).length,
+                truncationFallbacks: result.filter(r => r._usedFallback).length,
+                details: result.map((r, i) => ({
+                    id: r.id,
+                    startup: events[i].startup_name,
+                    eventType: events[i].event_type,
+                    headline: r.summary,
+                    method: r._usedFallback ? 'truncation' : 'AI',
+                    originalPreview: (events[i].description || '').substring(0, 80)
+                }))
+            });
+
+            // Strip internal flag before returning
+            return result.map(({ _usedFallback, ...rest }) => rest);
 
         } catch (err) {
+            const latencyMs = Date.now() - startTime;
             console.error(`[AI Summarizer] ${model} error: ${err.message}`);
+            logAISummarizer({
+                type: 'summarizer_model_fail', model, reason: 'exception',
+                error: err.message, latencyMs, eventCount: events.length
+            });
             continue;
         }
     }
 
     console.warn('[AI Summarizer] All models failed, using truncation fallback');
+    logAISummarizer({
+        type: 'summarizer_all_failed',
+        modelsAttempted: AI_MODELS, eventCount: events.length,
+        events: events.map(e => ({ id: e.id, startup: e.startup_name, eventType: e.event_type }))
+    });
     return fallbackSummaries(events);
 }
 

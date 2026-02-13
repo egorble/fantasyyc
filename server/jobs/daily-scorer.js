@@ -25,7 +25,7 @@ const __dirname = dirname(__filename);
 
 // Import Twitter scorer
 const twitterScorerPath = join(__dirname, '../../scripts/twitter-league-scorer.js');
-const { processStartupForDate, STARTUP_MAPPING } = await import(`file:///${twitterScorerPath.replace(/\\/g, '/')}`);
+const { processStartupForDate, STARTUP_MAPPING, aiStats, logAI } = await import(`file:///${twitterScorerPath.replace(/\\/g, '/')}`);
 
 // ============ Blockchain config (from server/config.js) ============
 
@@ -154,6 +154,9 @@ async function runDailyScoring(dateOverride, force = false) {
     const scoringDate = dateOverride || getYesterdayUTC();
     console.log(`\n--- Daily Scorer ---`);
     console.log(`Scoring date: ${scoringDate}`);
+
+    // Reset AI stats for this run
+    aiStats.reset();
 
     // 1. Get active tournament from blockchain
     console.log('\n[1] Fetching active tournament from chain...');
@@ -339,6 +342,42 @@ async function runDailyScoring(dateOverride, force = false) {
             console.log(`  ${i + 1}. ${entry.address.substring(0, 10)}... - ${entry.score.toFixed(1)} pts`);
         });
     }
+
+    // 6. Print AI scoring summary
+    console.log('\n[6] AI Scoring Summary:');
+    console.log(`  Startups scored: ${aiStats.totalStartups}`);
+    console.log(`  AI success: ${aiStats.aiSuccessStartups} | Keyword fallback: ${aiStats.keywordFallbackStartups}`);
+    console.log(`  Tweets total: ${aiStats.totalTweetsAnalyzed} | AI: ${aiStats.aiScoredTweets} | Keywords: ${aiStats.keywordScoredTweets}`);
+    if (Object.keys(aiStats.modelAttempts).length > 0) {
+        console.log('  Model breakdown:');
+        for (const [model, stats] of Object.entries(aiStats.modelAttempts)) {
+            console.log(`    ${model}: tried=${stats.tried} ok=${stats.succeeded} fail=${stats.failed}`);
+        }
+    }
+    if (aiStats.errors.length > 0) {
+        console.log(`  Errors (${aiStats.errors.length}):`);
+        for (const e of aiStats.errors.slice(0, 5)) {
+            console.log(`    ${e.startup} / ${e.model}: ${e.error}`);
+        }
+    }
+
+    // Log the full AI summary to file
+    logAI({
+        type: 'scoring_run_summary',
+        date: scoringDate,
+        tournamentId: tournament.id,
+        totalStartups: aiStats.totalStartups,
+        aiSuccessStartups: aiStats.aiSuccessStartups,
+        keywordFallbackStartups: aiStats.keywordFallbackStartups,
+        totalTweets: aiStats.totalTweetsAnalyzed,
+        aiScoredTweets: aiStats.aiScoredTweets,
+        keywordScoredTweets: aiStats.keywordScoredTweets,
+        modelAttempts: aiStats.modelAttempts,
+        errors: aiStats.errors
+    });
+
+    // Reset stats for next run
+    aiStats.reset();
 
     // Save to disk
     db.saveDatabase();

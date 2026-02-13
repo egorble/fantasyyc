@@ -383,6 +383,7 @@ async function analyzeTweetsWithAI(startupName, tweets) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
         console.log('   [AI] No API key — using keyword fallback');
+        logAI({ type: 'scorer_skip', startup: startupName, reason: 'no_api_key' });
         return null; // signals to use keyword fallback
     }
 
@@ -397,6 +398,11 @@ async function analyzeTweetsWithAI(startupName, tweets) {
 
     // Try each model in fallback chain
     for (const model of AI_MODELS) {
+        const startTime = Date.now();
+        // Track model stats
+        if (!aiStats.modelAttempts[model]) aiStats.modelAttempts[model] = { tried: 0, succeeded: 0, failed: 0 };
+        aiStats.modelAttempts[model].tried++;
+
         try {
             console.log(`   [AI] Trying model: ${model}`);
             const response = await fetch(OPENROUTER_URL, {
@@ -415,9 +421,17 @@ async function analyzeTweetsWithAI(startupName, tweets) {
                 }),
             });
 
+            const latencyMs = Date.now() - startTime;
+
             if (!response.ok) {
                 const err = await response.text();
                 console.log(`   [AI] ${model} error ${response.status}: ${err.substring(0, 100)}`);
+                aiStats.modelAttempts[model].failed++;
+                logAI({
+                    type: 'scorer_model_fail', startup: startupName, model,
+                    reason: 'http_error', status: response.status,
+                    error: err.substring(0, 200), latencyMs, tweetCount: tweets.length
+                });
                 continue; // try next model
             }
 
@@ -425,6 +439,11 @@ async function analyzeTweetsWithAI(startupName, tweets) {
             const content = data.choices?.[0]?.message?.content?.trim();
             if (!content) {
                 console.log(`   [AI] ${model} empty response`);
+                aiStats.modelAttempts[model].failed++;
+                logAI({
+                    type: 'scorer_model_fail', startup: startupName, model,
+                    reason: 'empty_response', latencyMs, tweetCount: tweets.length
+                });
                 continue;
             }
 
@@ -433,24 +452,58 @@ async function analyzeTweetsWithAI(startupName, tweets) {
 
             if (!Array.isArray(results) || results.length !== tweets.length) {
                 console.log(`   [AI] ${model} result count mismatch (got ${results?.length}, expected ${tweets.length})`);
+                aiStats.modelAttempts[model].failed++;
+                logAI({
+                    type: 'scorer_model_fail', startup: startupName, model,
+                    reason: 'count_mismatch', expected: tweets.length,
+                    got: results?.length, latencyMs
+                });
                 continue;
             }
 
             // Validate and cap scores
-            console.log(`   [AI] ${model} succeeded`);
-            return results.map((r, i) => ({
+            console.log(`   [AI] ${model} succeeded (${latencyMs}ms)`);
+            aiStats.modelAttempts[model].succeeded++;
+
+            const validated = results.map((r, i) => ({
                 type: r.type || 'ENGAGEMENT',
                 score: Math.min(Math.max(Number(r.score) || 50, 0), 3000),
                 headline: (r.headline || '').substring(0, 120) || null,
             }));
 
+            // Log detailed per-tweet AI results
+            logAI({
+                type: 'scorer_success', startup: startupName, model, latencyMs,
+                tweetCount: tweets.length,
+                results: validated.map((r, i) => ({
+                    tweetId: tweets[i]?.id,
+                    tweetPreview: (tweets[i]?.text || '').substring(0, 80),
+                    eventType: r.type,
+                    score: r.score,
+                    headline: r.headline
+                }))
+            });
+
+            return validated;
+
         } catch (err) {
+            const latencyMs = Date.now() - startTime;
             console.log(`   [AI] ${model} error: ${err.message}`);
+            aiStats.modelAttempts[model].failed++;
+            aiStats.errors.push({ model, startup: startupName, error: err.message });
+            logAI({
+                type: 'scorer_model_fail', startup: startupName, model,
+                reason: 'exception', error: err.message, latencyMs, tweetCount: tweets.length
+            });
             continue;
         }
     }
 
     console.log('   [AI] All models failed, falling back to keyword scoring');
+    logAI({
+        type: 'scorer_all_failed', startup: startupName,
+        modelsAttempted: AI_MODELS, tweetCount: tweets.length
+    });
     return null;
 }
 
@@ -563,6 +616,17 @@ async function processStartupForDate(userName, date) {
     const useAI = aiResults !== null;
     if (useAI) console.log('   [AI] Analysis complete');
 
+    // Track stats
+    aiStats.totalStartups++;
+    aiStats.totalTweetsAnalyzed += tweets.length;
+    if (useAI) {
+        aiStats.aiSuccessStartups++;
+        aiStats.aiScoredTweets += tweets.length;
+    } else {
+        aiStats.keywordFallbackStartups++;
+        aiStats.keywordScoredTweets += tweets.length;
+    }
+
     const results = tweets.map((tweet, i) => {
         let eventType, score, headline;
 
@@ -577,6 +641,15 @@ async function processStartupForDate(userName, date) {
             eventType = primary.type;
             score = Math.min(primary.score, 3000);
             headline = null;
+
+            // Log keyword fallback per tweet
+            logAI({
+                type: 'keyword_fallback', startup: startupName,
+                tweetId: tweet.id,
+                tweetPreview: (tweet.text || '').substring(0, 80),
+                eventType, score,
+                reason: useAI ? 'ai_missing_index' : 'ai_unavailable'
+            });
         }
 
         logTweet(userName, tweet, { points: score, events: [{ type: eventType, score }] });
@@ -598,6 +671,15 @@ async function processStartupForDate(userName, date) {
 
     const totalPoints = results.reduce((sum, r) => sum + r.points, 0);
 
+    // Log startup summary
+    logAI({
+        type: 'startup_summary', startup: startupName,
+        method: useAI ? 'AI' : 'keywords',
+        tweetCount: tweets.length,
+        totalPoints,
+        events: results.map(r => ({ type: r.events[0].type, score: r.points, hasHeadline: !!r.headline }))
+    });
+
     return {
         userName,
         date,
@@ -607,4 +689,4 @@ async function processStartupForDate(userName, date) {
     };
 }
 
-export { processStartupForDate, analyzeTweet, STARTUP_MAPPING };
+export { processStartupForDate, analyzeTweet, STARTUP_MAPPING, aiStats, logAI };
