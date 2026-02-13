@@ -1016,7 +1016,8 @@ function scheduleDailyScorer() {
 /** Summarize all unsummarized feed events. Called after scorer completes. */
 async function runAiSummarizer() {
     try {
-        const { summarizeFeedEvents } = await import('./services/ai-summarizer.js');
+        const { summarizeFeedEvents, setSummarizerContext } = await import('./services/ai-summarizer.js');
+        setSummarizerContext('manual');
         // Process all unsummarized events in batches of 20
         let total = 0;
         while (true) {

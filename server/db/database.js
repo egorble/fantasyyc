@@ -441,7 +441,7 @@ export function clearLiveFeedForDate(date) {
 export function getLiveFeed(limit = 20) {
     return all(`
         SELECT * FROM live_feed
-        ORDER BY points DESC, created_at DESC
+        ORDER BY id DESC
         LIMIT ?
     `, [limit]);
 }
@@ -638,7 +638,7 @@ export function batchUpdateFeedSummaries(updates) {
 export function getLiveFeedPaginated(limit = 20, offset = 0) {
     return all(`
         SELECT * FROM live_feed
-        ORDER BY created_at DESC
+        ORDER BY id DESC
         LIMIT ? OFFSET ?
     `, [limit, offset]);
 }

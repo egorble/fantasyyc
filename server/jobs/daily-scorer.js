@@ -25,7 +25,7 @@ const __dirname = dirname(__filename);
 
 // Import Twitter scorer
 const twitterScorerPath = join(__dirname, '../../scripts/twitter-league-scorer.js');
-const { processStartupForDate, STARTUP_MAPPING, aiStats, logAI } = await import(`file:///${twitterScorerPath.replace(/\\/g, '/')}`);
+const { processStartupForDate, STARTUP_MAPPING, aiStats, logAI, setLogContext } = await import(`file:///${twitterScorerPath.replace(/\\/g, '/')}`);
 
 // ============ Blockchain config (from server/config.js) ============
 
@@ -155,7 +155,8 @@ async function runDailyScoring(dateOverride, force = false) {
     console.log(`\n--- Daily Scorer ---`);
     console.log(`Scoring date: ${scoringDate}`);
 
-    // Reset AI stats for this run
+    // Set log context for this run
+    setLogContext(scoringDate);
     aiStats.reset();
 
     // 1. Get active tournament from blockchain
@@ -378,6 +379,24 @@ async function runDailyScoring(dateOverride, force = false) {
 
     // Reset stats for next run
     aiStats.reset();
+
+    // 7. Generate AI summaries for any unsummarized feed events
+    console.log('\n[7] Generating AI feed summaries...');
+    try {
+        const { summarizeFeedEvents, setSummarizerContext } = await import('../services/ai-summarizer.js');
+        setSummarizerContext(scoringDate);
+        let summarized = 0;
+        while (true) {
+            const unsummarized = db.getUnsummarizedFeedEvents(20);
+            if (unsummarized.length === 0) break;
+            const results = await summarizeFeedEvents(unsummarized);
+            db.batchUpdateFeedSummaries(results);
+            summarized += results.length;
+        }
+        console.log(`  ${summarized} summaries generated`);
+    } catch (e) {
+        console.error('  Summarizer error:', e.message);
+    }
 
     // Save to disk
     db.saveDatabase();

@@ -16,10 +16,24 @@ if (!existsSync(LOG_DIR)) {
     mkdirSync(LOG_DIR, { recursive: true });
 }
 
+// Log context — set by setLogContext() before each scoring run
+let _logCtx = { scoringDate: 'unknown', runTag: '' };
+
+function setLogContext(scoringDate) {
+    const now = new Date();
+    const hh = String(now.getUTCHours()).padStart(2, '0');
+    const mm = String(now.getUTCMinutes()).padStart(2, '0');
+    _logCtx = {
+        scoringDate,
+        runTag: `${now.toISOString().split('T')[0]}_${hh}${mm}`,
+    };
+}
+
 function logTweet(userName, tweet, analysis) {
-    const logFile = join(LOG_DIR, `tweets-${new Date().toISOString().split('T')[0]}.log`);
+    const logFile = join(LOG_DIR, `tweets_${_logCtx.scoringDate}_run${_logCtx.runTag}.log`);
     const logEntry = {
         timestamp: new Date().toISOString(),
+        scoringDate: _logCtx.scoringDate,
         userName,
         tweetId: tweet.id,
         tweetText: tweet.text,
@@ -30,10 +44,14 @@ function logTweet(userName, tweet, analysis) {
     appendFileSync(logFile, JSON.stringify(logEntry) + '\n');
 }
 
-// AI-specific logging — writes to server/logs/ai-scorer-YYYY-MM-DD.log
+// AI-specific logging
 function logAI(entry) {
-    const logFile = join(LOG_DIR, `ai-scorer-${new Date().toISOString().split('T')[0]}.log`);
-    appendFileSync(logFile, JSON.stringify({ timestamp: new Date().toISOString(), ...entry }) + '\n');
+    const logFile = join(LOG_DIR, `ai-scorer_${_logCtx.scoringDate}_run${_logCtx.runTag}.log`);
+    appendFileSync(logFile, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        scoringDate: _logCtx.scoringDate,
+        ...entry
+    }) + '\n');
 }
 
 // Tracks AI stats across a full scoring run
@@ -689,4 +707,4 @@ async function processStartupForDate(userName, date) {
     };
 }
 
-export { processStartupForDate, analyzeTweet, STARTUP_MAPPING, aiStats, logAI };
+export { processStartupForDate, analyzeTweet, STARTUP_MAPPING, aiStats, logAI, setLogContext };

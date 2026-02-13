@@ -15,9 +15,26 @@ if (!existsSync(LOG_DIR)) {
     mkdirSync(LOG_DIR, { recursive: true });
 }
 
+// Log context — set by setSummarizerContext() before batch runs
+let _sumCtx = { scoringDate: 'unknown', runTag: '' };
+
+export function setSummarizerContext(scoringDate) {
+    const now = new Date();
+    const hh = String(now.getUTCHours()).padStart(2, '0');
+    const mm = String(now.getUTCMinutes()).padStart(2, '0');
+    _sumCtx = {
+        scoringDate,
+        runTag: `${now.toISOString().split('T')[0]}_${hh}${mm}`,
+    };
+}
+
 function logAISummarizer(entry) {
-    const logFile = join(LOG_DIR, `ai-summarizer-${new Date().toISOString().split('T')[0]}.log`);
-    appendFileSync(logFile, JSON.stringify({ timestamp: new Date().toISOString(), ...entry }) + '\n');
+    const logFile = join(LOG_DIR, `ai-summarizer_${_sumCtx.scoringDate}_run${_sumCtx.runTag}.log`);
+    appendFileSync(logFile, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        scoringDate: _sumCtx.scoringDate,
+        ...entry
+    }) + '\n');
 }
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
