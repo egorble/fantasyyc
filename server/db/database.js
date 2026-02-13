@@ -105,8 +105,8 @@ export function wipeTournamentData() {
     exec('DELETE FROM daily_scores');
     exec('DELETE FROM leaderboard');
     exec('DELETE FROM score_history');
-    exec('DELETE FROM live_feed');
-    console.log('   Wiped all tournament data (contract change detected)');
+    // NOTE: live_feed is NOT cleared — it's used by AI recommendations independent of tournaments
+    console.log('   Wiped all tournament data (contract change detected, live_feed preserved)');
 }
 
 // ============ Tournament Functions ============
@@ -662,9 +662,9 @@ export function getRecentStartupNews(days = 10) {
     d.setUTCDate(d.getUTCDate() - days);
     const cutoffDate = d.toISOString().split('T')[0];
     return all(`
-        SELECT startup_name, event_type, description, points, date, ai_summary
+        SELECT startup_name, points, date, ai_summary
         FROM live_feed
-        WHERE date >= ?
+        WHERE date >= ? AND ai_summary IS NOT NULL AND ai_summary != ''
         ORDER BY startup_name, date DESC
     `, [cutoffDate]);
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw, Gift, ChevronDown, Loader2, Sparkles, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw, Gift, ChevronDown, Loader2 } from 'lucide-react';
 import { CardData, sortByRarity } from '../types';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
@@ -56,6 +56,13 @@ const RARITY_BADGE: Record<string, string> = {
     'Rare': 'bg-green-600 text-white',
     'Epic': 'bg-violet-600 text-white',
     'Legendary': 'bg-orange-500 text-white',
+};
+
+const RARITY_CHIP: Record<string, string> = {
+    'Common': 'border-gray-400 dark:border-gray-600 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50',
+    'Rare': 'border-green-500 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30',
+    'Epic': 'border-violet-500 text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30',
+    'Legendary': 'border-orange-500 text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30',
 };
 
 const STARTUP_ID_BY_NAME: Record<string, number> = {
@@ -390,6 +397,14 @@ const Leagues: React.FC = () => {
     };
 
     if (isJoining) {
+        const aiPickCards = (aiRecommendation?.recommended || [])
+            .map(id => availableCards.find(c => c.tokenId === id))
+            .filter((c): c is CardData => !!c)
+            .sort((a, b) => {
+                const order: Record<string, number> = { 'Legendary': 0, 'Epic': 1, 'Rare': 2, 'Common': 3 };
+                return (order[a.rarity] ?? 4) - (order[b.rarity] ?? 4);
+            });
+
         return (
             <div ref={containerRef} className="relative overflow-x-hidden">
 
@@ -590,35 +605,41 @@ const Leagues: React.FC = () => {
 
                     {/* UnicornX AI — Overlay (open) */}
                     {aiRecommendation && aiRecommendation.source !== 'insufficient_cards' && aiOverlayOpen && (
-                        <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm rounded-2xl">
-                            <div className="bg-[#111] border border-[#2A2A2A] rounded-t-xl sm:rounded-xl p-4 sm:p-5 max-w-md w-full sm:mx-4 shadow-2xl">
+                        <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm rounded-2xl">
+                            <div className="bg-white dark:bg-[#111] border border-gray-200 dark:border-[#2A2A2A] rounded-t-xl sm:rounded-xl p-4 sm:p-5 max-w-md w-full sm:mx-4 shadow-2xl">
                                 <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles className="w-4 h-4 text-yc-orange" />
-                                        <h4 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">UnicornX AI</h4>
-                                    </div>
+                                    <h4 className="text-xs sm:text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">UnicornX AI</h4>
                                     <button
                                         onClick={() => setAiOverlayOpen(false)}
-                                        className="w-7 h-7 rounded-full bg-[#1A1A1A] hover:bg-[#333] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                                        className="w-7 h-7 rounded-full bg-gray-100 dark:bg-[#1A1A1A] hover:bg-gray-200 dark:hover:bg-[#333] flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors"
                                     >
                                         <X size={14} />
                                     </button>
                                 </div>
-                                <p className="text-xs sm:text-sm text-gray-400 leading-relaxed mb-3 sm:mb-4">{aiRecommendation.reasoning}</p>
-                                {aiRecommendation.insights && aiRecommendation.insights.length > 0 && (
+                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-3 sm:mb-4">{aiRecommendation.reasoning}</p>
+                                {aiPickCards.length > 0 && (
                                     <div className="flex flex-wrap gap-1.5 mb-3 sm:mb-4">
-                                        {aiRecommendation.insights.map((insight, i) => (
-                                            <div key={i} className="flex items-center gap-1 bg-[#1A1A1A] rounded px-2 py-1">
-                                                {insight.outlook === 'bullish' ? (
-                                                    <TrendingUp className="w-3 h-3 text-yc-green" />
-                                                ) : insight.outlook === 'bearish' ? (
-                                                    <TrendingDown className="w-3 h-3 text-red-500" />
-                                                ) : (
-                                                    <Minus className="w-3 h-3 text-gray-500" />
-                                                )}
-                                                <span className="text-[10px] font-bold text-gray-300">{insight.name}</span>
-                                            </div>
-                                        ))}
+                                        {aiPickCards.map(card => {
+                                            const inDeck = deck.some(d => d?.tokenId === card.tokenId);
+                                            return (
+                                                <button
+                                                    key={card.tokenId}
+                                                    onClick={() => {
+                                                        if (inDeck) return;
+                                                        const emptyIdx = deck.findIndex(d => d === null);
+                                                        if (emptyIdx !== -1) {
+                                                            const newDeck = [...deck];
+                                                            newDeck[emptyIdx] = card;
+                                                            setDeck(newDeck);
+                                                        }
+                                                    }}
+                                                    disabled={inDeck}
+                                                    className={`px-2 py-1 rounded border text-[10px] sm:text-xs font-bold transition-all ${inDeck ? 'opacity-40 cursor-default' : 'hover:scale-105 active:scale-95 cursor-pointer'} ${RARITY_CHIP[card.rarity] || RARITY_CHIP.Common}`}
+                                                >
+                                                    {card.name}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
                                 <button
@@ -634,7 +655,7 @@ const Leagues: React.FC = () => {
                                     className="w-full py-2.5 sm:py-3 rounded-lg font-black text-xs uppercase tracking-wider bg-yc-orange hover:bg-orange-600 text-white transition-all flex items-center justify-center active:scale-95"
                                 >
                                     <Zap className="w-3.5 h-3.5 mr-1.5 fill-current" />
-                                    Apply AI Pick
+                                    Apply All
                                 </button>
                             </div>
                         </div>
@@ -646,7 +667,7 @@ const Leagues: React.FC = () => {
                 {/* UnicornX AI — Collapsed bar (after overlay dismissed) */}
                 {aiRecommendation && aiRecommendation.source !== 'insufficient_cards' && !aiOverlayOpen && (
                     <div className="flex items-center gap-2 sm:gap-3 bg-white dark:bg-[#111] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-3 sm:px-4 py-2">
-                        <Sparkles className="w-3.5 h-3.5 text-yc-orange shrink-0" />
+                        <span className="text-[9px] font-black text-yc-orange bg-yc-orange/10 px-1.5 py-0.5 rounded uppercase shrink-0">AI</span>
                         <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 flex-1 min-w-0 truncate">{aiRecommendation.reasoning}</p>
                         <button
                             onClick={() => {

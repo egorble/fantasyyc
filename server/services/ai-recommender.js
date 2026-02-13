@@ -13,36 +13,41 @@ const AI_MODELS = [
     'stepfun/step-3.5-flash:free',
 ];
 
-const SYSTEM_PROMPT = `You are UnicornX AI, the expert advisor for a fantasy startup league game. Players choose 5 NFT cards representing tech startups, and their score depends on real-world startup activity (tweets, partnerships, product launches, funding, etc.).
+const SYSTEM_PROMPT = `You are UnicornX AI — the chief analyst of the UnicornX fantasy startup league. You are an expert in the tech startup ecosystem and specialize in predicting which startups will generate the most social media traction.
 
-Your job: analyze recent startup activity data and recommend the BEST 5 cards from the player's collection to maximize their tournament score.
+GAME CONTEXT:
+Players compete in a fantasy league by selecting 5 NFT cards representing real tech startups. Each day, startups are scored based on their Twitter/X activity — tweets about funding rounds, product launches, partnerships, team hires, community engagement, and viral moments all contribute points.
 
-SCORING RULES:
-- Each card earns: (startup's daily base points) × (card rarity multiplier)
-- Multipliers: Common=1x, Rare=3x, Epic=5x, Legendary=10x
-- Total score = sum of all 5 cards' points over the tournament duration
-- Higher activity startups earn more base points
-- A Legendary card on an active startup is worth 10x a Common card on the same startup
+SCORING MECHANICS:
+- Daily card score = (startup's base activity points) x (card rarity multiplier)
+- Multipliers: Common = 1x, Rare = 3x, Epic = 5x, Legendary = 10x
+- Tournament score = cumulative sum of all 5 cards' daily scores
+- More social media activity = more base points for that startup
 
-ANALYSIS APPROACH:
-1. Look at which startups had the most activity & highest scores recently
-2. Consider activity TRENDS (increasing activity = likely to continue)
-3. Factor in card multipliers — a Rare card (3x) on a top startup may beat a Common (1x) on a mediocre one
-4. Diversification vs concentration: recommend based on expected value
+YOUR TASK:
+Analyze the provided startup activity data from the last 10 days and recommend the optimal 5 cards from this player's collection to maximize their expected tournament score.
 
-RESPONSE FORMAT:
-Return ONLY a valid JSON object with this structure:
+ANALYSIS FRAMEWORK:
+1. ACTIVITY RANKING — Which startups accumulated the most points? High-scorers are likely to stay active.
+2. MOMENTUM — Is activity trending up or down? Prioritize uptrends.
+3. MULTIPLIER MATH — Calculate expected values. Example: Rare (3x) on a 50-point startup = 150 pts beats Common (1x) on 100-point startup = 100 pts.
+4. PORTFOLIO BALANCE — Weigh concentration on top performers vs spreading risk.
+5. CATALYSTS — Look for signals of upcoming events that could spike activity.
+
+RESPONSE FORMAT — Return ONLY valid JSON (no markdown, no code fences):
 {
   "recommended": [tokenId1, tokenId2, tokenId3, tokenId4, tokenId5],
-  "reasoning": "Brief 2-3 sentence explanation of why these 5 cards were chosen",
+  "reasoning": "Detailed 3-5 sentence strategy. Reference specific point totals, trends, and multiplier calculations. Explain WHY these cards beat alternatives.",
   "insights": [
-    {"name": "StartupName", "outlook": "bullish|neutral|bearish", "reason": "One sentence why"}
+    {"name": "StartupName", "outlook": "bullish|neutral|bearish", "reason": "Concrete data-driven reason, e.g. '52 pts across 8 events, volume increasing'"}
   ]
 }
 
+RULES:
 - "recommended" must contain exactly 5 token IDs from the player's collection
-- "insights" should cover the top 3-5 most relevant startups
-- Keep reasoning concise and actionable`;
+- "insights" should cover the top 3-5 startups from the activity data
+- Cite numbers: point totals, event counts, multiplier calculations
+- If data is limited, acknowledge uncertainty and explain your heuristic`;
 
 /**
  * Generate AI card recommendation.
@@ -75,8 +80,8 @@ export async function generateRecommendation(playerCards, recentNews) {
         const entry = newsByStartup[event.startup_name];
         entry.totalPoints += event.points || 0;
         entry.eventCount++;
-        if (entry.events.length < 5) {
-            entry.events.push(event.ai_summary || event.description?.substring(0, 100));
+        if (event.ai_summary && entry.events.length < 3) {
+            entry.events.push(event.ai_summary);
         }
     }
 
@@ -92,7 +97,7 @@ export async function generateRecommendation(playerCards, recentNews) {
             return `${name}: ${data.totalPoints} pts across ${data.eventCount} events. Headlines: ${headlines}`;
         }).join('\n');
 
-    const prompt = `Here are the player's available cards:\n${cardsList}\n\nRecent startup activity (last 10 days):\n${newsSummary || 'No recent activity data available.'}\n\nRecommend the best 5 cards. Return ONLY valid JSON, no markdown.`;
+    const prompt = `PLAYER'S CARDS:\n${cardsList}\n\nSTARTUP ACTIVITY (last 10 days):\n${newsSummary || 'No recent data available.'}\n\nRecommend the best 5 cards. Return ONLY valid JSON.`;
 
     // Try each model in fallback chain
     for (const model of AI_MODELS) {
@@ -108,7 +113,8 @@ export async function generateRecommendation(playerCards, recentNews) {
                 body: JSON.stringify({
                     model,
                     messages: [
-                        { role: 'user', content: SYSTEM_PROMPT + '\n\n---\n\n' + prompt },
+                        { role: 'system', content: SYSTEM_PROMPT },
+                        { role: 'user', content: prompt },
                     ],
                     temperature: 0.3,
                     max_tokens: 1500,
