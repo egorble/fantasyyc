@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 
 /**
  * Create a signed auth payload for API requests.
- * Message format: "fantasyyc:<address>:<timestamp>"
+ * Human-readable message shown in wallet, with embedded auth data.
  * The backend verifies the signature to prove wallet ownership.
  */
 export async function createSignedAuth(
@@ -10,7 +10,7 @@ export async function createSignedAuth(
     address: string
 ): Promise<{ message: string; signature: string }> {
     const timestamp = Math.floor(Date.now() / 1000);
-    const message = `fantasyyc:${address.toLowerCase()}:${timestamp}`;
+    const message = `Welcome to UnicornX! Have fun!\n\nWallet: ${address.toLowerCase()}\nTimestamp: ${timestamp}`;
     const signature = await signer.signMessage(message);
     return { message, signature };
 }

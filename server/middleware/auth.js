@@ -10,7 +10,7 @@ import { ethers } from 'ethers';
 /**
  * Middleware: verifies wallet signature on write requests.
  * Expects body: { address, signature, message }
- * Message format: "fantasyyc:<address>:<timestamp>"
+ * Message format: "Welcome to UnicornX! Have fun!\n\nWallet: <address>\nTimestamp: <ts>"
  * Timestamp must be within 5 minutes. Recovered signer must match claimed address.
  */
 export function verifyWalletSignature(req, res, next) {
@@ -31,17 +31,19 @@ export function verifyWalletSignature(req, res, next) {
             });
         }
 
-        // Parse message: "fantasyyc:<address>:<timestamp>"
-        const parts = message.split(':');
-        if (parts.length !== 3 || parts[0] !== 'fantasyyc') {
+        // Parse message — extract Wallet and Timestamp lines
+        const walletMatch = message.match(/Wallet:\s*(0x[0-9a-fA-F]{40})/);
+        const timestampMatch = message.match(/Timestamp:\s*(\d+)/);
+
+        if (!walletMatch || !timestampMatch) {
             return res.status(401).json({
                 success: false,
                 error: 'Invalid message format'
             });
         }
 
-        const [, msgAddress, timestampStr] = parts;
-        const timestamp = parseInt(timestampStr, 10);
+        const msgAddress = walletMatch[1];
+        const timestamp = parseInt(timestampMatch[1], 10);
 
         // Address in message must match claimed address
         if (msgAddress.toLowerCase() !== address.toLowerCase()) {
