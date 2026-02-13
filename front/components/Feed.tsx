@@ -66,16 +66,44 @@ function getTweetUrl(event: FeedEvent): string | null {
 
 function makeHeadline(event: FeedEvent): string {
     if (event.summary && event.summary.length > 10) return event.summary;
-    // Fallback: create headline from startup + event type + first sentence
-    const typeLabel = EVENT_TYPE_LABELS[event.eventType] || '';
-    const firstSentence = (event.description || '').split(/[.\n!?]/)[0].trim();
-    if (firstSentence.length > 15) {
-        return firstSentence.length > 100 ? firstSentence.substring(0, 97) + '...' : firstSentence;
+    // Fallback: create a clean headline from first sentence of description
+    const typeLabel = EVENT_TYPE_LABELS[event.eventType] || 'Update';
+    const desc = (event.description || '').trim();
+    // Try to extract first sentence
+    const sentenceEnd = desc.search(/[.!?\n]/);
+    const firstSentence = sentenceEnd > 10 ? desc.substring(0, sentenceEnd).trim() : '';
+    if (firstSentence.length > 15 && firstSentence.length <= 120) {
+        return firstSentence;
     }
-    return `${event.startup}: ${typeLabel || 'Update'}`;
+    // If too long or no clean sentence, create a structured headline
+    if (desc.length > 15) {
+        // Take first ~90 chars and cut at last word boundary
+        const cut = desc.substring(0, 90);
+        const lastSpace = cut.lastIndexOf(' ');
+        return (lastSpace > 30 ? cut.substring(0, lastSpace) : cut) + '...';
+    }
+    return `${event.startup}: ${typeLabel}`;
 }
 
 function timeAgo(dateStr: string): string {
+    // For date-only strings (YYYY-MM-DD), compare by calendar date
+    if (dateStr && dateStr.length === 10 && dateStr[4] === '-') {
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        if (dateStr === todayStr) return 'Today';
+
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+        if (dateStr === yesterdayStr) return 'Yesterday';
+
+        const date = new Date(dateStr + 'T12:00:00');
+        const diffDays = Math.round((now.getTime() - date.getTime()) / 86400000);
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString();
+    }
+
+    // For full timestamps
     const now = new Date();
     const date = new Date(dateStr);
     const diffMs = now.getTime() - date.getTime();
@@ -229,7 +257,7 @@ const Feed: React.FC = () => {
                                     <span className="text-gray-300 dark:text-[#333]">|</span>
                                     <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{typeLabel}</span>
                                     <span className="text-gray-300 dark:text-[#333]">|</span>
-                                    <span className="text-xs text-gray-400">{timeAgo(event.createdAt)}</span>
+                                    <span className="text-xs text-gray-400">{timeAgo(event.date)}</span>
                                     <span className="ml-auto flex items-center gap-1 text-xs font-bold text-emerald-500">
                                         <TrendingUp className="w-3 h-3" />
                                         +{Math.round(event.points)}

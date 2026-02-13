@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw, Gift } from 'lucide-react';
+import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw, Gift, ChevronDown, Loader2 } from 'lucide-react';
 import { CardData, sortByRarity } from '../types';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
@@ -8,6 +8,33 @@ import { useLeaderboard, usePlayerRank } from '../hooks/useLeaderboard';
 import { formatXTZ } from '../lib/contracts';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 import gsap from 'gsap';
+
+interface SquadCard {
+    tokenId: number;
+    name: string;
+    rarity: string;
+    multiplier: number;
+}
+
+interface CardScoreData {
+    totalPoints: number;
+    todayPoints: number;
+    daysScored: number;
+}
+
+const RARITY_BADGE: Record<string, string> = {
+    'Common': 'bg-gray-700 text-gray-300',
+    'Rare': 'bg-green-600 text-white',
+    'Epic': 'bg-violet-600 text-white',
+    'Legendary': 'bg-orange-500 text-white',
+};
+
+const STARTUP_ID_BY_NAME: Record<string, number> = {
+    'Openclaw': 1, 'Lovable': 2, 'Cursor': 3, 'OpenAI': 4, 'Anthropic': 5,
+    'Browser Use': 6, 'Dedalus Labs': 7, 'Autumn': 8,
+    'Axiom': 9, 'Multifactor': 10, 'Dome': 11, 'GrazeMate': 12, 'Tornyol Systems': 13,
+    'Pocket': 14, 'Caretta': 15, 'AxionOrbital Space': 16, 'Freeport Markets': 17, 'Ruvo': 18, 'Lightberry': 19,
+};
 
 const Leagues: React.FC = () => {
     const [isJoining, setIsJoining] = useState(false);
@@ -21,6 +48,10 @@ const Leagues: React.FC = () => {
     const [userPrize, setUserPrize] = useState<bigint>(0n);
     const [isClaiming, setIsClaiming] = useState(false);
     const [hasClaimed, setHasClaimed] = useState(false);
+    const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
+    const [squadCards, setSquadCards] = useState<SquadCard[]>([]);
+    const [squadScores, setSquadScores] = useState<Record<string, CardScoreData>>({});
+    const [squadLoading, setSquadLoading] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Hooks
@@ -234,6 +265,35 @@ const Leagues: React.FC = () => {
         if (days > 0) return `${days}d ${hours}h`;
         if (hours > 0) return `${hours}h ${minutes}m`;
         return `${minutes}m`;
+    };
+
+    // Fetch a player's squad cards
+    const togglePlayerSquad = async (playerAddress: string) => {
+        if (expandedPlayer === playerAddress) {
+            setExpandedPlayer(null);
+            setSquadCards([]);
+            setSquadScores({});
+            return;
+        }
+        setExpandedPlayer(playerAddress);
+        setSquadCards([]);
+        setSquadScores({});
+        setSquadLoading(true);
+        try {
+            const [cardsRes, scoresRes] = await Promise.all([
+                fetch(`/api/player/${playerAddress}/cards/${activeTournamentId}`),
+                fetch(`/api/player/${playerAddress}/card-scores/${activeTournamentId}`)
+            ]);
+            const cardsData = await cardsRes.json();
+            if (cardsData.success) {
+                setSquadCards(cardsData.data);
+            }
+            const scoresData = await scoresRes.json();
+            if (scoresData.success) {
+                setSquadScores(scoresData.data);
+            }
+        } catch { /* silently fail */ }
+        setSquadLoading(false);
     };
 
     // Calculate time remaining based on phase
@@ -576,50 +636,97 @@ const Leagues: React.FC = () => {
                     <div className="divide-y divide-gray-200 dark:divide-[#2A2A2A]">
                         {leaderboardData.map((player) => {
                             const isCurrentUser = address && player.address.toLowerCase() === address.toLowerCase();
+                            const isExpanded = expandedPlayer === player.address;
                             return (
-                                <div
-                                    key={player.address}
-                                    className={`flex items-center px-3 sm:px-5 py-3 hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors ${isCurrentUser ? 'bg-yc-orange/5' : ''}`}
-                                >
-                                    {/* Rank */}
-                                    <div className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full font-bold text-xs sm:text-sm shrink-0 ${
-                                        player.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
-                                        player.rank === 2 ? 'bg-gray-400/20 text-gray-400' :
-                                        player.rank === 3 ? 'bg-orange-700/20 text-orange-700' : 'text-gray-500 dark:text-gray-400'
-                                    }`}>
-                                        {player.rank}
+                                <div key={player.address}>
+                                    <div
+                                        onClick={() => togglePlayerSquad(player.address)}
+                                        className={`flex items-center px-3 sm:px-5 py-3 hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors cursor-pointer ${isCurrentUser ? 'bg-yc-orange/5' : ''} ${isExpanded ? 'bg-gray-50 dark:bg-[#1A1A1A]' : ''}`}
+                                    >
+                                        {/* Rank */}
+                                        <div className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full font-bold text-xs sm:text-sm shrink-0 ${
+                                            player.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
+                                            player.rank === 2 ? 'bg-gray-400/20 text-gray-400' :
+                                            player.rank === 3 ? 'bg-orange-700/20 text-orange-700' : 'text-gray-500 dark:text-gray-400'
+                                        }`}>
+                                            {player.rank}
+                                        </div>
+
+                                        {/* Avatar + Name */}
+                                        <div className="flex items-center ml-2 sm:ml-3 flex-1 min-w-0">
+                                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-200 dark:bg-[#333] border border-gray-300 dark:border-gray-700 overflow-hidden shrink-0">
+                                                <img
+                                                    src={player.avatar || generatePixelAvatar(player.address, 64)}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                    style={{ imageRendering: player.avatar ? 'auto' : 'pixelated' }}
+                                                />
+                                            </div>
+                                            <div className="ml-2 min-w-0">
+                                                <p className={`text-sm font-bold truncate ${isCurrentUser ? 'text-yc-orange' : 'text-yc-text-primary dark:text-white'}`}>
+                                                    {player.username || formatAddress(player.address)}
+                                                    {isCurrentUser && <span className="text-[10px] text-yc-orange ml-1">(You)</span>}
+                                                </p>
+                                                <p className="text-[10px] font-mono text-gray-400 truncate hidden sm:block">
+                                                    {formatAddress(player.address)}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Score + Chevron */}
+                                        <div className="text-right shrink-0 ml-2 flex items-center gap-2">
+                                            <div>
+                                                <p className="text-sm font-bold font-mono text-yc-text-primary dark:text-white">
+                                                    {player.score.toFixed(1)}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400 font-mono hidden sm:block">
+                                                    {new Date(player.lastUpdated).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                        </div>
                                     </div>
 
-                                    {/* Avatar + Name */}
-                                    <div className="flex items-center ml-2 sm:ml-3 flex-1 min-w-0">
-                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-200 dark:bg-[#333] border border-gray-300 dark:border-gray-700 overflow-hidden shrink-0">
-                                            <img
-                                                src={player.avatar || generatePixelAvatar(player.address, 64)}
-                                                alt=""
-                                                className="w-full h-full object-cover"
-                                                style={{ imageRendering: player.avatar ? 'auto' : 'pixelated' }}
-                                            />
+                                    {/* Expanded Squad */}
+                                    {isExpanded && (
+                                        <div className="px-3 sm:px-5 py-3 bg-gray-50 dark:bg-[#0A0A0A] border-t border-gray-100 dark:border-[#1E1E1E]">
+                                            {squadLoading ? (
+                                                <div className="flex items-center justify-center py-4">
+                                                    <Loader2 className="w-5 h-5 animate-spin text-yc-orange" />
+                                                    <span className="ml-2 text-sm text-gray-400">Loading squad...</span>
+                                                </div>
+                                            ) : squadCards.length === 0 ? (
+                                                <p className="text-sm text-gray-400 text-center py-3">No squad data available</p>
+                                            ) : (
+                                                <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
+                                                    {squadCards.map((card) => {
+                                                        const startupId = STARTUP_ID_BY_NAME[card.name] || 1;
+                                                        const scoreData = squadScores[card.name];
+                                                        return (
+                                                            <div key={card.tokenId} className="flex flex-col items-center">
+                                                                <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden border border-gray-200 dark:border-[#2A2A2A] bg-white dark:bg-[#121212]">
+                                                                    <img
+                                                                        src={`/images/${startupId}.png`}
+                                                                        alt={card.name}
+                                                                        className="w-full h-full object-contain"
+                                                                    />
+                                                                </div>
+                                                                <p className="text-[10px] sm:text-xs font-bold text-gray-700 dark:text-gray-300 mt-1 text-center truncate w-full">{card.name}</p>
+                                                                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 ${RARITY_BADGE[card.rarity] || RARITY_BADGE.Common}`}>
+                                                                    {card.rarity} {card.multiplier}x
+                                                                </span>
+                                                                {scoreData && (
+                                                                    <span className="text-[9px] sm:text-[10px] font-bold font-mono text-emerald-500 mt-0.5">
+                                                                        +{Math.round(scoreData.totalPoints)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="ml-2 min-w-0">
-                                            <p className={`text-sm font-bold truncate ${isCurrentUser ? 'text-yc-orange' : 'text-yc-text-primary dark:text-white'}`}>
-                                                {player.username || formatAddress(player.address)}
-                                                {isCurrentUser && <span className="text-[10px] text-yc-orange ml-1">(You)</span>}
-                                            </p>
-                                            <p className="text-[10px] font-mono text-gray-400 truncate hidden sm:block">
-                                                {formatAddress(player.address)}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Score */}
-                                    <div className="text-right shrink-0 ml-2">
-                                        <p className="text-sm font-bold font-mono text-yc-text-primary dark:text-white">
-                                            {player.score.toFixed(1)}
-                                        </p>
-                                        <p className="text-[10px] text-gray-400 font-mono hidden sm:block">
-                                            {new Date(player.lastUpdated).toLocaleDateString()}
-                                        </p>
-                                    </div>
+                                    )}
                                 </div>
                             );
                         })}
