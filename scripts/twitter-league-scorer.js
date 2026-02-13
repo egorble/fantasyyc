@@ -306,6 +306,13 @@ function analyzeTweet(tweet) {
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+// Model fallback chain — try each in order until one succeeds
+const AI_MODELS = [
+    process.env.AI_SCORER_MODEL || 'google/gemma-3-4b-it:free',
+    'google/gemma-3-4b-it:free',
+    'arcee-ai/trinity-large-preview:free',
+].filter((v, i, arr) => arr.indexOf(v) === i); // deduplicate
+
 const AI_SCORER_PROMPT = `You are a senior financial news analyst covering the tech startup ecosystem. Your job is to analyze tweets from startups and:
 1. Determine the news significance (event type and score)
 2. Write a professional headline in the style of Bloomberg, BBC Business, or NYT
@@ -360,55 +367,63 @@ async function analyzeTweetsWithAI(startupName, tweets) {
 
     const prompt = `Analyze these ${tweets.length} tweets from ${startupName}:\n\n${tweetList}`;
 
-    try {
-        const response = await fetch(OPENROUTER_URL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: process.env.AI_SCORER_MODEL || 'google/gemma-3-4b-it:free',
-                messages: [
-                    { role: 'user', content: AI_SCORER_PROMPT + '\n\n---\n\n' + prompt },
-                ],
-                temperature: 0.3,
-                max_tokens: 2000,
-            }),
-        });
+    // Try each model in fallback chain
+    for (const model of AI_MODELS) {
+        try {
+            console.log(`   [AI] Trying model: ${model}`);
+            const response = await fetch(OPENROUTER_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [
+                        { role: 'user', content: AI_SCORER_PROMPT + '\n\n---\n\n' + prompt },
+                    ],
+                    temperature: 0.3,
+                    max_tokens: 2000,
+                }),
+            });
 
-        if (!response.ok) {
-            const err = await response.text();
-            console.log(`   [AI] API error ${response.status}: ${err.substring(0, 100)}`);
-            return null;
+            if (!response.ok) {
+                const err = await response.text();
+                console.log(`   [AI] ${model} error ${response.status}: ${err.substring(0, 100)}`);
+                continue; // try next model
+            }
+
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content?.trim();
+            if (!content) {
+                console.log(`   [AI] ${model} empty response`);
+                continue;
+            }
+
+            const cleaned = content.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
+            const results = JSON.parse(cleaned);
+
+            if (!Array.isArray(results) || results.length !== tweets.length) {
+                console.log(`   [AI] ${model} result count mismatch (got ${results?.length}, expected ${tweets.length})`);
+                continue;
+            }
+
+            // Validate and cap scores
+            console.log(`   [AI] ${model} succeeded`);
+            return results.map((r, i) => ({
+                type: r.type || 'ENGAGEMENT',
+                score: Math.min(Math.max(Number(r.score) || 50, 0), 3000),
+                headline: (r.headline || '').substring(0, 120) || null,
+            }));
+
+        } catch (err) {
+            console.log(`   [AI] ${model} error: ${err.message}`);
+            continue;
         }
-
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content?.trim();
-        if (!content) {
-            console.log('   [AI] Empty response. Raw:', JSON.stringify(data).substring(0, 200));
-            return null;
-        }
-
-        const cleaned = content.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
-        const results = JSON.parse(cleaned);
-
-        if (!Array.isArray(results) || results.length !== tweets.length) {
-            console.log(`   [AI] Result count mismatch (got ${results?.length}, expected ${tweets.length})`);
-            return null;
-        }
-
-        // Validate and cap scores
-        return results.map((r, i) => ({
-            type: r.type || 'ENGAGEMENT',
-            score: Math.min(Math.max(Number(r.score) || 50, 0), 3000),
-            headline: (r.headline || '').substring(0, 120) || null,
-        }));
-
-    } catch (err) {
-        console.log(`   [AI] Error: ${err.message}`);
-        return null;
     }
+
+    console.log('   [AI] All models failed, falling back to keyword scoring');
+    return null;
 }
 
 // ============ API functions ============

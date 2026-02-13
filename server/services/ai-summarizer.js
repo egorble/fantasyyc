@@ -5,6 +5,13 @@
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+// Model fallback chain — try each in order until one succeeds
+const AI_MODELS = [
+    process.env.AI_SCORER_MODEL || 'google/gemma-3-4b-it:free',
+    'google/gemma-3-4b-it:free',
+    'arcee-ai/trinity-large-preview:free',
+].filter((v, i, arr) => arr.indexOf(v) === i); // deduplicate
+
 const SYSTEM_PROMPT = `You are a senior financial news editor at Bloomberg or BBC Business. Your job is to transform raw social media posts from tech startups into authoritative, professional news headlines.
 
 STYLE RULES:
@@ -39,10 +46,7 @@ export async function summarizeFeedEvents(events) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
         console.warn('[AI] No OPENROUTER_API_KEY set, using fallback truncation');
-        return events.map(e => ({
-            id: e.id,
-            summary: truncateFallback(e.description),
-        }));
+        return fallbackSummaries(events);
     }
 
     if (events.length === 0) return [];
@@ -56,61 +60,68 @@ export async function summarizeFeedEvents(events) {
 
 ${eventList}`;
 
-    try {
-        const response = await fetch(OPENROUTER_URL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: process.env.AI_SCORER_MODEL || 'google/gemma-3-4b-it:free',
-                messages: [
-                    { role: 'user', content: SYSTEM_PROMPT + '\n\n---\n\n' + prompt },
-                ],
-                temperature: 0.4,
-                max_tokens: 2000,
-            }),
-        });
-
-        if (!response.ok) {
-            const err = await response.text();
-            console.error('[AI] OpenRouter API error:', response.status, err);
-            return fallbackSummaries(events);
-        }
-
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content?.trim();
-
-        if (!content) {
-            console.error('[AI] Empty response from OpenRouter');
-            return fallbackSummaries(events);
-        }
-
-        // Parse JSON array from response
-        let headlines;
+    // Try each model in fallback chain
+    for (const model of AI_MODELS) {
         try {
-            // Handle potential markdown code blocks
-            const cleaned = content.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
-            headlines = JSON.parse(cleaned);
-        } catch (parseErr) {
-            console.error('[AI] Failed to parse response:', content);
-            return fallbackSummaries(events);
+            console.log(`[AI Summarizer] Trying model: ${model}`);
+            const response = await fetch(OPENROUTER_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [
+                        { role: 'user', content: SYSTEM_PROMPT + '\n\n---\n\n' + prompt },
+                    ],
+                    temperature: 0.4,
+                    max_tokens: 2000,
+                }),
+            });
+
+            if (!response.ok) {
+                const err = await response.text();
+                console.error(`[AI Summarizer] ${model} error ${response.status}: ${err.substring(0, 100)}`);
+                continue; // try next model
+            }
+
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content?.trim();
+
+            if (!content) {
+                console.error(`[AI Summarizer] ${model} empty response`);
+                continue;
+            }
+
+            // Parse JSON array from response
+            let headlines;
+            try {
+                const cleaned = content.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
+                headlines = JSON.parse(cleaned);
+            } catch (parseErr) {
+                console.error(`[AI Summarizer] ${model} failed to parse:`, content.substring(0, 200));
+                continue;
+            }
+
+            if (!Array.isArray(headlines) || headlines.length !== events.length) {
+                console.warn(`[AI Summarizer] ${model} headline count mismatch (got ${headlines?.length}, expected ${events.length}), using partial`);
+            }
+
+            console.log(`[AI Summarizer] ${model} succeeded — ${events.length} headlines`);
+            return events.map((e, i) => ({
+                id: e.id,
+                summary: (headlines[i] || truncateFallback(e.description)).substring(0, 120),
+            }));
+
+        } catch (err) {
+            console.error(`[AI Summarizer] ${model} error: ${err.message}`);
+            continue;
         }
-
-        if (!Array.isArray(headlines) || headlines.length !== events.length) {
-            console.warn('[AI] Headline count mismatch, using partial results');
-        }
-
-        return events.map((e, i) => ({
-            id: e.id,
-            summary: (headlines[i] || truncateFallback(e.description)).substring(0, 120),
-        }));
-
-    } catch (err) {
-        console.error('[AI] Fetch error:', err.message);
-        return fallbackSummaries(events);
     }
+
+    console.warn('[AI Summarizer] All models failed, using truncation fallback');
+    return fallbackSummaries(events);
 }
 
 function truncateFallback(text) {
