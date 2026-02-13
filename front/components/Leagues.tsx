@@ -83,6 +83,7 @@ const Leagues: React.FC = () => {
     const [squadLoading, setSquadLoading] = useState(false);
     const [aiRecommendation, setAiRecommendation] = useState<AiRecommendation | null>(null);
     const [aiLoading, setAiLoading] = useState(false);
+    const [aiOverlayOpen, setAiOverlayOpen] = useState(true);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Hooks
@@ -393,13 +394,13 @@ const Leagues: React.FC = () => {
             <div ref={containerRef} className="relative overflow-x-hidden">
 
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <div>
-                        <h2 className="text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight flex items-center">
-                            <Shield className="mr-3 w-8 h-8 text-yc-orange" />
+                        <h2 className="text-xl sm:text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight flex items-center">
+                            <Shield className="mr-2 sm:mr-3 w-6 h-6 sm:w-8 sm:h-8 text-yc-orange" />
                             Assemble Your Squad
                         </h2>
-                        <p className="text-gray-500 dark:text-gray-400 mt-1">Select 5 NFT cards to compete. Cards will be locked during tournament.</p>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1 text-xs sm:text-base">Select 5 NFT cards to compete. Cards will be locked during tournament.</p>
                     </div>
                     <button
                         onClick={() => setIsJoining(false)}
@@ -411,7 +412,7 @@ const Leagues: React.FC = () => {
                 </div>
 
                 {/* Deck Builder Area */}
-                <div className="relative bg-yc-light-panel dark:bg-[#0A0A0A] border border-yc-light-border dark:border-[#2A2A2A] rounded-2xl p-8 mb-8 overflow-hidden shadow-2xl">
+                <div className="relative bg-yc-light-panel dark:bg-[#0A0A0A] border border-yc-light-border dark:border-[#2A2A2A] rounded-2xl p-4 sm:p-8 mb-4 overflow-hidden shadow-2xl">
 
                     {/* Submission Success Overlay */}
                     {submissionState === 'success' && (
@@ -465,30 +466,6 @@ const Leagues: React.FC = () => {
                                     )}
                                 </div>
                             ))}
-
-                            {/* AI Pick Button */}
-                            {aiRecommendation && aiRecommendation.recommended?.length === 5 && submissionState === 'idle' && (
-                                <button
-                                    onClick={() => {
-                                        const newDeck: (CardData | null)[] = [null, null, null, null, null];
-                                        aiRecommendation.recommended.forEach((tokenId, i) => {
-                                            const card = availableCards.find(c => c.tokenId === tokenId);
-                                            if (card) newDeck[i] = card;
-                                        });
-                                        setDeck(newDeck);
-                                    }}
-                                    className="w-full py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white shadow-lg active:scale-95"
-                                >
-                                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                                    AI Pick
-                                </button>
-                            )}
-                            {aiLoading && (
-                                <div className="w-full py-2 flex items-center justify-center text-violet-400 text-[10px] uppercase tracking-wider">
-                                    <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                                    AI analyzing...
-                                </div>
-                            )}
 
                             {/* Submit Button */}
                             <button
@@ -555,15 +532,15 @@ const Leagues: React.FC = () => {
                                                     ${isSelected
                                                         ? 'border-yc-orange/50 opacity-40 grayscale cursor-not-allowed'
                                                         : isAiPick && canAdd
-                                                            ? 'border-violet-500/60 cursor-pointer hover:border-violet-400 hover:bg-violet-950/20 hover:-translate-y-1 shadow-[0_0_8px_rgba(139,92,246,0.15)]'
+                                                            ? 'border-yc-orange/40 cursor-pointer hover:border-yc-orange hover:bg-[#1A1A1A] hover:-translate-y-1'
                                                             : canAdd
                                                                 ? 'border-[#2A2A2A] cursor-pointer hover:border-yc-orange hover:bg-[#1A1A1A] hover:-translate-y-1'
                                                                 : 'border-[#2A2A2A] opacity-60 cursor-not-allowed'}
                                                 `}
                                             >
                                                 {isAiPick && !isSelected && (
-                                                    <div className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shadow-md">
-                                                        <Sparkles className="w-2.5 h-2.5 text-white" />
+                                                    <div className="absolute -top-1 -right-1 z-10 px-1 py-0.5 rounded bg-yc-orange text-[8px] font-bold text-white uppercase tracking-wider">
+                                                        AI
                                                     </div>
                                                 )}
                                                 <div className="aspect-square bg-black rounded overflow-hidden relative">
@@ -585,45 +562,93 @@ const Leagues: React.FC = () => {
                                 </div>
                             )}
                         </div>
+                    {/* UnicornX AI — Overlay (open) */}
+                    {aiRecommendation && aiRecommendation.source !== 'insufficient_cards' && aiOverlayOpen && (
+                        <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm rounded-2xl">
+                            <div className="bg-[#111] border border-[#2A2A2A] rounded-t-xl sm:rounded-xl p-4 sm:p-5 max-w-md w-full sm:mx-4 shadow-2xl">
+                                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-yc-orange" />
+                                        <h4 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">UnicornX AI</h4>
+                                    </div>
+                                    <button
+                                        onClick={() => setAiOverlayOpen(false)}
+                                        className="w-7 h-7 rounded-full bg-[#1A1A1A] hover:bg-[#333] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                <p className="text-xs sm:text-sm text-gray-400 leading-relaxed mb-3 sm:mb-4">{aiRecommendation.reasoning}</p>
+                                {aiRecommendation.insights && aiRecommendation.insights.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 mb-3 sm:mb-4">
+                                        {aiRecommendation.insights.map((insight, i) => (
+                                            <div key={i} className="flex items-center gap-1 bg-[#1A1A1A] rounded px-2 py-1">
+                                                {insight.outlook === 'bullish' ? (
+                                                    <TrendingUp className="w-3 h-3 text-yc-green" />
+                                                ) : insight.outlook === 'bearish' ? (
+                                                    <TrendingDown className="w-3 h-3 text-red-500" />
+                                                ) : (
+                                                    <Minus className="w-3 h-3 text-gray-500" />
+                                                )}
+                                                <span className="text-[10px] font-bold text-gray-300">{insight.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        const newDeck: (CardData | null)[] = [null, null, null, null, null];
+                                        aiRecommendation.recommended.forEach((tokenId, idx) => {
+                                            const card = availableCards.find(c => c.tokenId === tokenId);
+                                            if (card) newDeck[idx] = card;
+                                        });
+                                        setDeck(newDeck);
+                                        setAiOverlayOpen(false);
+                                    }}
+                                    className="w-full py-2.5 sm:py-3 rounded-lg font-black text-xs uppercase tracking-wider bg-yc-orange hover:bg-orange-600 text-white transition-all flex items-center justify-center active:scale-95"
+                                >
+                                    <Zap className="w-3.5 h-3.5 mr-1.5 fill-current" />
+                                    Apply AI Pick
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     </div>
                 </div>
 
-                {/* UnicornX AI Recommendation Panel */}
-                {aiRecommendation && aiRecommendation.source !== 'insufficient_cards' && (
-                    <div className="bg-gradient-to-r from-violet-950/40 to-blue-950/40 border border-violet-500/20 rounded-xl p-4 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
-                                <Sparkles className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <h4 className="text-sm font-bold text-violet-300 uppercase tracking-wider">UnicornX AI</h4>
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 font-mono">
-                                {aiRecommendation.source === 'ai' ? aiRecommendation.model?.split('/')[0] : 'heuristic'}
-                            </span>
-                        </div>
-                        <p className="text-sm text-gray-300 leading-relaxed mb-3">{aiRecommendation.reasoning}</p>
-                        {aiRecommendation.insights && aiRecommendation.insights.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                                {aiRecommendation.insights.map((insight, i) => (
-                                    <div key={i} className="flex items-center gap-1.5 bg-black/30 rounded-lg px-2.5 py-1.5">
-                                        {insight.outlook === 'bullish' ? (
-                                            <TrendingUp className="w-3 h-3 text-green-400" />
-                                        ) : insight.outlook === 'bearish' ? (
-                                            <TrendingDown className="w-3 h-3 text-red-400" />
-                                        ) : (
-                                            <Minus className="w-3 h-3 text-gray-400" />
-                                        )}
-                                        <span className="text-[11px] font-bold text-gray-200">{insight.name}</span>
-                                        <span className={`text-[10px] ${
-                                            insight.outlook === 'bullish' ? 'text-green-400' :
-                                            insight.outlook === 'bearish' ? 'text-red-400' : 'text-gray-500'
-                                        }`}>
-                                            {insight.reason}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                {/* UnicornX AI — Collapsed bar (after overlay dismissed) */}
+                {aiRecommendation && aiRecommendation.source !== 'insufficient_cards' && !aiOverlayOpen && (
+                    <div className="flex items-center gap-2 sm:gap-3 bg-white dark:bg-[#111] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-3 sm:px-4 py-2">
+                        <Sparkles className="w-3.5 h-3.5 text-yc-orange shrink-0" />
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 flex-1 min-w-0 truncate">{aiRecommendation.reasoning}</p>
+                        <button
+                            onClick={() => {
+                                const newDeck: (CardData | null)[] = [null, null, null, null, null];
+                                aiRecommendation.recommended.forEach((tokenId, idx) => {
+                                    const card = availableCards.find(c => c.tokenId === tokenId);
+                                    if (card) newDeck[idx] = card;
+                                });
+                                setDeck(newDeck);
+                            }}
+                            className="shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded font-bold text-[10px] uppercase tracking-wider bg-yc-orange hover:bg-orange-600 text-white transition-all active:scale-95"
+                        >
+                            Apply
+                        </button>
+                        <button
+                            onClick={() => setAiOverlayOpen(true)}
+                            className="shrink-0 text-gray-400 hover:text-white transition-colors"
+                        >
+                            <Info size={14} />
+                        </button>
+                    </div>
+                )}
+
+                {/* AI Loading indicator */}
+                {aiLoading && !aiRecommendation && (
+                    <div className="flex items-center gap-2 bg-white dark:bg-[#111] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-3 sm:px-4 py-2">
+                        <Loader2 className="w-3.5 h-3.5 text-yc-orange animate-spin" />
+                        <span className="text-[10px] sm:text-xs text-gray-500">UnicornX AI is analyzing startups...</span>
                     </div>
                 )}
             </div>
