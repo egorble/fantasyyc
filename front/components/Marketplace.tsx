@@ -89,7 +89,7 @@ const Marketplace: React.FC = () => {
         loading: isLoading,
         error
     } = useMarketplaceV2();
-    const { getCardInfo, getCards } = useNFT();
+    const { getCardInfo, getCards, clearCache } = useNFT();
     const { address, isConnected } = useWalletContext();
 
     // State
@@ -269,6 +269,11 @@ const Marketplace: React.FC = () => {
         try {
             await buyCard(listing.listingId, listing.price);
             await refreshListings();
+            // Force refresh NFT cache so Portfolio shows new card
+            if (address) {
+                clearCache();
+                getCards(address, true);
+            }
             alert('Purchase successful! The card is now in your portfolio.');
         } catch (e: any) {
             alert(`Error: ${e.message}`);

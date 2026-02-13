@@ -99,10 +99,17 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         }
     }, [isConnected, address]);
 
-    const loadCards = async () => {
+    const loadCards = async (forceBlockchain = false) => {
         if (!address) return;
         setIsRefreshing(true);
-        await refreshCards();
+        if (forceBlockchain) {
+            clearCache();
+            const fresh = await getCards(address, true);
+            setMyCards(sortByRarity(fresh));
+            setIsRefreshing(false);
+        } else {
+            await refreshCards();
+        }
     };
 
     const uniqueStartups = new Set(myCards.map(card => card.startupId)).size;
@@ -364,7 +371,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             setSellModalOpen(false);
             setCardToSell(null);
             setSellPrice('');
-            await loadCards();
+            await loadCards(true);
         } catch (e: any) {
             alert(`Failed to list: ${e.message}`);
         }
@@ -402,7 +409,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             alert(`Auction created! Starting at ${auctionStartPrice} XTZ for ${auctionDuration} hours.`);
             setSellModalOpen(false);
             setCardToSell(null);
-            await loadCards();
+            await loadCards(true);
         } catch (e: any) {
             alert(`Failed to create auction: ${e.message}`);
         }
@@ -528,7 +535,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             <span className="w-2 h-6 bg-yc-green rounded-sm mr-3"></span>
                             Your Assets ({myCards.length})
                             <button
-                                onClick={loadCards}
+                                onClick={() => loadCards(true)}
                                 disabled={isRefreshing}
                                 className="ml-3 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             >
@@ -717,9 +724,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                     <button
                                         onClick={async () => {
                                             setMergeError(null);
-                                            clearCache();
-                                            setIsRefreshing(true);
-                                            await refreshCards();
+                                            await loadCards(true);
                                         }}
                                         className="px-6 py-3 bg-yc-orange text-white font-bold rounded-xl hover:bg-orange-600 transition-colors flex items-center gap-2"
                                     >
