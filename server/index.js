@@ -918,6 +918,66 @@ app.post('/api/admin/reset-scores', adminLimiter, requireAdmin, (req, res) => {
     }
 });
 
+/**
+ * GET /api/ai/card-recommendation/:address
+ * Generate AI recommendation for which 5 cards to pick for tournament.
+ * Fetches player's cached NFTs + last 10 days of startup news, calls AI.
+ */
+app.get('/api/ai/card-recommendation/:address', async (req, res) => {
+    try {
+        const { address } = req.params;
+        if (!isValidAddress(address)) return res.status(400).json({ success: false, error: 'Invalid address' });
+
+        const addr = address.toLowerCase();
+
+        // Get player's cards from cache
+        const cards = db.getNFTCards(addr);
+        if (cards.length === 0) {
+            return res.json({
+                success: false,
+                error: 'No cards found. Buy packs first!'
+            });
+        }
+
+        // Map to simplified format (only unlocked cards)
+        const playerCards = cards
+            .filter(c => !c.is_locked)
+            .map(c => ({
+                tokenId: c.token_id,
+                name: c.startup_name,
+                rarity: c.rarity,
+                multiplier: c.multiplier
+            }));
+
+        if (playerCards.length < 5) {
+            return res.json({
+                success: true,
+                data: {
+                    recommended: playerCards.map(c => c.tokenId),
+                    reasoning: `You have ${playerCards.length} unlocked card(s) but need 5 to enter. Buy more packs!`,
+                    insights: [],
+                    source: 'insufficient_cards'
+                }
+            });
+        }
+
+        // Get recent startup news
+        const recentNews = db.getRecentStartupNews(10);
+
+        // Generate AI recommendation
+        const { generateRecommendation } = await import('./services/ai-recommender.js');
+        const recommendation = await generateRecommendation(playerCards, recentNews);
+
+        return res.json({
+            success: true,
+            data: recommendation
+        });
+    } catch (error) {
+        console.error('[AI Recommender] Endpoint error:', error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ============= BLOCKCHAIN SYNC =============
 
 async function syncTournamentFromBlockchain() {

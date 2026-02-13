@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw, Gift, ChevronDown, Loader2 } from 'lucide-react';
+import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw, Gift, ChevronDown, Loader2, Sparkles, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { CardData, sortByRarity } from '../types';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
@@ -29,6 +29,14 @@ const LEAGUES_GUIDE: OnboardingStep[] = [
         icon: '\uD83D\uDCB8',
     },
 ];
+
+interface AiRecommendation {
+    recommended: number[];
+    reasoning: string;
+    insights: Array<{ name: string; outlook: 'bullish' | 'neutral' | 'bearish'; reason: string }>;
+    source: string;
+    model?: string;
+}
 
 interface SquadCard {
     tokenId: number;
@@ -73,6 +81,8 @@ const Leagues: React.FC = () => {
     const [squadCards, setSquadCards] = useState<SquadCard[]>([]);
     const [squadScores, setSquadScores] = useState<Record<string, CardScoreData>>({});
     const [squadLoading, setSquadLoading] = useState(false);
+    const [aiRecommendation, setAiRecommendation] = useState<AiRecommendation | null>(null);
+    const [aiLoading, setAiLoading] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Hooks
@@ -140,6 +150,23 @@ const Leagues: React.FC = () => {
             }
         }
     };
+
+    // Fetch AI recommendation when player opens League page and hasn't entered
+    useEffect(() => {
+        if (!isConnected || !address || hasUserEntered || aiRecommendation || aiLoading) return;
+        if (phase !== 'registration' && phase !== 'active') return;
+
+        setAiLoading(true);
+        fetch(`/api/ai/card-recommendation/${address}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    setAiRecommendation(data.data);
+                }
+            })
+            .catch(() => { /* silently fail */ })
+            .finally(() => setAiLoading(false));
+    }, [isConnected, address, hasUserEntered, phase]);
 
     // Leaderboard data from backend
     const { leaderboard: leaderboardData, loading: leaderboardLoading, error: leaderboardError } = useLeaderboard(activeTournamentId > 0 ? activeTournamentId : null, 100);
@@ -439,12 +466,36 @@ const Leagues: React.FC = () => {
                                 </div>
                             ))}
 
+                            {/* AI Pick Button */}
+                            {aiRecommendation && aiRecommendation.recommended?.length === 5 && submissionState === 'idle' && (
+                                <button
+                                    onClick={() => {
+                                        const newDeck: (CardData | null)[] = [null, null, null, null, null];
+                                        aiRecommendation.recommended.forEach((tokenId, i) => {
+                                            const card = availableCards.find(c => c.tokenId === tokenId);
+                                            if (card) newDeck[i] = card;
+                                        });
+                                        setDeck(newDeck);
+                                    }}
+                                    className="w-full py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white shadow-lg active:scale-95"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                                    AI Pick
+                                </button>
+                            )}
+                            {aiLoading && (
+                                <div className="w-full py-2 flex items-center justify-center text-violet-400 text-[10px] uppercase tracking-wider">
+                                    <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                                    AI analyzing...
+                                </div>
+                            )}
+
                             {/* Submit Button */}
                             <button
                                 disabled={deck.includes(null) || submissionState !== 'idle'}
                                 onClick={handleSubmit}
                                 className={`
-                                    mt-4 w-full py-3 rounded-lg font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center
+                                    mt-2 w-full py-3 rounded-lg font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center
                                     ${deck.includes(null)
                                         ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
                                         : submissionState === 'submitting'
@@ -482,6 +533,7 @@ const Leagues: React.FC = () => {
                                     {availableCards.map((card) => {
                                         const isSelected = deck.some(c => c?.tokenId === card.tokenId);
                                         const canAdd = !isSelected && submissionState === 'idle' && deck.includes(null);
+                                        const isAiPick = aiRecommendation?.recommended?.includes(card.tokenId);
 
                                         return (
                                             <div
@@ -502,11 +554,18 @@ const Leagues: React.FC = () => {
                                                     bg-[#0D0D0D] border rounded-lg p-2 transition-all duration-200 relative group
                                                     ${isSelected
                                                         ? 'border-yc-orange/50 opacity-40 grayscale cursor-not-allowed'
-                                                        : canAdd
-                                                            ? 'border-[#2A2A2A] cursor-pointer hover:border-yc-orange hover:bg-[#1A1A1A] hover:-translate-y-1'
-                                                            : 'border-[#2A2A2A] opacity-60 cursor-not-allowed'}
+                                                        : isAiPick && canAdd
+                                                            ? 'border-violet-500/60 cursor-pointer hover:border-violet-400 hover:bg-violet-950/20 hover:-translate-y-1 shadow-[0_0_8px_rgba(139,92,246,0.15)]'
+                                                            : canAdd
+                                                                ? 'border-[#2A2A2A] cursor-pointer hover:border-yc-orange hover:bg-[#1A1A1A] hover:-translate-y-1'
+                                                                : 'border-[#2A2A2A] opacity-60 cursor-not-allowed'}
                                                 `}
                                             >
+                                                {isAiPick && !isSelected && (
+                                                    <div className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shadow-md">
+                                                        <Sparkles className="w-2.5 h-2.5 text-white" />
+                                                    </div>
+                                                )}
                                                 <div className="aspect-square bg-black rounded overflow-hidden relative">
                                                     <img src={card.image} className="w-full h-full object-contain" alt={card.name} />
                                                     {!isSelected && canAdd && (
@@ -528,6 +587,45 @@ const Leagues: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* UnicornX AI Recommendation Panel */}
+                {aiRecommendation && aiRecommendation.source !== 'insufficient_cards' && (
+                    <div className="bg-gradient-to-r from-violet-950/40 to-blue-950/40 border border-violet-500/20 rounded-xl p-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+                                <Sparkles className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <h4 className="text-sm font-bold text-violet-300 uppercase tracking-wider">UnicornX AI</h4>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 font-mono">
+                                {aiRecommendation.source === 'ai' ? aiRecommendation.model?.split('/')[0] : 'heuristic'}
+                            </span>
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed mb-3">{aiRecommendation.reasoning}</p>
+                        {aiRecommendation.insights && aiRecommendation.insights.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {aiRecommendation.insights.map((insight, i) => (
+                                    <div key={i} className="flex items-center gap-1.5 bg-black/30 rounded-lg px-2.5 py-1.5">
+                                        {insight.outlook === 'bullish' ? (
+                                            <TrendingUp className="w-3 h-3 text-green-400" />
+                                        ) : insight.outlook === 'bearish' ? (
+                                            <TrendingDown className="w-3 h-3 text-red-400" />
+                                        ) : (
+                                            <Minus className="w-3 h-3 text-gray-400" />
+                                        )}
+                                        <span className="text-[11px] font-bold text-gray-200">{insight.name}</span>
+                                        <span className={`text-[10px] ${
+                                            insight.outlook === 'bullish' ? 'text-green-400' :
+                                            insight.outlook === 'bearish' ? 'text-red-400' : 'text-gray-500'
+                                        }`}>
+                                            {insight.reason}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         );
     }

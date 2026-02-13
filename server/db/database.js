@@ -654,6 +654,22 @@ export function getLiveFeedPaginated(limit = 20, offset = 0) {
 }
 
 /**
+ * Get recent startup news for the last N days (for AI recommendations).
+ * Returns events grouped by startup, ordered by date desc.
+ */
+export function getRecentStartupNews(days = 10) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - days);
+    const cutoffDate = d.toISOString().split('T')[0];
+    return all(`
+        SELECT startup_name, event_type, description, points, date, ai_summary
+        FROM live_feed
+        WHERE date >= ?
+        ORDER BY startup_name, date DESC
+    `, [cutoffDate]);
+}
+
+/**
  * Get total count of live feed events.
  */
 export function getLiveFeedCount() {

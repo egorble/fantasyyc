@@ -1,13 +1,18 @@
 /**
- * Daily Tournament Scorer
+ * Daily Scorer
  *
- * Game logic:
- * 1. Reads active tournament from blockchain (PackOpener.activeTournamentId)
- * 2. Only scores if tournament status is "active"
- * 3. Fetches ALL tweets from the scoring day for each startup (via advanced_search)
- * 4. Calculates base points per startup from tweet analysis
- * 5. For each participant: multiplies startup base points by their card rarity
- * 6. Updates leaderboard with cumulative scores
+ * Two modes:
+ * - FULL mode (tournament active): scores startups, calculates player scores, updates leaderboard
+ * - FEED-ONLY mode (no tournament): fetches tweets and generates live feed + AI headlines only
+ *
+ * Steps:
+ * 1. Check for active tournament on blockchain
+ * 2. Fetch participants from chain (full mode only)
+ * 3. Fetch & score tweets for ALL startups → save to live feed (ALWAYS)
+ * 4. Calculate player scores from cards × base scores (full mode only)
+ * 5. Print leaderboard (full mode only)
+ * 6. Print AI scoring summary
+ * 7. Generate AI headline summaries for feed events
  *
  * Designed to run daily at 00:00 UTC via server scheduler.
  * Scores the PREVIOUS day (yesterday UTC).
@@ -146,7 +151,10 @@ function getYesterdayUTC() {
 // ============ Main scoring function ============
 
 /**
- * Run daily scoring for the active tournament.
+ * Run daily scoring.
+ * Always fetches tweets and generates live feed + AI summaries.
+ * Only calculates player scores / leaderboard when a tournament is active.
+ *
  * @param {string} [dateOverride] - Optional date to score (YYYY-MM-DD). Defaults to yesterday UTC.
  * @param {boolean} [force] - If true, clear old scores/feed for this date and re-score.
  */
@@ -159,60 +167,62 @@ async function runDailyScoring(dateOverride, force = false) {
     setLogContext(scoringDate);
     aiStats.reset();
 
-    // 1. Get active tournament from blockchain
+    // 1. Check for active tournament (optional — scoring runs either way)
     console.log('\n[1] Fetching active tournament from chain...');
-    let tournament;
+    let tournament = null;
     try {
         tournament = await getActiveTournament();
     } catch (error) {
         console.error('Failed to read tournament from chain:', error.message);
-        return;
     }
 
-    if (!tournament) {
-        console.log('No active tournament found on chain. Skipping.');
-        return;
-    }
+    const hasTournament = tournament && tournament.status === 'active';
 
-    if (tournament.status !== 'active') {
-        console.log(`Tournament #${tournament.id} status is "${tournament.status}". Scoring only runs for "active" tournaments. Skipping.`);
-        return;
-    }
+    if (hasTournament) {
+        console.log(`Tournament #${tournament.id} | status=${tournament.status} | players=${tournament.entryCount} | pool=${tournament.prizePool} XTZ`);
+        db.saveTournament(tournament);
 
-    console.log(`Tournament #${tournament.id} | status=${tournament.status} | players=${tournament.entryCount} | pool=${tournament.prizePool} XTZ`);
+        // Check if this date was already scored (prevent double scoring)
+        const existingScores = db.getDailyScores(tournament.id, scoringDate);
+        if (existingScores.length > 0) {
+            if (force) {
+                console.log(`[FORCE] Clearing old scores and feed for ${scoringDate}...`);
+                db.clearDailyScoresForDate(tournament.id, scoringDate);
+                db.clearLiveFeedForDate(scoringDate);
+            } else {
+                console.log(`Date ${scoringDate} already has ${existingScores.length} startup scores for tournament #${tournament.id}. Skipping to avoid duplicates.`);
+                return;
+            }
+        }
+    } else {
+        console.log(tournament
+            ? `Tournament #${tournament.id} status is "${tournament.status}". Running in feed-only mode (no player scoring).`
+            : 'No active tournament. Running in feed-only mode (no player scoring).'
+        );
 
-    // Sync tournament to DB
-    db.saveTournament(tournament);
-
-    // Check if this date was already scored (prevent double scoring)
-    const existingScores = db.getDailyScores(tournament.id, scoringDate);
-    if (existingScores.length > 0) {
+        // In feed-only mode, still check for duplicate feed entries
         if (force) {
-            console.log(`[FORCE] Clearing old scores and feed for ${scoringDate}...`);
-            db.clearDailyScoresForDate(tournament.id, scoringDate);
             db.clearLiveFeedForDate(scoringDate);
-        } else {
-            console.log(`Date ${scoringDate} already has ${existingScores.length} startup scores for tournament #${tournament.id}. Skipping to avoid duplicates.`);
-            return;
         }
     }
 
-    // 2. Get participants from blockchain
-    console.log('\n[2] Fetching participants from chain...');
-    let participants;
-    try {
-        participants = await getParticipants(tournament.id);
-    } catch (error) {
-        console.error('Failed to read participants:', error.message);
-        participants = [];
-    }
-    console.log(`Found ${participants.length} participants`);
+    // 2. Get participants (only if tournament active)
+    let participants = [];
+    if (hasTournament) {
+        console.log('\n[2] Fetching participants from chain...');
+        try {
+            participants = await getParticipants(tournament.id);
+        } catch (error) {
+            console.error('Failed to read participants:', error.message);
+        }
+        console.log(`Found ${participants.length} participants`);
 
-    for (const p of participants) {
-        db.saveTournamentEntry(tournament.id, p);
+        for (const p of participants) {
+            db.saveTournamentEntry(tournament.id, p);
+        }
     }
 
-    // 3. Fetch & score tweets for all startups
+    // 3. Fetch & score tweets for all startups (ALWAYS runs)
     console.log('\n[3] Scoring startups from Twitter...');
     const startupBaseScores = {};
     const handles = Object.keys(STARTUP_MAPPING);
@@ -228,25 +238,27 @@ async function runDailyScoring(dateOverride, force = false) {
 
             console.log(`  -> ${result.tweetCount} tweets, ${result.totalPoints} pts`);
 
-            // Save daily score with HMAC
-            const dailyHmac = computeDailyScoreHmac({
-                tournamentId: tournament.id,
-                startupName: name,
-                date: scoringDate,
-                basePoints: result.totalPoints,
-                tweetsAnalyzed: result.tweetCount
-            });
-            db.saveDailyScore(
-                tournament.id,
-                name,
-                scoringDate,
-                result.totalPoints,
-                result.tweetCount,
-                result.tweets.flatMap(t => t.events),
-                dailyHmac
-            );
+            // Save daily score with HMAC (only if tournament active)
+            if (hasTournament) {
+                const dailyHmac = computeDailyScoreHmac({
+                    tournamentId: tournament.id,
+                    startupName: name,
+                    date: scoringDate,
+                    basePoints: result.totalPoints,
+                    tweetsAnalyzed: result.tweetCount
+                });
+                db.saveDailyScore(
+                    tournament.id,
+                    name,
+                    scoringDate,
+                    result.totalPoints,
+                    result.tweetCount,
+                    result.tweets.flatMap(t => t.events),
+                    dailyHmac
+                );
+            }
 
-            // Save to live feed — one entry per tweet
+            // Save to live feed — one entry per tweet (ALWAYS)
             for (const tweet of result.tweets) {
                 const events = tweet.events || [];
                 if (events.length === 0) continue;
@@ -272,76 +284,75 @@ async function runDailyScoring(dateOverride, force = false) {
         }
     }
 
-    // 3b. Build integrity hash chain for this day's scores
-    try {
-        const scoresJson = JSON.stringify(
-            Object.entries(startupBaseScores).sort(([a], [b]) => a.localeCompare(b))
-        );
-        const previousHash = db.getLatestIntegrityHash(tournament.id);
-        const integrityHash = computeIntegrityHash(tournament.id, scoringDate, scoresJson, previousHash);
-        db.setConfig(`integrity_latest_${tournament.id}`, JSON.stringify({
-            hash: integrityHash,
-            previousHash: previousHash || 'GENESIS',
-            date: scoringDate
-        }));
-        console.log(`  Integrity chain: ${integrityHash.substring(0, 16)}...`);
-    } catch (e) {
-        console.error('  Integrity hash error:', e.message);
-    }
-
-    // 4. Calculate player scores
-    console.log('\n[4] Calculating player scores...');
-
-    for (const participant of participants) {
+    // 3b. Build integrity hash chain (only if tournament active)
+    if (hasTournament) {
         try {
-            const cards = await getPlayerCards(tournament.id, participant);
-
-            if (cards.length === 0) {
-                console.log(`  ${participant.substring(0, 10)}... - no cards, skipping`);
-                continue;
-            }
-
-            // Save cards to DB
-            db.savePlayerCards(tournament.id, participant, cards);
-
-            // Calculate today's score
-            const { totalPoints, breakdown } = calculatePlayerScore(cards, startupBaseScores);
-
-            // Save daily score history with HMAC
-            const scoreHmac = computeScoreHmac({
-                tournamentId: tournament.id,
-                playerAddress: participant,
-                date: scoringDate,
-                points: totalPoints,
-                breakdown
-            });
-            db.saveScoreHistory(tournament.id, participant, scoringDate, totalPoints, breakdown, scoreHmac);
-
-            // Recalculate total from all days
-            const history = db.getPlayerScoreHistory(tournament.id, participant);
-            const totalScore = history.reduce((sum, h) => sum + h.points_earned, 0);
-
-            // Update leaderboard with HMAC
-            const leaderboardHmac = computeLeaderboardHmac({
-                tournamentId: tournament.id,
-                playerAddress: participant,
-                totalScore
-            });
-            db.updateLeaderboard(tournament.id, participant, totalScore, leaderboardHmac);
-
-            console.log(`  ${participant.substring(0, 10)}... - today: ${totalPoints.toFixed(1)} | total: ${totalScore.toFixed(1)}`);
-        } catch (error) {
-            console.error(`  Error for ${participant.substring(0, 10)}...: ${error.message}`);
+            const scoresJson = JSON.stringify(
+                Object.entries(startupBaseScores).sort(([a], [b]) => a.localeCompare(b))
+            );
+            const previousHash = db.getLatestIntegrityHash(tournament.id);
+            const integrityHash = computeIntegrityHash(tournament.id, scoringDate, scoresJson, previousHash);
+            db.setConfig(`integrity_latest_${tournament.id}`, JSON.stringify({
+                hash: integrityHash,
+                previousHash: previousHash || 'GENESIS',
+                date: scoringDate
+            }));
+            console.log(`  Integrity chain: ${integrityHash.substring(0, 16)}...`);
+        } catch (e) {
+            console.error('  Integrity hash error:', e.message);
         }
     }
 
-    // 5. Print leaderboard
-    const leaderboard = db.getLeaderboard(tournament.id, 10);
-    if (leaderboard.length > 0) {
-        console.log('\n[5] Leaderboard:');
-        leaderboard.forEach((entry, i) => {
-            console.log(`  ${i + 1}. ${entry.address.substring(0, 10)}... - ${entry.score.toFixed(1)} pts`);
-        });
+    // 4. Calculate player scores (only if tournament active)
+    if (hasTournament && participants.length > 0) {
+        console.log('\n[4] Calculating player scores...');
+
+        for (const participant of participants) {
+            try {
+                const cards = await getPlayerCards(tournament.id, participant);
+
+                if (cards.length === 0) {
+                    console.log(`  ${participant.substring(0, 10)}... - no cards, skipping`);
+                    continue;
+                }
+
+                db.savePlayerCards(tournament.id, participant, cards);
+
+                const { totalPoints, breakdown } = calculatePlayerScore(cards, startupBaseScores);
+
+                const scoreHmac = computeScoreHmac({
+                    tournamentId: tournament.id,
+                    playerAddress: participant,
+                    date: scoringDate,
+                    points: totalPoints,
+                    breakdown
+                });
+                db.saveScoreHistory(tournament.id, participant, scoringDate, totalPoints, breakdown, scoreHmac);
+
+                const history = db.getPlayerScoreHistory(tournament.id, participant);
+                const totalScore = history.reduce((sum, h) => sum + h.points_earned, 0);
+
+                const leaderboardHmac = computeLeaderboardHmac({
+                    tournamentId: tournament.id,
+                    playerAddress: participant,
+                    totalScore
+                });
+                db.updateLeaderboard(tournament.id, participant, totalScore, leaderboardHmac);
+
+                console.log(`  ${participant.substring(0, 10)}... - today: ${totalPoints.toFixed(1)} | total: ${totalScore.toFixed(1)}`);
+            } catch (error) {
+                console.error(`  Error for ${participant.substring(0, 10)}...: ${error.message}`);
+            }
+        }
+
+        // 5. Print leaderboard
+        const leaderboard = db.getLeaderboard(tournament.id, 10);
+        if (leaderboard.length > 0) {
+            console.log('\n[5] Leaderboard:');
+            leaderboard.forEach((entry, i) => {
+                console.log(`  ${i + 1}. ${entry.address.substring(0, 10)}... - ${entry.score.toFixed(1)} pts`);
+            });
+        }
     }
 
     // 6. Print AI scoring summary
@@ -362,11 +373,11 @@ async function runDailyScoring(dateOverride, force = false) {
         }
     }
 
-    // Log the full AI summary to file
     logAI({
         type: 'scoring_run_summary',
         date: scoringDate,
-        tournamentId: tournament.id,
+        tournamentId: hasTournament ? tournament.id : null,
+        mode: hasTournament ? 'full' : 'feed-only',
         totalStartups: aiStats.totalStartups,
         aiSuccessStartups: aiStats.aiSuccessStartups,
         keywordFallbackStartups: aiStats.keywordFallbackStartups,
@@ -377,7 +388,6 @@ async function runDailyScoring(dateOverride, force = false) {
         errors: aiStats.errors
     });
 
-    // Reset stats for next run
     aiStats.reset();
 
     // 7. Generate AI summaries for any unsummarized feed events
@@ -400,7 +410,7 @@ async function runDailyScoring(dateOverride, force = false) {
 
     // Save to disk
     db.saveDatabase();
-    console.log('\nScoring complete. DB saved.');
+    console.log(`\nScoring complete (${hasTournament ? 'full' : 'feed-only'} mode). DB saved.`);
 }
 
 export { runDailyScoring };
