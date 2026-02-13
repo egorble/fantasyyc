@@ -5,6 +5,7 @@ import { useNFT } from '../hooks/useNFT';
 import { useWalletContext } from '../context/WalletContext';
 import { usePollingData } from '../hooks/usePollingData';
 import { formatXTZ } from '../lib/contracts';
+import { blockchainCache, CacheKeys } from '../lib/cache';
 import { CardData, Rarity, sortByRarity } from '../types';
 
 // Rarity colors
@@ -80,6 +81,9 @@ const Marketplace: React.FC = () => {
         placeBid,
         acceptBid,
         getBidsForToken,
+        getUserListings,
+        getMyBids,
+        cancelBid,
         listCard,
         createAuction,
         cancelListing,
@@ -129,6 +133,15 @@ const Marketplace: React.FC = () => {
     const [auctionDuration, setAuctionDuration] = useState('1');
     const [isSelling, setIsSelling] = useState(false);
     const [loadingNFTs, setLoadingNFTs] = useState(false);
+
+    // Activity tab state
+    type ActivityFilter = 'all' | 'listings' | 'auctions' | 'bids';
+    const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
+    const [myListings, setMyListings] = useState<ListingWithMeta[]>([]);
+    const [myAuctions, setMyAuctions] = useState<AuctionWithMeta[]>([]);
+    const [myBids, setMyBids] = useState<(Bid & { cardName?: string; cardImage?: string; rarity?: string })[]>([]);
+    const [loadingActivity, setLoadingActivity] = useState(false);
+    const [cancellingBidId, setCancellingBidId] = useState<number | null>(null);
 
     const rarityTabs = ['All', 'Common', 'Rare', 'Epic', 'Legendary'];
 
@@ -318,6 +331,7 @@ const Marketplace: React.FC = () => {
         try {
             await cancelListing(listing.listingId);
             await refreshListings();
+            if (activeTab === 'activity') fetchActivity(true);
             alert('Listing cancelled successfully!');
         } catch (e: any) {
             alert(`Error: ${e.message}`);
@@ -371,6 +385,7 @@ const Marketplace: React.FC = () => {
         try {
             await cancelAuction(auction.auctionId);
             await refreshAuctions();
+            if (activeTab === 'activity') fetchActivity(true);
             alert('Auction cancelled!');
         } catch (e: any) {
             const msg = e.message || '';
@@ -461,10 +476,89 @@ const Marketplace: React.FC = () => {
             setListModalOpen(false);
             await refreshListings();
             await refreshAuctions();
+            if (activeTab === 'activity') fetchActivity(true);
         } catch (e: any) {
             alert(`Error: ${e.message}`);
         }
         setIsSelling(false);
+    };
+
+    // Fetch activity data when tab is active
+    const fetchActivity = useCallback(async (forceRefresh = false) => {
+        if (!isConnected || !address) return;
+        setLoadingActivity(true);
+        try {
+            // Invalidate caches to get fresh data
+            if (forceRefresh) {
+                blockchainCache.invalidate(CacheKeys.userListings(address));
+                blockchainCache.invalidate(CacheKeys.userBids(address));
+                blockchainCache.invalidate(CacheKeys.activeAuctions());
+            }
+            const [userListings, userBids, allAuctions] = await Promise.all([
+                getUserListings(address),
+                getMyBids(),
+                getActiveAuctions()
+            ]);
+
+            // Enrich listings with card metadata
+            const enrichedListings = await Promise.all(
+                userListings.map(async (l) => {
+                    try {
+                        const info = await getCardInfo(Number(l.tokenId));
+                        return { ...l, cardName: info?.name || `Card #${l.tokenId}`, cardImage: info?.image, rarity: info?.rarity, priceFormatted: formatXTZ(l.price) };
+                    } catch { return { ...l, cardName: `Card #${l.tokenId}`, priceFormatted: formatXTZ(l.price) }; }
+                })
+            );
+
+            // Filter auctions where user is the seller
+            const userAuctions = allAuctions.filter(a => a.seller.toLowerCase() === address.toLowerCase());
+            const enrichedAuctions = await Promise.all(
+                userAuctions.map(async (a) => {
+                    try {
+                        const info = await getCardInfo(Number(a.tokenId));
+                        const { text, isEnded } = formatTimeLeft(a.endTime);
+                        return { ...a, cardName: info?.name || `Card #${a.tokenId}`, cardImage: info?.image, rarity: info?.rarity, timeLeft: text, isEnded };
+                    } catch {
+                        const { text, isEnded } = formatTimeLeft(a.endTime);
+                        return { ...a, cardName: `Card #${a.tokenId}`, timeLeft: text, isEnded };
+                    }
+                })
+            );
+
+            // Enrich bids with card metadata
+            const enrichedBids = await Promise.all(
+                userBids.map(async (b) => {
+                    try {
+                        const info = await getCardInfo(Number(b.tokenId));
+                        return { ...b, cardName: info?.name || `Card #${b.tokenId}`, cardImage: info?.image, rarity: info?.rarity };
+                    } catch { return { ...b, cardName: `Card #${b.tokenId}` }; }
+                })
+            );
+
+            setMyListings(enrichedListings);
+            setMyAuctions(enrichedAuctions);
+            setMyBids(enrichedBids);
+        } catch (e) {
+            console.error('Failed to load activity:', e);
+        }
+        setLoadingActivity(false);
+    }, [isConnected, address, getUserListings, getMyBids, getActiveAuctions, getCardInfo]);
+
+    useEffect(() => {
+        if (activeTab === 'activity') fetchActivity(true);
+    }, [activeTab, fetchActivity]);
+
+    // Handle cancel bid from activity
+    const handleCancelBid = async (bidId: bigint) => {
+        setCancellingBidId(Number(bidId));
+        try {
+            await cancelBid(bidId);
+            await fetchActivity();
+            alert('Bid cancelled successfully!');
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
+        setCancellingBidId(null);
     };
 
     // Filter and sort listings
@@ -764,15 +858,169 @@ const Marketplace: React.FC = () => {
 
             {/* ACTIVITY TAB */}
             {activeTab === 'activity' && (
-                <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
-                    <User className="w-16 h-16 text-gray-400 dark:text-gray-600 mb-4" />
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">My Activity</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">
-                        {isConnected
-                            ? "View your bids, listings, and auction history. Coming soon!"
-                            : "Connect your wallet to see your marketplace activity."}
-                    </p>
-                </div>
+                <>
+                    {!isConnected ? (
+                        <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
+                            <User className="w-16 h-16 text-gray-400 dark:text-gray-600 mb-4" />
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">My Activity</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">Connect your wallet to see your marketplace activity.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Activity sub-filters */}
+                            <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+                                {([
+                                    { key: 'all', label: 'All', count: myListings.length + myAuctions.length + myBids.length },
+                                    { key: 'listings', label: 'My Listings', count: myListings.length },
+                                    { key: 'auctions', label: 'My Auctions', count: myAuctions.length },
+                                    { key: 'bids', label: 'My Bids', count: myBids.length },
+                                ] as { key: ActivityFilter; label: string; count: number }[]).map(f => (
+                                    <button
+                                        key={f.key}
+                                        onClick={() => setActivityFilter(f.key)}
+                                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${
+                                            activityFilter === f.key
+                                                ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30'
+                                                : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {f.label}
+                                        {!loadingActivity && f.count > 0 && (
+                                            <span className="ml-1.5 bg-black/20 px-1.5 py-0.5 rounded text-[10px]">{f.count}</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {loadingActivity ? (
+                                <div className="flex flex-col items-center justify-center py-20">
+                                    <Loader2 className="w-8 h-8 text-yc-orange animate-spin mb-4" />
+                                    <p className="text-gray-400">Loading your activity...</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* My Listings */}
+                                    {(activityFilter === 'all' || activityFilter === 'listings') && myListings.length > 0 && (
+                                        <div>
+                                            {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> My Listings</h3>}
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
+                                                {myListings.map(listing => (
+                                                    <div key={`l-${listing.listingId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
+                                                        <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
+                                                            <img src={listing.cardImage || '/placeholder-card.png'} alt={listing.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                            <div className="absolute top-2 left-2 bg-yc-orange/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Listed</div>
+                                                        </div>
+                                                        <div className="p-1.5 md:p-3">
+                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{listing.priceFormatted} XTZ</p>
+                                                            <button
+                                                                onClick={() => handleCancelListing(listing)}
+                                                                disabled={cancellingId === Number(listing.listingId)}
+                                                                className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                            >
+                                                                {cancellingId === Number(listing.listingId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Listing'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* My Auctions */}
+                                    {(activityFilter === 'all' || activityFilter === 'auctions') && myAuctions.length > 0 && (
+                                        <div>
+                                            {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Gavel className="w-3.5 h-3.5" /> My Auctions</h3>}
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
+                                                {myAuctions.map(auction => (
+                                                    <div key={`a-${auction.auctionId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
+                                                        <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
+                                                            <img src={auction.cardImage || '/placeholder-card.png'} alt={auction.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                            <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 text-yc-orange'}`}>
+                                                                <Clock className="w-2.5 h-2.5" />
+                                                                {auction.timeLeft}
+                                                            </div>
+                                                            <div className="absolute top-2 left-2 bg-purple-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Auction</div>
+                                                        </div>
+                                                        <div className="p-1.5 md:p-3">
+                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(auction.highestBid > 0n ? auction.highestBid : auction.startPrice)} XTZ</p>
+                                                            <p className="text-[9px] text-gray-400">{auction.highestBid > 0n ? 'Current bid' : 'Starting price'}</p>
+                                                            {auction.isEnded ? (
+                                                                <button
+                                                                    onClick={() => handleFinalizeAuction(auction)}
+                                                                    disabled={biddingId === Number(auction.auctionId)}
+                                                                    className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-green-600 text-white hover:bg-green-700 transition-all"
+                                                                >
+                                                                    {biddingId === Number(auction.auctionId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Finalize'}
+                                                                </button>
+                                                            ) : auction.highestBidder === '0x0000000000000000000000000000000000000000' || !auction.highestBidder ? (
+                                                                <button
+                                                                    onClick={() => handleCancelAuction(auction)}
+                                                                    disabled={cancellingId === Number(auction.auctionId)}
+                                                                    className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                                >
+                                                                    {cancellingId === Number(auction.auctionId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Auction'}
+                                                                </button>
+                                                            ) : (
+                                                                <p className="mt-1.5 text-[10px] text-gray-400 text-center">Has bids</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* My Bids */}
+                                    {(activityFilter === 'all' || activityFilter === 'bids') && myBids.length > 0 && (
+                                        <div>
+                                            {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><DollarSign className="w-3.5 h-3.5" /> My Bids</h3>}
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
+                                                {myBids.map(bid => (
+                                                    <div key={`b-${bid.bidId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
+                                                        <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
+                                                            <img src={bid.cardImage || '/placeholder-card.png'} alt={bid.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                            <div className="absolute top-2 left-2 bg-blue-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Bid</div>
+                                                        </div>
+                                                        <div className="p-1.5 md:p-3">
+                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(bid.amount)} XTZ</p>
+                                                            <p className="text-[9px] text-gray-400">Expires: {safeFormatDate(bid.expiration)}</p>
+                                                            <button
+                                                                onClick={() => handleCancelBid(bid.bidId)}
+                                                                disabled={cancellingBidId === Number(bid.bidId)}
+                                                                className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                            >
+                                                                {cancellingBidId === Number(bid.bidId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Bid'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Empty state */}
+                                    {!loadingActivity && (
+                                        (activityFilter === 'all' && myListings.length === 0 && myAuctions.length === 0 && myBids.length === 0) ||
+                                        (activityFilter === 'listings' && myListings.length === 0) ||
+                                        (activityFilter === 'auctions' && myAuctions.length === 0) ||
+                                        (activityFilter === 'bids' && myBids.length === 0)
+                                    ) && (
+                                        <div className="flex flex-col items-center justify-center py-16 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
+                                            <Activity className="w-12 h-12 text-gray-400 dark:text-gray-600 mb-3" />
+                                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No Activity</h3>
+                                            <p className="text-gray-500 dark:text-gray-400 text-sm text-center max-w-sm">
+                                                {activityFilter === 'listings' && "You haven't listed any NFTs yet."}
+                                                {activityFilter === 'auctions' && "You haven't created any auctions yet."}
+                                                {activityFilter === 'bids' && "You haven't placed any bids yet."}
+                                                {activityFilter === 'all' && "No marketplace activity yet. List an NFT or place a bid to get started!"}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </>
             )}
 
             {/* BID MODAL */}

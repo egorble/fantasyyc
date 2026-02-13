@@ -680,7 +680,11 @@ const Leagues: React.FC = () => {
                                                     {player.score.toFixed(1)}
                                                 </p>
                                                 <p className="text-[10px] text-gray-400 font-mono hidden sm:block">
-                                                    {new Date(player.lastUpdated).toLocaleDateString()}
+                                                    {(() => {
+                                                        const d = new Date(player.lastUpdated);
+                                                        d.setDate(d.getDate() - 1);
+                                                        return d.toLocaleDateString();
+                                                    })()}
                                                 </p>
                                             </div>
                                             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
