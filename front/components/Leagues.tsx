@@ -19,6 +19,11 @@ const LEAGUES_GUIDE: OnboardingStep[] = [
         icon: '\uD83C\uDFC6',
     },
     {
+        title: 'UnicornX AI',
+        description: 'When you open the squad builder, UnicornX AI analyzes the last 10 days of startup activity and recommends the best 5 cards from your collection. Tap individual names to add them or "Apply All" to fill your squad instantly.',
+        icon: '\uD83E\uDDE0',
+    },
+    {
         title: 'Daily Scoring',
         description: 'Every night, our system scans Twitter for startup activity. The more active a startup is, the more points your card earns. Higher rarity cards have bigger multipliers.',
         icon: '\uD83D\uDCCA',
