@@ -598,6 +598,27 @@ const Marketplace: React.FC = () => {
             return true;
         });
 
+    // Sort activity items
+    const sortedMyListings = [...myListings].sort((a, b) => {
+        if (sortBy === 'price_asc') return Number(a.price - b.price);
+        if (sortBy === 'price_desc') return Number(b.price - a.price);
+        return Number(b.listedAt - a.listedAt);
+    });
+
+    const sortedMyAuctions = [...myAuctions].sort((a, b) => {
+        const aPrice = a.highestBid > 0n ? a.highestBid : a.startPrice;
+        const bPrice = b.highestBid > 0n ? b.highestBid : b.startPrice;
+        if (sortBy === 'price_asc') return Number(aPrice - bPrice);
+        if (sortBy === 'price_desc') return Number(bPrice - aPrice);
+        return Number(b.startTime - a.startTime);
+    });
+
+    const sortedMyBids = [...myBids].sort((a, b) => {
+        if (sortBy === 'price_asc') return Number(a.amount - b.amount);
+        if (sortBy === 'price_desc') return Number(b.amount - a.amount);
+        return Number(b.expiration - a.expiration);
+    });
+
     return (
         <div className="overflow-x-hidden">
 
@@ -884,28 +905,41 @@ const Marketplace: React.FC = () => {
                     ) : (
                         <>
                             {/* Activity sub-filters */}
-                            <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-                                {([
-                                    { key: 'all', label: 'All', count: myListings.length + myAuctions.length + myBids.length },
-                                    { key: 'listings', label: 'My Listings', count: myListings.length },
-                                    { key: 'auctions', label: 'My Auctions', count: myAuctions.length },
-                                    { key: 'bids', label: 'My Bids', count: myBids.length },
-                                ] as { key: ActivityFilter; label: string; count: number }[]).map(f => (
-                                    <button
-                                        key={f.key}
-                                        onClick={() => setActivityFilter(f.key)}
-                                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${
-                                            activityFilter === f.key
-                                                ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30'
-                                                : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'
-                                        }`}
-                                    >
-                                        {f.label}
-                                        {!loadingActivity && f.count > 0 && (
-                                            <span className="ml-1.5 bg-black/20 px-1.5 py-0.5 rounded text-[10px]">{f.count}</span>
-                                        )}
-                                    </button>
-                                ))}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                                <div className="flex items-center gap-2 overflow-x-auto pb-1 w-full sm:w-auto">
+                                    {([
+                                        { key: 'all', label: 'All', count: myListings.length + myAuctions.length + myBids.length },
+                                        { key: 'listings', label: 'My Listings', count: myListings.length },
+                                        { key: 'auctions', label: 'My Auctions', count: myAuctions.length },
+                                        { key: 'bids', label: 'My Bids', count: myBids.length },
+                                    ] as { key: ActivityFilter; label: string; count: number }[]).map(f => (
+                                        <button
+                                            key={f.key}
+                                            onClick={() => setActivityFilter(f.key)}
+                                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${
+                                                activityFilter === f.key
+                                                    ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30'
+                                                    : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'
+                                            }`}
+                                        >
+                                            {f.label}
+                                            {!loadingActivity && f.count > 0 && (
+                                                <span className="ml-1.5 bg-black/20 px-1.5 py-0.5 rounded text-[10px]">{f.count}</span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Sort dropdown for activity */}
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value as any)}
+                                    className="px-4 py-2 bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full text-xs font-bold text-yc-text-primary dark:text-white hover:border-yc-orange focus:border-yc-orange focus:ring-1 focus:ring-yc-orange transition-all shadow-sm cursor-pointer shrink-0 w-full sm:w-auto"
+                                >
+                                    <option value="recent">Recent First</option>
+                                    <option value="price_asc">Price: Low to High</option>
+                                    <option value="price_desc">Price: High to Low</option>
+                                </select>
                             </div>
 
                             {loadingActivity ? (
@@ -916,11 +950,11 @@ const Marketplace: React.FC = () => {
                             ) : (
                                 <div className="space-y-6">
                                     {/* My Listings */}
-                                    {(activityFilter === 'all' || activityFilter === 'listings') && myListings.length > 0 && (
+                                    {(activityFilter === 'all' || activityFilter === 'listings') && sortedMyListings.length > 0 && (
                                         <div>
                                             {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> My Listings</h3>}
                                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
-                                                {myListings.map(listing => (
+                                                {sortedMyListings.map(listing => (
                                                     <div key={`l-${listing.listingId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
                                                         <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
                                                             <img src={listing.cardImage || '/placeholder-card.png'} alt={listing.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
@@ -943,11 +977,11 @@ const Marketplace: React.FC = () => {
                                     )}
 
                                     {/* My Auctions */}
-                                    {(activityFilter === 'all' || activityFilter === 'auctions') && myAuctions.length > 0 && (
+                                    {(activityFilter === 'all' || activityFilter === 'auctions') && sortedMyAuctions.length > 0 && (
                                         <div>
                                             {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Gavel className="w-3.5 h-3.5" /> My Auctions</h3>}
                                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
-                                                {myAuctions.map(auction => (
+                                                {sortedMyAuctions.map(auction => (
                                                     <div key={`a-${auction.auctionId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
                                                         <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
                                                             <img src={auction.cardImage || '/placeholder-card.png'} alt={auction.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
@@ -987,11 +1021,11 @@ const Marketplace: React.FC = () => {
                                     )}
 
                                     {/* My Bids */}
-                                    {(activityFilter === 'all' || activityFilter === 'bids') && myBids.length > 0 && (
+                                    {(activityFilter === 'all' || activityFilter === 'bids') && sortedMyBids.length > 0 && (
                                         <div>
                                             {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><DollarSign className="w-3.5 h-3.5" /> My Bids</h3>}
                                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
-                                                {myBids.map(bid => (
+                                                {sortedMyBids.map(bid => (
                                                     <div key={`b-${bid.bidId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
                                                         <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
                                                             <img src={bid.cardImage || '/placeholder-card.png'} alt={bid.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />

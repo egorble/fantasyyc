@@ -94,7 +94,6 @@ const AppContent: React.FC = () => {
     // Cards get cached in blockchainCache + localStorage → Portfolio loads instantly
     useEffect(() => {
         if (isConnected && address) {
-            console.log('⚡ Pre-fetching NFT cards for', address.slice(0, 8));
             getCards(address).catch(() => {}); // fire-and-forget
         }
     }, [isConnected, address, getCards]);
@@ -118,7 +117,6 @@ const AppContent: React.FC = () => {
                 const validListings = listingsWithCards.filter((item): item is { listing: Listing; card: CardData } => item !== null);
                 setDashboardListings(validListings);
             } catch (err) {
-                console.error('Failed to load dashboard data:', err);
             } finally {
                 setIsLoadingDashboard(false);
             }

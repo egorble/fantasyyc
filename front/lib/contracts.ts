@@ -118,6 +118,8 @@ export const MARKETPLACE_V2_ABI = [
     'function cancelListing(uint256 listingId)',
     'function getActiveListings() view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active)[])',
     'function getListing(uint256 listingId) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active))',
+    'function getListingsBySeller(address seller) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active)[])',
+    'function getActiveListingCount() view returns (uint256)',
     'function isTokenListed(uint256 tokenId) view returns (bool)',
 
     // ===== Bids =====
@@ -125,6 +127,7 @@ export const MARKETPLACE_V2_ABI = [
     'function cancelBid(uint256 bidId)',
     'function acceptBid(uint256 bidId)',
     'function getActiveBidsForToken(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
+    'function getBidsOnToken(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
     'function getUserBids(address user) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
 
     // ===== Auctions =====
@@ -134,6 +137,7 @@ export const MARKETPLACE_V2_ABI = [
     'function cancelAuction(uint256 auctionId)',
     'function getActiveAuctions() view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status)[])',
     'function getAuction(uint256 auctionId) view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status))',
+    'function getActiveAuctionCount() view returns (uint256)',
 
     // ===== History & Stats =====
     'function getTokenSaleHistory(uint256 tokenId) view returns (tuple(uint256 saleId, uint256 tokenId, address seller, address buyer, uint256 price, uint256 timestamp, uint8 saleType)[])',
