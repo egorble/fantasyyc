@@ -97,7 +97,6 @@ export function usePortfolioAnalytics(cards: CardData[], address: string | undef
                 });
                 await Promise.all(resolvePromises);
             } catch (e) {
-                console.error('Error computing floor prices:', e);
             }
 
             // 3. Fetch tournament scoring data
@@ -168,7 +167,6 @@ export function usePortfolioAnalytics(cards: CardData[], address: string | undef
                 bestPerformer: bestName,
             });
         } catch (e) {
-            console.error('Error computing portfolio analytics:', e);
         } finally {
             setLoading(false);
         }

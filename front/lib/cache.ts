@@ -134,7 +134,6 @@ class BlockchainCache {
                 // Return cached data on error if available
                 const fallback = this.get<T>(key);
                 if (fallback !== undefined) {
-                    console.warn(`Cache fallback for ${key}:`, err.message);
                     return fallback;
                 }
                 throw err;
@@ -155,7 +154,6 @@ class BlockchainCache {
                 this.pendingRequests.delete(key);
             })
             .catch(err => {
-                console.warn(`Background fetch failed for ${key}:`, err.message);
                 this.pendingRequests.delete(key);
             });
 
@@ -235,7 +233,6 @@ class BlockchainCache {
                                 }
                             })
                             .catch(err => {
-                                console.warn(`Polling failed for ${key}:`, err.message);
                                 this.pendingRequests.delete(key);
                             });
 
@@ -270,7 +267,6 @@ class BlockchainCache {
             sub.callbacks.forEach(cb => cb(data));
             return data;
         } catch (err) {
-            console.warn(`Refresh failed for ${key}`);
             return this.get<T>(key);
         }
     }
@@ -325,7 +321,6 @@ export const blockchainCache = new BlockchainCache();
 // Auto-restore NFT card cache from localStorage on startup (instant load)
 const _restored = blockchainCache.restoreKeys('nft:');
 if (_restored > 0) {
-    console.log(`Restored ${_restored} card cache entries from localStorage`);
 }
 
 // Export polling intervals for use in hooks

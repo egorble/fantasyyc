@@ -185,7 +185,6 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     const handleForge = async () => {
         if (selectedCardIds.length !== 3) return;
 
-        console.log('🔥 Starting merge transaction...');
         setMergeStatus('confirming'); // Waiting for wallet signature
         setMergeError(null);
         animationRanRef.current = false; // Reset animation flag
@@ -201,13 +200,11 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         const result = await mergeCards(signer, selectedCardIds as [number, number, number]);
 
         if (result.success && result.newTokenId) {
-            console.log('✅ Merge transaction successful! Token ID:', result.newTokenId);
             // Start fetching card metadata IMMEDIATELY (parallel with animation)
             pendingCardFetchRef.current = getCardInfoWithRetry(result.newTokenId, 3, 2000);
             setPendingNewTokenId(result.newTokenId);
             setMergeStatus('processing'); // This triggers the animation
         } else {
-            console.log('❌ Merge failed:', result.error);
             // Decode common errors
             let errorMsg = result.error || 'Merge failed';
             if (errorMsg.includes('reinitializeStartups')) {
@@ -457,7 +454,6 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             setCardSales(sales || []);
             setCardStats(stats);
         } catch (e) {
-            console.error('Error loading stats:', e);
         }
         setLoadingStats(false);
     };

@@ -60,7 +60,6 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
                 }
             } catch (err) {
                 setError('Network error');
-                console.error('Error fetching leaderboard:', err);
             } finally {
                 hasFetched.current = true;
                 setLoading(false);
@@ -105,7 +104,6 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
                 }
             } catch (err) {
                 setError('Network error');
-                console.error('Error fetching player rank:', err);
             } finally {
                 hasFetched.current = true;
                 setLoading(false);
@@ -149,7 +147,6 @@ export function useDailyScores(tournamentId: number | null, date: string) {
                 }
             } catch (err) {
                 setError('Network error');
-                console.error('Error fetching daily scores:', err);
             } finally {
                 hasFetched.current = true;
                 setLoading(false);
@@ -190,7 +187,6 @@ export function useTournamentStats(tournamentId: number | null) {
                 }
             } catch (err) {
                 setError('Network error');
-                console.error('Error fetching stats:', err);
             } finally {
                 hasFetched.current = true;
                 setLoading(false);

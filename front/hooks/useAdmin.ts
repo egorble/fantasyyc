@@ -56,10 +56,6 @@ export function useAdmin() {
         try {
             const provider = new ethers.JsonRpcProvider(RPC_URL);
 
-            console.log('📊 Fetching contract balances...');
-            console.log('   NFT:', CONTRACTS.UnicornX_NFT);
-            console.log('   PackOpener:', CONTRACTS.PackOpener);
-            console.log('   Tournament:', CONTRACTS.TournamentManager);
 
             const [nft, packOpener, tournament] = await Promise.all([
                 provider.getBalance(CONTRACTS.UnicornX_NFT),
@@ -67,10 +63,8 @@ export function useAdmin() {
                 provider.getBalance(CONTRACTS.TournamentManager),
             ]);
 
-            console.log('   Balances:', formatXTZ(nft), formatXTZ(packOpener), formatXTZ(tournament));
             return { nft, packOpener, tournament };
         } catch (e) {
-            console.error('Error getting balances:', e);
             return { nft: BigInt(0), packOpener: BigInt(0), tournament: BigInt(0) };
         }
     }, []);
@@ -98,7 +92,6 @@ export function useAdmin() {
                 nextTournamentId: Number(nextTournamentId),
             };
         } catch (e) {
-            console.error('Error getting admin stats:', e);
             return { packsSold: 0, packPrice: BigInt(5e18), totalNFTs: 0, activeTournamentId: 0, nextTournamentId: 0 };
         }
     }, []);
@@ -110,7 +103,6 @@ export function useAdmin() {
             const nextId = await contract.nextTournamentId();
             const count = Number(nextId);
 
-            console.log('🏆 Fetching', count, 'tournaments...');
 
             const tournaments: TournamentData[] = [];
             for (let i = 0; i < count; i++) {
@@ -126,13 +118,11 @@ export function useAdmin() {
                         status: Number(t.status),
                     });
                 } catch (e) {
-                    console.error('Error fetching tournament', i, e);
                 }
             }
 
             return tournaments;
         } catch (e) {
-            console.error('Error getting tournaments:', e);
             return [];
         }
     }, []);
@@ -146,16 +136,13 @@ export function useAdmin() {
 
         try {
             const contract = getPackOpenerContract(signer);
-            console.log('💰 Withdrawing from PackOpener...');
 
             const tx = await contract.withdraw();
             await tx.wait();
 
-            console.log('✅ Withdrawal successful');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Withdrawal failed';
-            console.error('❌ Withdrawal error:', msg);
             setError(msg);
             return { success: false, error: msg };
         } finally {
@@ -175,11 +162,9 @@ export function useAdmin() {
             const contract = getPackOpenerContract(signer);
             const priceWei = ethers.parseEther(priceInXTZ.toString());
 
-            console.log('💰 Setting pack price to', priceInXTZ, 'XTZ');
             const tx = await contract.setPackPrice(priceWei);
             await tx.wait();
 
-            console.log('✅ Pack price updated');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to set price';
@@ -200,12 +185,10 @@ export function useAdmin() {
 
         try {
             const contract = getPackOpenerContract(signer);
-            console.log('🏆 Setting active tournament to', tournamentId);
 
             const tx = await contract.setActiveTournament(tournamentId);
             await tx.wait();
 
-            console.log('✅ Active tournament updated');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to set tournament';
@@ -230,7 +213,6 @@ export function useAdmin() {
 
         try {
             const contract = getTournamentContract(signer);
-            console.log('🏆 Creating tournament...');
 
             const tx = await contract.createTournament(
                 registrationStart,
@@ -251,7 +233,6 @@ export function useAdmin() {
                 } catch { }
             }
 
-            console.log('✅ Tournament created:', tournamentId);
             return { success: true, tournamentId };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to create tournament';
@@ -274,7 +255,6 @@ export function useAdmin() {
 
         try {
             const contract = getTournamentContract(signer);
-            console.log('🏆 Finalizing tournament', tournamentId);
 
             const tx = await contract.finalizeTournament(
                 tournamentId,
@@ -283,7 +263,6 @@ export function useAdmin() {
             );
             await tx.wait();
 
-            console.log('✅ Tournament finalized');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to finalize';
@@ -309,7 +288,6 @@ export function useAdmin() {
             }
 
             const contract = getTournamentContract(signer);
-            console.log('🎯 Finalizing tournament with points', tournamentId, points);
 
             const tx = await contract.finalizeWithPoints(
                 tournamentId,
@@ -317,7 +295,6 @@ export function useAdmin() {
             );
             await tx.wait();
 
-            console.log('✅ Tournament finalized with points');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to finalize with points';
@@ -338,12 +315,10 @@ export function useAdmin() {
 
         try {
             const contract = getTournamentContract(signer);
-            console.log('❌ Cancelling tournament', tournamentId);
 
             const tx = await contract.cancelTournament(tournamentId);
             await tx.wait();
 
-            console.log('✅ Tournament cancelled');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to cancel';
@@ -366,7 +341,6 @@ export function useAdmin() {
 
         try {
             const contract = getTournamentContract(signer);
-            console.log('💰 Withdrawing', formatXTZ(amount), 'XTZ from tournament', tournamentId);
 
             const tx = await contract.withdrawFromPrizePool(
                 tournamentId,
@@ -375,7 +349,6 @@ export function useAdmin() {
             );
             await tx.wait();
 
-            console.log('✅ Prize pool withdrawal successful');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Withdrawal failed';
@@ -397,12 +370,10 @@ export function useAdmin() {
 
         try {
             const contract = getTournamentContract(signer);
-            console.log('💰 Emergency withdraw', formatXTZ(amount), 'XTZ to', to);
 
             const tx = await contract.emergencyWithdraw(amount, to);
             await tx.wait();
 
-            console.log('✅ Emergency withdrawal successful');
             return { success: true };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Withdrawal failed';

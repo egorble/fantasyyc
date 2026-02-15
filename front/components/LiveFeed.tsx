@@ -70,7 +70,6 @@ const LiveFeed: React.FC = () => {
                 blockchainCache.set(PreloadKeys.liveFeed, data.data);
             }
         } catch (err) {
-            console.error('Failed to fetch live feed:', err);
         } finally {
             setLoading(false);
         }

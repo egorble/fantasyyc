@@ -44,7 +44,6 @@ async function fetchCardMetadata(tokenId: number): Promise<CardData | null> {
             edition: parseInt(getAttribute('Edition')) || 1,
         };
     } catch (e) {
-        console.error(`Error fetching metadata for token ${tokenId}:`, e);
         return null;
     }
 }
@@ -130,9 +129,6 @@ export function usePacks() {
             const referrerAddress = referrer || ethers.ZeroAddress;
             const price = await packContract.currentPackPrice();
 
-            console.log('📦 Buying and opening pack...');
-            console.log('   Price:', ethers.formatEther(price), 'XTZ');
-            if (referrer) console.log('   Referrer:', referrer);
 
             // Single transaction: buy, set referrer, and open pack
             // Explicit gas limit — batchMint of 5 ERC721Enumerable NFTs + fund distribution uses ~3.1M gas
@@ -140,10 +136,8 @@ export function usePacks() {
                 value: BigInt(price.toString()),
                 gasLimit: 10_000_000n
             });
-            console.log('   TX sent:', tx.hash);
 
             const receipt = await tx.wait();
-            console.log('   TX confirmed!');
 
             // Parse CardMinted events to get token IDs
             const tokenIds: number[] = [];
@@ -156,7 +150,6 @@ export function usePacks() {
                 } catch { }
             }
 
-            console.log('   Minted token IDs:', tokenIds);
 
             // Invalidate cache after purchase
             blockchainCache.invalidate(CacheKeys.packsSold());
@@ -175,11 +168,9 @@ export function usePacks() {
                 }
             }
 
-            console.log('   Cards loaded:', cards.length);
             return { success: true, cards };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to buy pack';
-            console.error('❌ Buy pack error:', msg);
             setError(msg);
             return { success: false, error: msg };
         } finally {
@@ -217,8 +208,6 @@ export function usePacks() {
             const price = await packContract.currentPackPrice();
             const totalPrice = BigInt(price.toString()) * BigInt(count);
 
-            console.log(`📦 Buying and opening ${count} packs...`);
-            console.log('   Total price:', ethers.formatEther(totalPrice), 'XTZ');
 
             // Explicit gas limit — scales with pack count (each pack mints 5 NFTs)
             const gasPerPack = 4_000_000n;
@@ -226,10 +215,8 @@ export function usePacks() {
                 value: totalPrice,
                 gasLimit: gasPerPack * BigInt(count) + 1_000_000n
             });
-            console.log('   TX sent:', tx.hash);
 
             const receipt = await tx.wait();
-            console.log('   TX confirmed!');
 
             // Parse CardMinted events to get all token IDs
             const tokenIds: number[] = [];
@@ -242,7 +229,6 @@ export function usePacks() {
                 } catch { }
             }
 
-            console.log(`   Minted ${tokenIds.length} tokens:`, tokenIds);
 
             // Invalidate cache
             blockchainCache.invalidate(CacheKeys.packsSold());
@@ -260,11 +246,9 @@ export function usePacks() {
                 }
             }
 
-            console.log('   Cards loaded:', cards.length);
             return { success: true, cards };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Failed to buy packs';
-            console.error('❌ Buy multi-pack error:', msg);
             setError(msg);
             return { success: false, error: msg };
         } finally {

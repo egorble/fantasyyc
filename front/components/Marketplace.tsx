@@ -191,7 +191,6 @@ const Marketplace: React.FC = () => {
             );
             return listingsWithMetadata;
         } catch (e) {
-            console.error('Failed to load listings:', e);
             return [];
         }
     }, [getActiveListings, getCardInfo]);
@@ -229,7 +228,6 @@ const Marketplace: React.FC = () => {
             );
             return auctionsWithMetadata;
         } catch (e) {
-            console.error('Failed to load auctions:', e);
             return [];
         }
     }, [getActiveAuctions, getCardInfo]);
@@ -431,12 +429,10 @@ const Marketplace: React.FC = () => {
                 getTokenSaleHistory(tokenId),
                 getTokenStats(tokenId)
             ]);
-            console.log('[Stats] bids:', bids, 'sales:', sales, 'stats:', stats);
             setCardBids(bids || []);
             setCardSales(sales || []);
             setCardStats(stats);
         } catch (e) {
-            console.error('Error loading stats:', e);
         }
         setLoadingStats(false);
     };
@@ -455,7 +451,6 @@ const Marketplace: React.FC = () => {
             // Filter out cards that are already listed
             setMyNFTs(sortByRarity(cards.filter(c => !c.isLocked)));
         } catch (e) {
-            console.error('Error loading NFTs:', e);
         }
         setLoadingNFTs(false);
     };
@@ -555,7 +550,6 @@ const Marketplace: React.FC = () => {
             setMyAuctions(enrichedAuctions);
             setMyBids(enrichedBids);
         } catch (e) {
-            console.error('Failed to load activity:', e);
         }
         setLoadingActivity(false);
     }, [isConnected, address, getUserListings, getMyBids, getActiveAuctions, getCardInfo]);

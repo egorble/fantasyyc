@@ -79,7 +79,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const bal = await provider.getBalance(addr);
             setBalance(bal);
         } catch (e) {
-            console.error('Failed to get balance:', e);
         }
     }, []);
 
@@ -201,7 +200,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             if (e.message?.includes('User rejected') || e.code === 4001) {
                 setError('Connection rejected');
             } else {
-                console.error('WalletConnect error:', e);
                 setError(e.message || 'Failed to connect');
             }
         } finally {
@@ -250,10 +248,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                         }],
                     });
                 } catch (addError: any) {
-                    console.error('Failed to add chain:', addError);
                 }
             } else {
-                console.error('Failed to switch chain:', switchError);
             }
         }
     }, []);
@@ -266,7 +262,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const browserProvider = new BrowserProvider(provider as Eip1193Provider);
             return await browserProvider.getSigner();
         } catch (e) {
-            console.error('Failed to get signer:', e);
             return null;
         }
     }, [isConnected]);

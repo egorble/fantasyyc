@@ -85,7 +85,6 @@ export function useNFT() {
                 const data = await response.json();
                 return parseMetadataResponse(tokenId, data);
             } catch (e) {
-                console.error(`Error fetching metadata for token ${tokenId}:`, e);
                 return null;
             }
         }, CacheTTL.PERMANENT);
@@ -115,7 +114,6 @@ export function useNFT() {
         }
 
         if (uncachedIndices.length === 0) {
-            console.log('   All', tokenIds.length, 'cards served from cache');
             return results;
         }
 
@@ -135,10 +133,8 @@ export function useNFT() {
 
                 // Dedup: if identical batch is already in-flight, reuse it
                 if (pendingBatchRequest && pendingBatchIds === chunkKey) {
-                    console.log('   Dedup: reusing in-flight batch request');
                     batchData = await pendingBatchRequest;
                 } else {
-                    console.log('   Batch fetching', chunk.length, 'tokens (chunk', Math.floor(ci / BATCH_SIZE) + 1, ')');
                     const request = fetch(`${METADATA_API}/metadata/batch?tokenIds=${chunk.join(',')}`)
                         .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });
                     pendingBatchIds = chunkKey;
@@ -152,7 +148,6 @@ export function useNFT() {
                 Object.assign(allErrors, batchData.errors || {});
             }
 
-            console.log('   Fetched', Object.keys(allTokens).length, 'tokens,', tokenIds.length - uncachedIds.length, 'from cache');
 
             for (const idx of uncachedIndices) {
                 const tid = tokenIds[idx];
@@ -162,7 +157,6 @@ export function useNFT() {
                     results[idx] = card;
                     blockchainCache.set(CacheKeys.cardMetadata(tid), card);
                 } else if (allErrors[tid]) {
-                    console.warn(`   Token ${tid}: ${allErrors[tid]}`);
                 }
             }
 
@@ -170,7 +164,6 @@ export function useNFT() {
         } catch (e) {
             pendingBatchRequest = null;
             pendingBatchIds = '';
-            console.warn('Batch fetch failed, falling back to individual requests:', e);
             const fallbackCards = await fetchInBatches(uncachedIds, fetchMetadata, 5, 200);
             for (let fi = 0; fi < uncachedIndices.length; fi++) {
                 results[uncachedIndices[fi]] = fallbackCards[fi];
@@ -231,7 +224,6 @@ export function useNFT() {
                 description: null,
             };
         } catch (e) {
-            console.error(`Contract fallback failed for token ${tokenId}:`, e);
             return null;
         }
     }, []);
@@ -246,7 +238,6 @@ export function useNFT() {
             }
         }
         // All retries failed — fall back to contract data
-        console.log(`⚡ Metadata unavailable for token ${tokenId}, reading from contract`);
         return fetchCardFromContract(tokenId);
     }, [fetchMetadata, fetchCardFromContract]);
 
@@ -346,7 +337,6 @@ export function useNFT() {
         }
 
         const validCards = cards.filter((c): c is CardData => c !== null);
-        console.log('📋 Loaded', validCards.length, 'cards from blockchain');
 
         const cardsKey = CacheKeys.userCards(address);
         blockchainCache.set(cardsKey, validCards);
@@ -367,7 +357,6 @@ export function useNFT() {
         if (!forceRefresh) {
             const pending = pendingGetCards.get(addrKey);
             if (pending) {
-                console.log('📋 getCards already in-flight for', address.slice(0, 8), '— reusing');
                 return pending;
             }
         }
@@ -381,7 +370,6 @@ export function useNFT() {
                 if (!forceRefresh) {
                     const serverCards = await fetchCardsFromServer(address);
                     if (serverCards && serverCards.length > 0) {
-                        console.log('📋 Loaded', serverCards.length, 'cards from server cache');
                         const cardsKey = CacheKeys.userCards(address);
                         blockchainCache.set(cardsKey, serverCards);
                         blockchainCache.persistKeys('nft:');
@@ -390,13 +378,11 @@ export function useNFT() {
                 }
 
                 // Fetch from blockchain (+ push to server)
-                console.log('📋 Fetching cards from blockchain...');
                 return await fetchCardsFromBlockchain(address);
             } catch (e: any) {
                 const cardsKey = CacheKeys.userCards(address);
                 const cached = blockchainCache.get<CardData[]>(cardsKey);
                 if (cached && cached.length > 0) {
-                    console.warn('Fetch failed, returning cached cards:', e.message);
                     return cached;
                 }
                 setError(e.message);
@@ -425,7 +411,6 @@ export function useNFT() {
 
         try {
             const contract = getNFTContract(signer);
-            console.log('🔥 Merging cards:', tokenIds);
 
             // Pre-merge on-chain rarity verification to prevent RarityMismatch errors
             // The cached/metadata rarity might not match on-chain state after upgrades
@@ -435,7 +420,6 @@ export function useNFT() {
                     tokenIds.map(id => readContract.getCardInfo(id))
                 );
                 const onChainRarities = cardInfos.map(info => Number(info.rarity));
-                console.log('   On-chain rarities:', onChainRarities.map(r => RARITY_NAMES[r] || `Unknown(${r})`));
 
                 // Check all cards have the same on-chain rarity
                 if (onChainRarities[0] !== onChainRarities[1] || onChainRarities[0] !== onChainRarities[2]) {
@@ -443,7 +427,6 @@ export function useNFT() {
                         `Token #${id}: ${RARITY_NAMES[onChainRarities[i]] || 'Unknown'}`
                     ).join(', ');
                     const errorMsg = `On-chain rarity mismatch! ${details}. The contract startups data may need re-initialization.`;
-                    console.error('❌', errorMsg);
                     setError(errorMsg);
                     return { success: false, error: errorMsg };
                 }
@@ -452,12 +435,10 @@ export function useNFT() {
                 const allMultipliersZero = cardInfos.every(info => Number(info.multiplier) === 0);
                 if (allMultipliersZero) {
                     const errorMsg = 'Contract startup data appears uninitialized (all multipliers are 0). Admin must call reinitializeStartups().';
-                    console.error('❌', errorMsg);
                     setError(errorMsg);
                     return { success: false, error: errorMsg };
                 }
             } catch (verifyError: any) {
-                console.warn('⚠️ Pre-merge verification failed, proceeding anyway:', verifyError.message);
             }
 
             const tx = await contract.mergeCards(tokenIds);
@@ -470,7 +451,6 @@ export function useNFT() {
                     const parsed = contract.interface.parseLog(log);
                     if (parsed?.name === 'CardsMerged') {
                         newTokenId = Number(parsed.args.newTokenId);
-                        console.log('   New token ID:', newTokenId);
                         break;
                     }
                 } catch { }
@@ -491,7 +471,6 @@ export function useNFT() {
             return { success: true, newTokenId };
         } catch (e: any) {
             const msg = e.reason || e.message || 'Merge failed';
-            console.error('❌ Merge error:', msg);
             setError(msg);
             return { success: false, error: msg };
         } finally {

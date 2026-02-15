@@ -157,7 +157,6 @@ const Feed: React.FC = () => {
                 setPagination(data.pagination);
             }
         } catch (err) {
-            console.error('Failed to fetch feed:', err);
         } finally {
             hasFetched.current = true;
             setLoading(false);

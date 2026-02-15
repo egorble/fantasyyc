@@ -58,7 +58,6 @@ export function useUser() {
             // Only treat 200 OK as authoritative — anything else is an error, not "user not found"
             if (!res.ok) {
                 // Server error / rate limit — don't show registration modal
-                console.warn(`[useUser] checkUser got ${res.status}, skipping`);
                 if (!cached) {
                     setNeedsRegistration(false);
                 }

@@ -83,9 +83,7 @@ async function preloadAll() {
         await imagePromise;
 
         const elapsed = (performance.now() - start).toFixed(0);
-        console.log(`⚡ Preload complete in ${elapsed}ms (API + 19 images)`);
     } catch (e) {
-        console.warn('Preload failed:', e);
     }
 }
 

@@ -334,7 +334,6 @@ export function useMarketplaceV2() {
                 active: b.active,
             }));
         } catch (err: any) {
-            console.error('Error getting bids:', err);
             return [];
         }
     }, []);
@@ -529,7 +528,6 @@ export function useMarketplaceV2() {
                 saleType: s.saleType,
             }));
         } catch (err: any) {
-            console.error('Error getting sale history:', err);
             return [];
         }
     }, []);
@@ -547,7 +545,6 @@ export function useMarketplaceV2() {
                 lastSaleTime: 0n,
             };
         } catch (err: any) {
-            console.error('Error getting token stats:', err);
             return null;
         }
     }, []);
@@ -564,7 +561,6 @@ export function useMarketplaceV2() {
                 totalSales: totalSales,
             };
         } catch (err: any) {
-            console.error('Error getting marketplace stats:', err);
             return null;
         }
     }, []);
