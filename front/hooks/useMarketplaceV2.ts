@@ -129,7 +129,7 @@ export function useMarketplaceV2() {
             if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
                 blockchainCache.fetchInBackground(key, async () => {
                     const contract = getMarketplaceV2Contract();
-                    const listings = await contract.getUserListings(userAddress);
+                    const listings = await contract.getListingsBySeller(userAddress);
                     return listings.map((l: any) => ({
                         listingId: l.listingId,
                         seller: l.seller,
@@ -145,7 +145,7 @@ export function useMarketplaceV2() {
 
         return blockchainCache.getOrFetch(key, async () => {
             const contract = getMarketplaceV2Contract();
-            const listings = await contract.getUserListings(userAddress);
+            const listings = await contract.getListingsBySeller(userAddress);
             return listings.map((l: any) => ({
                 listingId: l.listingId,
                 seller: l.seller,

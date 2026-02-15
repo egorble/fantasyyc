@@ -17,6 +17,7 @@ test-results.json
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # OS files
 .DS_Store
