@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-
-const API_BASE_URL = '/api';
+import { apiUrl } from '../lib/api';
 
 export interface LeaderboardEntry {
     rank: number;
@@ -50,7 +49,7 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
             setError(null);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/leaderboard/${tournamentId}?limit=${limit}`);
+                const response = await fetch(apiUrl(`/leaderboard/${tournamentId}?limit=${limit}`));
                 const data = await response.json();
 
                 if (data.success) {
@@ -93,7 +92,7 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
             setError(null);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/player/${playerAddress}/rank/${tournamentId}`);
+                const response = await fetch(apiUrl(`/player/${playerAddress}/rank/${tournamentId}`));
                 const data = await response.json();
 
                 if (data.success) {
@@ -137,7 +136,7 @@ export function useDailyScores(tournamentId: number | null, date: string) {
             setError(null);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/daily-scores/${tournamentId}/${date}`);
+                const response = await fetch(apiUrl(`/daily-scores/${tournamentId}/${date}`));
                 const data = await response.json();
 
                 if (data.success) {
@@ -177,7 +176,7 @@ export function useTournamentStats(tournamentId: number | null) {
             setError(null);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/stats/${tournamentId}`);
+                const response = await fetch(apiUrl(`/stats/${tournamentId}`));
                 const data = await response.json();
 
                 if (data.success) {

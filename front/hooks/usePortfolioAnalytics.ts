@@ -5,7 +5,7 @@ import { useNFT } from './useNFT';
 import { useTournament } from './useTournament';
 import { formatXTZ } from '../lib/contracts';
 
-const API_BASE_URL = '/api';
+import { apiUrl } from '../lib/api';
 
 // Per-card analytics data
 export interface CardAnalytics {
@@ -107,7 +107,7 @@ export function usePortfolioAnalytics(cards: CardData[], address: string | undef
             if (tournamentId) {
                 // Fetch card scores
                 try {
-                    const scoresRes = await fetch(`${API_BASE_URL}/player/${address.toLowerCase()}/card-scores/${tournamentId}`);
+                    const scoresRes = await fetch(apiUrl(`/player/${address.toLowerCase()}/card-scores/${tournamentId}`));
                     const scoresData = await scoresRes.json();
                     if (scoresData.success) {
                         startupScores = scoresData.data;
@@ -116,7 +116,7 @@ export function usePortfolioAnalytics(cards: CardData[], address: string | undef
 
                 // Fetch player rank
                 try {
-                    const rankRes = await fetch(`${API_BASE_URL}/player/${address.toLowerCase()}/rank/${tournamentId}`);
+                    const rankRes = await fetch(apiUrl(`/player/${address.toLowerCase()}/rank/${tournamentId}`));
                     const rankData = await rankRes.json();
                     if (rankData.success && rankData.data) {
                         playerRank = rankData.data.rank;

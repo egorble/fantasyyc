@@ -1,7 +1,8 @@
 import React from 'react';
 import { X, Share2, Calendar, Star, Hash, Layers, ExternalLink, TrendingUp, Building2, Zap } from 'lucide-react';
 import { CardData, Rarity } from '../types';
-import { STARTUPS, EXPLORER_URL, CONTRACTS } from '../lib/contracts';
+import { STARTUPS, getActiveContracts } from '../lib/contracts';
+import { getActiveNetwork } from '../lib/networks';
 
 export interface CardDetailData {
     id: string;
@@ -221,7 +222,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, cardData, onClo
                             <div className="space-y-3">
                                 {tokenId !== undefined && (
                                     <a
-                                        href={`${EXPLORER_URL}/token/${CONTRACTS.UnicornX_NFT}/instance/${tokenId}`}
+                                        href={`${getActiveNetwork().explorerUrl}/token/${getActiveContracts().UnicornX_NFT}/instance/${tokenId}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="w-full py-3.5 px-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-lg font-bold text-sm hover:bg-yc-orange dark:hover:bg-yc-orange dark:hover:text-white transition-colors flex items-center justify-center"

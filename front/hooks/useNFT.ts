@@ -1,9 +1,10 @@
 // NFT contract hook with metadata fetching
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { getNFTContract, METADATA_API, STARTUPS } from '../lib/contracts';
+import { getNFTContract, STARTUPS } from '../lib/contracts';
 import { CardData, Rarity } from '../types';
 import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
+import { apiUrl, metadataUrl } from '../lib/api';
 
 // Map rarity strings to enum
 const RARITY_STRING_MAP: Record<string, Rarity> = {
@@ -40,6 +41,13 @@ let pendingBatchIds: string = '';
 
 // Deduplication for getCards — if a fetch for an address is already running, reuse its promise
 const pendingGetCards = new Map<string, Promise<CardData[]>>();
+
+// Reset module-level dedup state (called on network switch to prevent cross-chain data leakage)
+export function resetNFTModuleState(): void {
+    pendingBatchRequest = null;
+    pendingBatchIds = '';
+    pendingGetCards.clear();
+}
 
 // Parse single token metadata response into CardData
 function parseMetadataResponse(tokenId: number, data: any): CardData {
@@ -80,7 +88,7 @@ export function useNFT() {
 
         const result = await blockchainCache.getOrFetch(key, async () => {
             try {
-                const response = await fetch(`${METADATA_API}/metadata/${tokenId}`);
+                const response = await fetch(metadataUrl(`/${tokenId}`));
                 if (!response.ok) return null;
                 const data = await response.json();
                 return parseMetadataResponse(tokenId, data);
@@ -135,7 +143,7 @@ export function useNFT() {
                 if (pendingBatchRequest && pendingBatchIds === chunkKey) {
                     batchData = await pendingBatchRequest;
                 } else {
-                    const request = fetch(`${METADATA_API}/metadata/batch?tokenIds=${chunk.join(',')}`)
+                    const request = fetch(metadataUrl(`/batch?tokenIds=${chunk.join(',')}`))
                         .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });
                     pendingBatchIds = chunkKey;
                     pendingBatchRequest = request;
@@ -249,7 +257,7 @@ export function useNFT() {
     // Server API: fetch cards from DB cache (single HTTP request, ~50ms)
     const fetchCardsFromServer = useCallback(async (address: string): Promise<CardData[] | null> => {
         try {
-            const res = await fetch(`/api/player/${address.toLowerCase()}/nfts`);
+            const res = await fetch(apiUrl(`/player/${address.toLowerCase()}/nfts`));
             if (!res.ok) return null;
             const json = await res.json();
             if (!json.success || !json.data) return null;
@@ -274,7 +282,7 @@ export function useNFT() {
     // Push full card list to server DB cache (for initial population)
     const pushCardsToServer = useCallback(async (address: string, cards: CardData[]): Promise<void> => {
         try {
-            await fetch(`/api/player/${address.toLowerCase()}/nfts`, {
+            await fetch(apiUrl(`/player/${address.toLowerCase()}/nfts`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -299,7 +307,7 @@ export function useNFT() {
         remove?: number[]
     ): Promise<void> => {
         try {
-            await fetch(`/api/player/${address.toLowerCase()}/nfts`, {
+            await fetch(apiUrl(`/player/${address.toLowerCase()}/nfts`), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

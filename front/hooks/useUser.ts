@@ -3,8 +3,12 @@ import { useWalletContext } from '../context/WalletContext';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { createSignedAuth } from '../lib/auth';
 
-const API_BASE = '/api';
-const PROFILE_CACHE_KEY = 'fantasyyc_profile';
+import { apiUrl } from '../lib/api';
+import { getActiveNetworkId } from '../lib/networks';
+
+function profileCacheKey(): string {
+    return `fantasyyc_profile_${getActiveNetworkId()}`;
+}
 
 export interface UserProfileData {
     address: string;
@@ -14,7 +18,7 @@ export interface UserProfileData {
 
 function getCachedProfile(addr: string): UserProfileData | null {
     try {
-        const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+        const raw = localStorage.getItem(profileCacheKey());
         if (!raw) return null;
         const cached = JSON.parse(raw);
         if (cached.address === addr.toLowerCase()) return cached;
@@ -24,12 +28,12 @@ function getCachedProfile(addr: string): UserProfileData | null {
 
 function cacheProfile(profile: UserProfileData) {
     try {
-        localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+        localStorage.setItem(profileCacheKey(), JSON.stringify(profile));
     } catch { /* ignore */ }
 }
 
 function clearProfileCache() {
-    try { localStorage.removeItem(PROFILE_CACHE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(profileCacheKey()); } catch { /* ignore */ }
 }
 
 export function useUser() {
@@ -53,7 +57,7 @@ export function useUser() {
 
         try {
             setLoading(true);
-            const res = await fetch(`${API_BASE}/users/${lowerAddr}`);
+            const res = await fetch(apiUrl(`/users/${lowerAddr}`));
 
             // Only treat 200 OK as authoritative — anything else is an error, not "user not found"
             if (!res.ok) {
@@ -106,7 +110,7 @@ export function useUser() {
             const { message, signature } = await createSignedAuth(signer, address);
 
             // Check for stored referrer to send with registration
-            let referrer = localStorage.getItem('fantasyyc_referrer');
+            let referrer = localStorage.getItem(`fantasyyc_referrer_${getActiveNetworkId()}`);
             if (!referrer) {
                 const params = new URLSearchParams(window.location.search);
                 const ref = params.get('ref');
@@ -115,7 +119,7 @@ export function useUser() {
                 }
             }
 
-            const res = await fetch(`${API_BASE}/users/register`, {
+            const res = await fetch(apiUrl(`/users/register`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -161,7 +165,7 @@ export function useUser() {
             if (!signer) return false;
             const { message, signature } = await createSignedAuth(signer, address);
 
-            const res = await fetch(`${API_BASE}/users/${address.toLowerCase()}`, {
+            const res = await fetch(apiUrl(`/users/${address.toLowerCase()}`), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

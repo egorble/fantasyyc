@@ -2,6 +2,8 @@
 // Cache first, update in background, refresh on changes
 // With subscription-based polling for real-time updates
 
+import { getActiveNetworkId } from './networks';
+
 type CacheEntry<T> = {
     data: T;
     timestamp: number;
@@ -102,6 +104,22 @@ class BlockchainCache {
     // Clear all cache
     clear(): void {
         this.cache.clear();
+    }
+
+    // Full reset: clear cache, pending requests, subscriptions, polling
+    fullReset(): void {
+        this.cache.clear();
+        this.pendingRequests.clear();
+        this.stopPolling();
+        this.subscriptions.clear();
+    }
+
+    // Soft reset: stop polling/subscriptions but KEEP cached data
+    // Used on network switch so UI shows stale data instead of blank flicker
+    softReset(): void {
+        this.pendingRequests.clear();
+        this.stopPolling();
+        this.subscriptions.clear();
     }
 
     // Get or fetch with deduplication - prevents multiple simultaneous requests for same data
@@ -248,7 +266,7 @@ class BlockchainCache {
     }
 
     // Stop polling
-    private stopPolling(): void {
+    stopPolling(): void {
         if (this.pollingIntervalId) {
             clearInterval(this.pollingIntervalId);
             this.pollingIntervalId = null;
@@ -273,8 +291,9 @@ class BlockchainCache {
 
     // ── LocalStorage persistence ──
 
-    // Persist cache entries matching prefix to localStorage
+    // Persist cache entries matching prefix to localStorage (namespaced by network)
     persistKeys(prefix: string): void {
+        const netId = getActiveNetworkId();
         const toSave: Record<string, CacheEntry<any>> = {};
         for (const [key, entry] of this.cache) {
             if (key.startsWith(prefix)) {
@@ -282,7 +301,7 @@ class BlockchainCache {
             }
         }
         try {
-            localStorage.setItem(`fyc:${prefix}`, JSON.stringify(toSave));
+            localStorage.setItem(`fyc:${netId}:${prefix}`, JSON.stringify(toSave));
         } catch {
             // localStorage full or unavailable — silently ignore
         }
@@ -290,8 +309,9 @@ class BlockchainCache {
 
     // Restore cache entries from localStorage (won't overwrite in-memory data)
     restoreKeys(prefix: string): number {
+        const netId = getActiveNetworkId();
         try {
-            const raw = localStorage.getItem(`fyc:${prefix}`);
+            const raw = localStorage.getItem(`fyc:${netId}:${prefix}`);
             if (!raw) return 0;
             const entries: Record<string, CacheEntry<any>> = JSON.parse(raw);
             let count = 0;
@@ -309,8 +329,9 @@ class BlockchainCache {
 
     // Clear persisted localStorage for a prefix
     clearPersistedKeys(prefix: string): void {
+        const netId = getActiveNetworkId();
         try {
-            localStorage.removeItem(`fyc:${prefix}`);
+            localStorage.removeItem(`fyc:${netId}:${prefix}`);
         } catch {}
     }
 }

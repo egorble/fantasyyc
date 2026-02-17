@@ -6,10 +6,11 @@ import initSqlJs from 'sql.js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { DB_FILENAME } from '../config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DB_PATH = join(__dirname, 'fantasyyc.db');
+const DB_PATH = join(__dirname, DB_FILENAME);
 
 let SQL;
 let db;

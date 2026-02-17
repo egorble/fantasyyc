@@ -1,7 +1,9 @@
 // Wallet context with EIP-6963 discovery + WalletConnect for mobile
 import React, { createContext, useContext, ReactNode, useEffect, useState, useCallback, useRef } from 'react';
 import { BrowserProvider, ethers, Eip1193Provider } from 'ethers';
-import { CHAIN_ID, CHAIN_NAME, RPC_URL, EXPLORER_URL, getProvider } from '../lib/contracts';
+import { getProvider, getReadProvider, getChainConfig } from '../lib/contracts';
+import { getActiveNetwork } from '../lib/networks';
+import { useNetwork } from './NetworkContext';
 import EthereumProvider from '@walletconnect/ethereum-provider';
 import WalletModal, { DetectedWallet } from '../components/WalletModal';
 
@@ -11,6 +13,7 @@ interface WalletContextType {
     isConnected: boolean;
     address: string | null;
     balance: bigint;
+    balanceLoading: boolean;
     chainId: number | null;
     isCorrectChain: boolean;
     isConnecting: boolean;
@@ -43,9 +46,11 @@ function formatBalance(wei: bigint, decimals = 4): string {
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+    const { activeNetwork } = useNetwork(); // reactive — re-renders when network toggles
     const [address, setAddress] = useState<string | null>(null);
     const [chainId, setChainId] = useState<number | null>(null);
     const [balance, setBalance] = useState<bigint>(0n);
+    const [balanceLoading, setBalanceLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isConnecting, setIsConnecting] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -55,7 +60,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const listenersRef = useRef<{ onAccounts: (a: string[]) => void; onChain: (h: string) => void; onDisconnect: () => void } | null>(null);
 
     const isConnected = !!address;
-    const isCorrectChain = chainId === CHAIN_ID;
+    const isCorrectChain = chainId === activeNetwork.chainId;
 
     // Discover wallets via EIP-6963
     useEffect(() => {
@@ -72,15 +77,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return () => window.removeEventListener('eip6963:announceProvider', handler);
     }, []);
 
-    // Update balance via read-only provider
+    // Update balance via read-only JSON-RPC provider (always uses active network's RPC, not wallet chain)
     const updateBalance = useCallback(async (addr: string) => {
         try {
-            const provider = getProvider();
+            const provider = getReadProvider();
             const bal = await provider.getBalance(addr);
             setBalance(bal);
         } catch (e) {
+        } finally {
+            setBalanceLoading(false);
         }
-    }, []);
+    }, [activeNetwork]);
 
     // Read chain ID
     const readChainId = useCallback(async (provider: any) => {
@@ -173,10 +180,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setIsConnecting(true);
         setError(null);
         try {
+            const net = getActiveNetwork();
             const wcProvider = await EthereumProvider.init({
                 projectId: WC_PROJECT_ID,
-                chains: [CHAIN_ID],
-                rpcMap: { [CHAIN_ID]: RPC_URL },
+                chains: [net.chainId],
+                rpcMap: { [net.chainId]: net.rpcUrl },
                 showQrModal: true,
                 metadata: {
                     name: 'UnicornX',
@@ -224,35 +232,59 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(WALLET_TYPE_KEY);
     }, [cleanupListeners]);
 
-    // Switch chain
+    // Switch chain (uses active network config dynamically)
     const switchChain = useCallback(async () => {
         const provider = activeProviderRef.current || (window as any)?.ethereum;
         if (!provider) return;
-        const hexChainId = '0x' + CHAIN_ID.toString(16);
+        const net = getActiveNetwork();
+        const hexChainId = '0x' + net.chainId.toString(16);
+
+        // Skip if wallet is already on the target chain
         try {
+            const currentHex = await provider.request({ method: 'eth_chainId' });
+            if (parseInt(currentHex, 16) === net.chainId) {
+                setChainId(net.chainId);
+                return;
+            }
+        } catch { /* proceed with switch */ }
+
+        try {
+            // Try switch first (works when chain is already in wallet)
             await provider.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: hexChainId }],
             });
         } catch (switchError: any) {
-            if (switchError.code === 4902) {
-                try {
-                    await provider.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: hexChainId,
-                            chainName: CHAIN_NAME,
-                            nativeCurrency: { name: 'XTZ', symbol: 'XTZ', decimals: 18 },
-                            rpcUrls: [RPC_URL],
-                            blockExplorerUrls: [EXPLORER_URL],
-                        }],
-                    });
-                } catch (addError: any) {
+            // User rejected — don't do anything
+            if (switchError.code === 4001) {
+                // noop
+            }
+            // 4902 = chain not in wallet → need to add it.
+            // Some wallets (OKX) also throw -32603 or other codes — check inner error too.
+            else {
+                const innerCode = switchError?.data?.originalError?.code ?? switchError?.data?.code;
+                const is4902 = switchError.code === 4902 || innerCode === 4902;
+
+                if (is4902) {
+                    try {
+                        await provider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: hexChainId,
+                                chainName: net.name,
+                                nativeCurrency: net.nativeCurrency,
+                                rpcUrls: [net.rpcUrl],
+                                blockExplorerUrls: [net.explorerUrl],
+                            }],
+                        });
+                    } catch { /* user rejected or wallet error */ }
                 }
-            } else {
+                // Any other error code: wallet knows the chain but has a quirk — ignore
             }
         }
-    }, []);
+        // Always sync chain ID state from wallet
+        await readChainId(provider);
+    }, [readChainId]);
 
     // Get signer
     const getSigner = useCallback(async (): Promise<ethers.Signer | null> => {
@@ -279,10 +311,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         // WalletConnect auto-reconnect
         if (savedType === 'walletconnect' && WC_PROJECT_ID) {
+            const net = getActiveNetwork();
             EthereumProvider.init({
                 projectId: WC_PROJECT_ID,
-                chains: [CHAIN_ID],
-                rpcMap: { [CHAIN_ID]: RPC_URL },
+                chains: [net.chainId],
+                rpcMap: { [net.chainId]: net.rpcUrl },
                 showQrModal: false,
                 metadata: {
                     name: 'UnicornX',
@@ -339,21 +372,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return () => clearTimeout(timer);
     }, [detectedWallets, handleAccounts, readChainId, setupListeners]);
 
-    // Balance polling
+    // Balance polling (restarts when network or address changes)
     useEffect(() => {
         if (address) {
+            setBalance(0n);
+            setBalanceLoading(true);
             updateBalance(address);
             const interval = setInterval(() => updateBalance(address), 10000);
             return () => clearInterval(interval);
         } else {
             setBalance(0n);
+            setBalanceLoading(false);
         }
-    }, [address, updateBalance]);
+    }, [address, updateBalance, activeNetwork]);
 
     const value: WalletContextType = {
         isConnected,
         address,
         balance,
+        balanceLoading,
         chainId,
         isCorrectChain,
         isConnecting,

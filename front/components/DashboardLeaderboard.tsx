@@ -5,6 +5,7 @@ import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { useWalletContext } from '../context/WalletContext';
 import { blockchainCache } from '../lib/cache';
 import { PreloadKeys, getPreloadedTournamentId } from '../lib/preload';
+import { apiUrl } from '../lib/api';
 
 interface LeaderboardPlayer {
     rank: number;
@@ -37,7 +38,7 @@ const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate 
                 // Use preloaded tournament if available, otherwise fetch
                 let tId = getPreloadedTournamentId();
                 if (!tId) {
-                    const tRes = await fetch('/api/tournaments/active');
+                    const tRes = await fetch(apiUrl('/tournaments/active'));
                     const tData = await tRes.json();
                     if (!tData.success) { setLoading(false); return; }
                     tId = tData.data.id;
@@ -45,7 +46,7 @@ const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate 
 
                 setTournamentId(tId);
 
-                const lRes = await fetch(`/api/leaderboard/${tId}?limit=10`);
+                const lRes = await fetch(apiUrl(`/leaderboard/${tId}?limit=10`));
                 const lData = await lRes.json();
 
                 if (lData.success) {

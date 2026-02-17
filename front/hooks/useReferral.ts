@@ -2,8 +2,12 @@ import { useState, useCallback, useEffect } from 'react';
 import { useWalletContext } from '../context/WalletContext';
 import { getPackOpenerContract, formatXTZ } from '../lib/contracts';
 
-const REFERRAL_STORAGE_KEY = 'fantasyyc_referrer';
-const API_BASE = '/api';
+import { apiUrl } from '../lib/api';
+import { getActiveNetworkId } from '../lib/networks';
+
+function referralStorageKey(): string {
+    return `fantasyyc_referrer_${getActiveNetworkId()}`;
+}
 
 export function useReferral() {
     const { address, isConnected } = useWalletContext();
@@ -24,13 +28,13 @@ export function useReferral() {
         const params = new URLSearchParams(window.location.search);
         const ref = params.get('ref');
         if (ref && ref.startsWith('0x') && ref.length === 42) {
-            const stored = localStorage.getItem(REFERRAL_STORAGE_KEY);
+            const stored = localStorage.getItem(referralStorageKey());
             if (!stored) {
-                localStorage.setItem(REFERRAL_STORAGE_KEY, ref.toLowerCase());
+                localStorage.setItem(referralStorageKey(), ref.toLowerCase());
             }
             return ref.toLowerCase();
         }
-        return localStorage.getItem(REFERRAL_STORAGE_KEY);
+        return localStorage.getItem(referralStorageKey());
     }, []);
 
     // Fetch referral stats - on-chain + backend
@@ -46,7 +50,7 @@ export function useReferral() {
             // Also fetch backend stats
             let backendCount = 0;
             try {
-                const res = await fetch(`${API_BASE}/referrals/${address}`);
+                const res = await fetch(apiUrl(`/referrals/${address}`));
                 const data = await res.json();
                 if (data.success) {
                     backendCount = data.data.totalReferrals || 0;
@@ -68,7 +72,7 @@ export function useReferral() {
         } catch {
             // On-chain failed, try backend only
             try {
-                const res = await fetch(`${API_BASE}/referrals/${address}`);
+                const res = await fetch(apiUrl(`/referrals/${address}`));
                 const data = await res.json();
                 if (data.success) {
                     setReferralStats({

@@ -6,9 +6,9 @@ import {
     getPackOpenerContract,
     getTournamentContract,
     formatXTZ,
-    CONTRACTS,
-    RPC_URL
+    getActiveContracts,
 } from '../lib/contracts';
+import { getActiveNetwork } from '../lib/networks';
 
 // Admin addresses (multi-admin support)
 export const ADMIN_ADDRESSES = [
@@ -54,13 +54,14 @@ export function useAdmin() {
     // Get contract balances using CONTRACTS addresses directly
     const getContractBalances = useCallback(async (): Promise<ContractBalances> => {
         try {
-            const provider = new ethers.JsonRpcProvider(RPC_URL);
-
+            const network = getActiveNetwork();
+            const contracts = getActiveContracts();
+            const provider = new ethers.JsonRpcProvider(network.rpcUrl);
 
             const [nft, packOpener, tournament] = await Promise.all([
-                provider.getBalance(CONTRACTS.UnicornX_NFT),
-                provider.getBalance(CONTRACTS.PackOpener),
-                provider.getBalance(CONTRACTS.TournamentManager),
+                provider.getBalance(contracts.UnicornX_NFT),
+                provider.getBalance(contracts.PackOpener),
+                provider.getBalance(contracts.TournamentManager),
             ]);
 
             return { nft, packOpener, tournament };

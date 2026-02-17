@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Newspaper, ExternalLink, RefreshCw, ChevronDown, Loader2, TrendingUp } from 'lucide-react';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
+import { apiUrl } from '../lib/api';
 
 const FEED_GUIDE: OnboardingStep[] = [
     {
@@ -146,7 +147,7 @@ const Feed: React.FC = () => {
         else if (offset > 0) setLoadingMore(true);
 
         try {
-            const res = await fetch(`/api/feed?limit=20&offset=${offset}`);
+            const res = await fetch(apiUrl(`/feed?limit=20&offset=${offset}`));
             const data = await res.json();
             if (data.success) {
                 if (append) {

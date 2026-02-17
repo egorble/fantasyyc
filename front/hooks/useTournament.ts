@@ -41,16 +41,20 @@ export function useTournament() {
         if (cached !== undefined) {
             if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
                 blockchainCache.fetchInBackground(key, async () => {
-                    const contract = getPackOpenerContract();
-                    return Number(await contract.activeTournamentId());
+                    try {
+                        const contract = getPackOpenerContract();
+                        return Number(await contract.activeTournamentId());
+                    } catch { return 0; }
                 });
             }
             return cached;
         }
 
         return blockchainCache.getOrFetch(key, async () => {
-            const contract = getPackOpenerContract();
-            return Number(await contract.activeTournamentId());
+            try {
+                const contract = getPackOpenerContract();
+                return Number(await contract.activeTournamentId());
+            } catch { return 0; }
         }, CacheTTL.DEFAULT);
     }, []);
 

@@ -13,13 +13,22 @@ const NETWORKS = {
         chainId: 127823,
         rpc: "https://node.shadownet.etherlink.com",
         explorer: "https://shadownet.explorer.etherlink.com",
-        faucet: "https://shadownet.faucet.etherlink.com/"
+        faucet: "https://shadownet.faucet.etherlink.com/",
+        currency: "XTZ"
     },
     mainnet: {
         name: "Etherlink Mainnet",
         chainId: 42793,
         rpc: "https://node.mainnet.etherlink.com",
-        explorer: "https://explorer.etherlink.com"
+        explorer: "https://explorer.etherlink.com",
+        currency: "XTZ"
+    },
+    megaeth: {
+        name: "MegaETH Testnet",
+        chainId: 6343,
+        rpc: "https://carrot.megaeth.com/rpc",
+        explorer: "https://megaeth-testnet-v2.blockscout.com",
+        currency: "ETH"
     }
 };
 
@@ -88,7 +97,7 @@ async function main() {
 
     console.log(`👤 Deployer: ${wallet.address}`);
     const balance = await provider.getBalance(wallet.address);
-    console.log(`💰 Balance: ${ethers.formatEther(balance)} XTZ`);
+    console.log(`💰 Balance: ${ethers.formatEther(balance)} ${network.currency || 'ETH'}`);
     console.log("");
 
     // Load compiled contracts

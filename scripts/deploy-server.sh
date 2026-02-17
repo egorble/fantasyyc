@@ -302,28 +302,38 @@ systemctl enable --now certbot.timer 2>/dev/null || true
 ###############################################################################
 step "9/10 — Installing systemd services"
 
-# Main API
+# Etherlink services
 cp "${APP_DIR}/deploy/fantasyyc-api.service" /etc/systemd/system/
-# Metadata API
 cp "${APP_DIR}/deploy/fantasyyc-metadata.service" /etc/systemd/system/
+# MegaETH services
+cp "${APP_DIR}/deploy/fantasyyc-megaeth-api.service" /etc/systemd/system/
+cp "${APP_DIR}/deploy/fantasyyc-megaeth-metadata.service" /etc/systemd/system/
 
 systemctl daemon-reload
 
 # Enable services (start on boot)
 systemctl enable fantasyyc-api
 systemctl enable fantasyyc-metadata
+systemctl enable fantasyyc-megaeth-api
+systemctl enable fantasyyc-megaeth-metadata
 
 # Stop services first, kill stale processes, then start clean
 systemctl stop fantasyyc-api 2>/dev/null || true
 systemctl stop fantasyyc-metadata 2>/dev/null || true
+systemctl stop fantasyyc-megaeth-api 2>/dev/null || true
+systemctl stop fantasyyc-megaeth-metadata 2>/dev/null || true
 sleep 2
 fuser -k 3003/tcp 2>/dev/null || true
 fuser -k 3001/tcp 2>/dev/null || true
+fuser -k 3004/tcp 2>/dev/null || true
+fuser -k 3002/tcp 2>/dev/null || true
 sleep 1
 
 # Start services
 systemctl start fantasyyc-api
 systemctl start fantasyyc-metadata
+systemctl start fantasyyc-megaeth-api
+systemctl start fantasyyc-megaeth-metadata
 
 log "Services installed and started"
 
@@ -331,17 +341,13 @@ log "Services installed and started"
 sleep 3
 
 # Check status
-if systemctl is-active --quiet fantasyyc-api; then
-    log "fantasyyc-api: RUNNING"
-else
-    warn "fantasyyc-api: NOT RUNNING — check: journalctl -u fantasyyc-api -n 50"
-fi
-
-if systemctl is-active --quiet fantasyyc-metadata; then
-    log "fantasyyc-metadata: RUNNING"
-else
-    warn "fantasyyc-metadata: NOT RUNNING — check: journalctl -u fantasyyc-metadata -n 50"
-fi
+for svc in fantasyyc-api fantasyyc-metadata fantasyyc-megaeth-api fantasyyc-megaeth-metadata; do
+    if systemctl is-active --quiet "$svc"; then
+        log "${svc}: RUNNING"
+    else
+        warn "${svc}: NOT RUNNING — check: journalctl -u ${svc} -n 50"
+    fi
+done
 
 ###############################################################################
 # STEP 10: Cron jobs & log rotation
@@ -380,9 +386,15 @@ echo ""
 # Quick health check
 API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://127.0.0.1:3003/health" 2>/dev/null || echo "000")
 META_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://127.0.0.1:3001/metadata/1" 2>/dev/null || echo "000")
+MEGA_API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://127.0.0.1:3004/health" 2>/dev/null || echo "000")
+MEGA_META_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://127.0.0.1:3002/metadata/1" 2>/dev/null || echo "000")
 
-echo -e "  API health:      ${API_STATUS} $([ "$API_STATUS" = "200" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
-echo -e "  Metadata health: ${META_STATUS} $([ "$META_STATUS" = "200" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  ${CYAN}Etherlink:${NC}"
+echo -e "  API health:           ${API_STATUS} $([ "$API_STATUS" = "200" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  Metadata health:      ${META_STATUS} $([ "$META_STATUS" = "200" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  ${CYAN}MegaETH:${NC}"
+echo -e "  MegaETH API health:   ${MEGA_API_STATUS} $([ "$MEGA_API_STATUS" = "200" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  MegaETH Meta health:  ${MEGA_META_STATUS} $([ "$MEGA_META_STATUS" = "200" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
 echo ""
 
 # Useful commands

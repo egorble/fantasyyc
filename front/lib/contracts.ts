@@ -1,14 +1,31 @@
 // Contract addresses and ABIs for UnicornX
 import { ethers } from 'ethers';
+import { getActiveNetwork } from './networks';
 
-// ============ Network Configuration ============
+// ============ Dynamic Network Configuration ============
+// These functions read from the active network (set by ChainToggle)
+export function getChainConfig() {
+    const net = getActiveNetwork();
+    return {
+        chainId: net.chainId,
+        chainName: net.name,
+        rpcUrl: net.rpcUrl,
+        explorerUrl: net.explorerUrl,
+        nativeCurrency: net.nativeCurrency,
+    };
+}
+
+export function getActiveContracts() {
+    return getActiveNetwork().contracts;
+}
+
+// ============ Static defaults (Etherlink) — kept for backward compat ============
 export const CHAIN_ID = 127823;
 export const CHAIN_NAME = 'Etherlink Shadownet Testnet';
 export const RPC_URL = 'https://node.shadownet.etherlink.com';
 export const EXPLORER_URL = 'https://shadownet.explorer.etherlink.com';
 export const METADATA_API = '';
 
-// ============ Contract Addresses ============
 export const CONTRACTS = {
     UnicornX_NFT: '0x172aC7aa7a6774559b1588E2F4426F7303a97cf1',
     PackOpener: '0x78b602DE1721FF85C0c07F2Db5CF253c73590BaF',
@@ -192,30 +209,35 @@ export function getProvider() {
     if (typeof window !== 'undefined' && window.ethereum) {
         return new ethers.BrowserProvider(window.ethereum as unknown as ethers.Eip1193Provider);
     }
-    return new ethers.JsonRpcProvider(RPC_URL);
+    return new ethers.JsonRpcProvider(getActiveNetwork().rpcUrl);
+}
+
+// Read-only provider that always uses the active network's RPC (no wallet)
+export function getReadProvider() {
+    return new ethers.JsonRpcProvider(getActiveNetwork().rpcUrl);
 }
 
 // ============ Contract Instances ============
 export function getNFTContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
     const provider = signerOrProvider || getProvider();
-    return new ethers.Contract(CONTRACTS.UnicornX_NFT, NFT_ABI, provider);
+    return new ethers.Contract(getActiveContracts().UnicornX_NFT, NFT_ABI, provider);
 }
 
 export function getPackOpenerContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
     const provider = signerOrProvider || getProvider();
-    return new ethers.Contract(CONTRACTS.PackOpener, PACK_OPENER_ABI, provider);
+    return new ethers.Contract(getActiveContracts().PackOpener, PACK_OPENER_ABI, provider);
 }
 
 export function getTournamentContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
     const provider = signerOrProvider || getProvider();
-    return new ethers.Contract(CONTRACTS.TournamentManager, TOURNAMENT_ABI, provider);
+    return new ethers.Contract(getActiveContracts().TournamentManager, TOURNAMENT_ABI, provider);
 }
 
 // Old getMarketplaceContract removed - using getMarketplaceV2Contract exclusively
 
 export function getMarketplaceV2Contract(signerOrProvider?: ethers.Signer | ethers.Provider) {
     const provider = signerOrProvider || getProvider();
-    return new ethers.Contract(CONTRACTS.MarketplaceV2, MARKETPLACE_V2_ABI, provider);
+    return new ethers.Contract(getActiveContracts().MarketplaceV2, MARKETPLACE_V2_ABI, provider);
 }
 
 // ============ Utils ============

@@ -422,7 +422,7 @@ app.get("/", (req, res) => {
         version: "1.0.0",
         status: "running",
         contract: NFT_CONTRACT_ADDRESS,
-        network: RPC_URL.includes("shadownet") ? "Etherlink Shadownet" : "Unknown",
+        network: RPC_URL.includes("shadownet") ? "Etherlink Shadownet" : RPC_URL.includes("megaeth") ? "MegaETH Testnet" : "Unknown",
         cacheSize: tokenCache.size
     });
 });
@@ -555,7 +555,7 @@ app.get("/stats", async (req, res) => {
             maxSupply: 10000,
             totalStartups: 19,
             contractAddress: NFT_CONTRACT_ADDRESS,
-            network: RPC_URL.includes("shadownet") ? "Etherlink Shadownet Testnet" : "Unknown"
+            network: RPC_URL.includes("shadownet") ? "Etherlink Shadownet Testnet" : RPC_URL.includes("megaeth") ? "MegaETH Testnet" : "Unknown"
         });
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch stats" });

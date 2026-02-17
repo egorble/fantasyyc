@@ -5,6 +5,7 @@ import { useNFT } from '../hooks/useNFT';
 import { useWalletContext } from '../context/WalletContext';
 import { usePollingData } from '../hooks/usePollingData';
 import { formatXTZ } from '../lib/contracts';
+import { currencySymbol } from '../lib/networks';
 import { blockchainCache, CacheKeys } from '../lib/cache';
 import { CardData, Rarity, sortByRarity } from '../types';
 import { useOnboarding } from '../hooks/useOnboarding';
@@ -369,7 +370,7 @@ const Marketplace: React.FC = () => {
             if (msg.includes('0xa0d26eb6') || msg.includes('BidTooLow')) {
                 const hb = bidModal.auction.highestBid;
                 const min = hb === 0n ? bidModal.auction.startPrice : hb + hb / 20n;
-                alert(`Bid too low! Minimum: ${safeFormatXTZ(min)} XTZ (+5% above current bid)`);
+                alert(`Bid too low! Minimum: ${safeFormatXTZ(min)} ${currencySymbol()} (+5% above current bid)`);
             } else if (msg.includes('user rejected') || msg.includes('denied')) {
                 // User cancelled — no alert needed
             } else {
@@ -759,7 +760,7 @@ const Marketplace: React.FC = () => {
                                         />
                                     </div>
                                     <div className="p-1.5 md:p-4">
-                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-lg leading-tight">{listing.priceFormatted} XTZ</p>
+                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-lg leading-tight">{listing.priceFormatted} {currencySymbol()}</p>
                                         {listing.seller.toLowerCase() === address?.toLowerCase() ? (
                                             <button
                                                 onClick={() => handleCancelListing(listing)}
@@ -847,7 +848,7 @@ const Marketplace: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="p-1.5 md:p-4">
-                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-base leading-tight">{safeFormatXTZ(auction.highestBid)} XTZ</p>
+                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-base leading-tight">{safeFormatXTZ(auction.highestBid)} {currencySymbol()}</p>
                                         {auction.isEnded ? (
                                             <button
                                                 onClick={() => handleFinalizeAuction(auction)}
@@ -955,7 +956,7 @@ const Marketplace: React.FC = () => {
                                                             <div className="absolute top-2 left-2 bg-yc-orange/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Listed</div>
                                                         </div>
                                                         <div className="p-1.5 md:p-3">
-                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{listing.priceFormatted} XTZ</p>
+                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{listing.priceFormatted} {currencySymbol()}</p>
                                                             <button
                                                                 onClick={() => handleCancelListing(listing)}
                                                                 disabled={cancellingId === Number(listing.listingId)}
@@ -986,7 +987,7 @@ const Marketplace: React.FC = () => {
                                                             <div className="absolute top-2 left-2 bg-purple-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Auction</div>
                                                         </div>
                                                         <div className="p-1.5 md:p-3">
-                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(auction.highestBid > 0n ? auction.highestBid : auction.startPrice)} XTZ</p>
+                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(auction.highestBid > 0n ? auction.highestBid : auction.startPrice)} {currencySymbol()}</p>
                                                             <p className="text-[9px] text-gray-400">{auction.highestBid > 0n ? 'Current bid' : 'Starting price'}</p>
                                                             {auction.isEnded ? (
                                                                 <button
@@ -1026,7 +1027,7 @@ const Marketplace: React.FC = () => {
                                                             <div className="absolute top-2 left-2 bg-blue-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Bid</div>
                                                         </div>
                                                         <div className="p-1.5 md:p-3">
-                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(bid.amount)} XTZ</p>
+                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(bid.amount)} {currencySymbol()}</p>
                                                             <p className="text-[9px] text-gray-400">Expires: {safeFormatDate(bid.expiration)}</p>
                                                             <button
                                                                 onClick={() => handleCancelBid(bid.bidId)}
@@ -1084,12 +1085,12 @@ const Marketplace: React.FC = () => {
                                     <img src={bidModal.auction.cardImage} alt="" className="w-20 h-20 rounded-lg object-cover" />
                                     <div>
                                         <h4 className="text-gray-900 dark:text-white font-bold">{bidModal.auction.cardName}</h4>
-                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Current: {safeFormatXTZ(bidModal.auction.highestBid)} XTZ</p>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Current: {safeFormatXTZ(bidModal.auction.highestBid)} {currencySymbol()}</p>
                                     </div>
                                 </div>
 
                                 <div className="mb-6">
-                                    <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Your Bid (XTZ)</label>
+                                    <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Your Bid ({currencySymbol()})</label>
                                     <input
                                         type="number"
                                         step="0.01"
@@ -1107,7 +1108,7 @@ const Marketplace: React.FC = () => {
                                             const hb = bidModal.auction!.highestBid;
                                             const min = hb === 0n ? bidModal.auction!.startPrice : hb + hb / 20n;
                                             return safeFormatXTZ(min);
-                                        })()} XTZ {bidModal.auction!.highestBid > 0n && '(+5%)'}
+                                        })()} {currencySymbol()} {bidModal.auction!.highestBid > 0n && '(+5%)'}
                                     </p>
                                 </div>
 
@@ -1127,7 +1128,7 @@ const Marketplace: React.FC = () => {
                                     <img src={bidModal.listing.cardImage} alt="" className="w-20 h-20 rounded-lg object-cover" />
                                     <div>
                                         <h4 className="text-gray-900 dark:text-white font-bold">{bidModal.listing.cardName}</h4>
-                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Listed: {bidModal.listing.priceFormatted} XTZ</p>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Listed: {bidModal.listing.priceFormatted} {currencySymbol()}</p>
                                     </div>
                                 </div>
 
@@ -1138,7 +1139,7 @@ const Marketplace: React.FC = () => {
                                 </div>
 
                                 <div className="mb-6">
-                                    <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Your Offer (XTZ)</label>
+                                    <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Your Offer ({currencySymbol()})</label>
                                     <input
                                         type="number"
                                         step="0.01"
@@ -1214,7 +1215,7 @@ const Marketplace: React.FC = () => {
                                                 {statsItem && 'highestBid' in statsItem && (statsItem as AuctionWithMeta).highestBid > 0n ? (
                                                     <div className="p-3 bg-gray-50 dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-[#2A2A2A]">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ((statsItem as AuctionWithMeta).highestBid)} XTZ</span>
+                                                            <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ((statsItem as AuctionWithMeta).highestBid)} {currencySymbol()}</span>
                                                             <span className="text-gray-500 dark:text-gray-500 text-xs">from</span>
                                                             <span className="text-gray-500 dark:text-gray-400 text-xs">{(statsItem as AuctionWithMeta).highestBidder?.slice(0, 6)}...{(statsItem as AuctionWithMeta).highestBidder?.slice(-4)}</span>
                                                             <span className="text-xs bg-yc-orange/20 text-yc-orange px-2 py-0.5 rounded-full font-bold">Auction bid</span>
@@ -1230,7 +1231,7 @@ const Marketplace: React.FC = () => {
                                                     <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#121212] rounded-lg border border-gray-200 dark:border-[#2A2A2A]">
                                                         <div className="flex-1">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(bid.amount)} XTZ</span>
+                                                                <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(bid.amount)} {currencySymbol()}</span>
                                                                 <span className="text-gray-500 dark:text-gray-500 text-xs">from</span>
                                                                 <span className="text-gray-500 dark:text-gray-400 text-xs">{bid.bidder?.slice(0, 6)}...{bid.bidder?.slice(-4)}</span>
                                                             </div>
@@ -1256,7 +1257,7 @@ const Marketplace: React.FC = () => {
                                             cardSales.map((sale, i) => (
                                                 <div key={i} className="py-2 border-b border-gray-200 dark:border-[#2A2A2A] last:border-0">
                                                     <div className="flex justify-between">
-                                                        <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(sale.price)} XTZ</span>
+                                                        <span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(sale.price)} {currencySymbol()}</span>
                                                         <span className="text-gray-500 dark:text-gray-400 text-xs">{safeFormatDate(sale.timestamp)}</span>
                                                     </div>
                                                     <p className="text-gray-500 dark:text-gray-500 text-xs">{sale.seller?.slice(0, 6)}... → {sale.buyer?.slice(0, 6)}...</p>
@@ -1266,9 +1267,9 @@ const Marketplace: React.FC = () => {
                                     {statsTab === 'stats' && cardStats && (
                                         <div className="space-y-3">
                                             <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Total Sales</span><span className="text-gray-900 dark:text-white font-bold">{String(cardStats.totalSales || 0)}</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Total Volume</span><span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(cardStats.totalVolume || 0n)} XTZ</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Highest Sale</span><span className="text-yc-green font-bold">{safeFormatXTZ(cardStats.highestSale || 0n)} XTZ</span></div>
-                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Lowest Sale</span><span className="text-red-400 font-bold">{safeFormatXTZ(cardStats.lowestSale || 0n)} XTZ</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Total Volume</span><span className="text-gray-900 dark:text-white font-bold">{safeFormatXTZ(cardStats.totalVolume || 0n)} {currencySymbol()}</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Highest Sale</span><span className="text-yc-green font-bold">{safeFormatXTZ(cardStats.highestSale || 0n)} {currencySymbol()}</span></div>
+                                            <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Lowest Sale</span><span className="text-red-400 font-bold">{safeFormatXTZ(cardStats.lowestSale || 0n)} {currencySymbol()}</span></div>
                                         </div>
                                     )}
                                 </>
@@ -1332,17 +1333,17 @@ const Marketplace: React.FC = () => {
 
                                     {sellMode === 'fixed' ? (
                                         <div>
-                                            <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Price (XTZ)</label>
+                                            <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Price ({currencySymbol()})</label>
                                             <input type="number" step="0.01" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder="0.00" className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold focus:border-yc-orange focus:outline-none" />
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
                                             <div>
-                                                <label className="text-gray-500 dark:text-gray-400 text-sm mb-1 block">Start Price (XTZ)</label>
+                                                <label className="text-gray-500 dark:text-gray-400 text-sm mb-1 block">Start Price ({currencySymbol()})</label>
                                                 <input type="number" step="0.01" value={auctionStartPrice} onChange={e => setAuctionStartPrice(e.target.value)} placeholder="0.00" className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold focus:border-yc-orange focus:outline-none" />
                                             </div>
                                             <div>
-                                                <label className="text-gray-500 dark:text-gray-400 text-sm mb-1 block">Reserve Price (XTZ, optional)</label>
+                                                <label className="text-gray-500 dark:text-gray-400 text-sm mb-1 block">Reserve Price ({currencySymbol()}, optional)</label>
                                                 <input type="number" step="0.01" value={auctionReservePrice} onChange={e => setAuctionReservePrice(e.target.value)} placeholder="0.00" className="w-full bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-lg px-4 py-3 text-gray-900 dark:text-white font-bold focus:border-yc-orange focus:outline-none" />
                                             </div>
                                             <div>

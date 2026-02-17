@@ -4,6 +4,9 @@ import { Layers, Package, Minus, Plus, ChevronDown } from 'lucide-react';
 import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
 import { formatXTZ } from '../lib/contracts';
+import { currencySymbol } from '../lib/networks';
+import { useNetwork } from '../context/NetworkContext';
+import ModelViewer3D from './ModelViewer3D';
 import gsap from 'gsap';
 
 interface PackOpeningModalProps {
@@ -32,6 +35,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const maxTaps = 5;
 
     const isMultiPack = packCount > 1;
+    const { networkId } = useNetwork();
+    const isMegaETH = networkId === 'megaeth';
 
     // Hooks
     const { isConnected, getSigner, connect, isCorrectChain, switchChain, refreshBalance } = useWalletContext();
@@ -106,17 +111,37 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     // When pendingCards is set, transition
     useLayoutEffect(() => {
         if (pendingCards && stage === 'buying') {
-            if (isMultiPack) {
-                // Multi-pack: skip tearing, go straight to finished with cards sorted by rarity (rarest first)
+            if (isMegaETH) {
+                // MegaETH: skip tearing, show burst then finished
+                setMintedCards(sortByRarity(pendingCards));
+                setPendingCards(null);
+                setStage('exploding');
+            } else if (isMultiPack) {
+                // Multi-pack on Etherlink: skip tearing, go straight to finished
                 setMintedCards(sortByRarity(pendingCards));
                 setPendingCards(null);
                 setStage('finished');
             } else {
-                // Single pack: show tearing animation
+                // Single pack on Etherlink: show tearing animation
                 setStage('tearing');
             }
         }
     }, [pendingCards, stage]);
+
+    // MegaETH burst: quick flash then dealing (single) or finished (multi)
+    useLayoutEffect(() => {
+        if (stage === 'exploding' && isMegaETH && ctx.current) {
+            ctx.current.add(() => {
+                const tl = gsap.timeline({
+                    onComplete: () => setStage(isMultiPack ? 'finished' : 'dealing'),
+                });
+                if (flashRef.current) {
+                    tl.to(flashRef.current, { opacity: 0.8, duration: 0.15, ease: 'power4.in' })
+                      .to(flashRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out' });
+                }
+            });
+        }
+    }, [stage, isMegaETH]);
 
     // Handle Pack Taps (Tearing) — single pack only
     const handleTapPack = () => {
@@ -234,99 +259,159 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
     const totalPrice = packPrice * BigInt(packCount);
 
-    if (!isOpen) return null;
-
     return (
-        <div ref={containerRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md perspective-1000 overflow-hidden">
+        <div ref={containerRef} className={`fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md perspective-1000 overflow-hidden ${isOpen ? '' : 'invisible pointer-events-none'}`}>
             {/* Flash Overlay */}
             <div ref={flashRef} className="absolute inset-0 bg-white pointer-events-none opacity-0 z-[60]" />
 
             {/* --- STAGE: PACK SELECTION --- */}
             {stage === 'select' && (
-                <div className="flex flex-col items-center w-full h-full relative px-4 overflow-y-auto py-6 sm:py-0 sm:justify-center">
-                    {/* Pack visual */}
-                    <div className="relative w-36 h-48 sm:w-52 sm:h-72 mb-4 sm:mb-8 group shrink-0">
-                        <div className="absolute inset-0 rounded-xl overflow-hidden border bg-[#151515] border-white/20 shadow-2xl shadow-orange-500/10">
-                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <div className="w-14 h-14 sm:w-20 sm:h-20 border-2 border-yc-orange rounded-full flex items-center justify-center mb-2 sm:mb-3 bg-black/50">
-                                    <span className="text-white font-black text-xl sm:text-2xl">YC</span>
+                isMegaETH ? (
+                    /* MegaETH: 3D pack on top, controls below */
+                    <div className="flex flex-col items-center w-full h-full px-4 py-4 sm:py-0 sm:justify-center">
+                        {/* 3D pack — takes upper space */}
+                        <div className="relative w-full flex-1 min-h-0 max-h-[65%] shrink mb-2">
+                            <ModelViewer3D mode="interactive" cameraZ={4.5} modelScale={1} paused={!isOpen} />
+                            {packCount > 1 && (
+                                <div className="absolute top-2 right-2 w-9 h-9 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-base shadow-lg shadow-orange-500/30 z-10">
+                                    {packCount}x
                                 </div>
-                                <div className="px-2 sm:px-3 py-1 bg-yc-orange text-white text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em]">Season 4</div>
-                            </div>
+                            )}
                         </div>
-                        {/* Pack count badge */}
-                        {packCount > 1 && (
-                            <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-8 h-8 sm:w-10 sm:h-10 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-sm sm:text-lg shadow-lg shadow-orange-500/30 z-10">
-                                {packCount}x
-                            </div>
-                        )}
-                    </div>
 
-                    {/* Pack count selector */}
-                    <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 shrink-0">
-                        <button
-                            onClick={() => setPackCount(Math.max(1, packCount - 1))}
-                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
-                        >
-                            <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
-                        <div className="text-center min-w-[80px] sm:min-w-[100px]">
-                            <p className="text-2xl sm:text-3xl font-black text-white">{packCount}</p>
-                            <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">{packCount === 1 ? 'Pack' : 'Packs'} ({packCount * 5} cards)</p>
-                        </div>
-                        <button
-                            onClick={() => setPackCount(Math.min(10, packCount + 1))}
-                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
-                        >
-                            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
-                    </div>
-
-                    {/* Quick select buttons */}
-                    <div className="flex gap-2 mb-4 sm:mb-6 shrink-0">
-                        {[1, 3, 5, 10].map(n => (
+                        {/* Pack count selector */}
+                        <div className="flex items-center gap-3 sm:gap-4 mb-3 shrink-0">
                             <button
-                                key={n}
-                                onClick={() => setPackCount(n)}
-                                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${packCount === n
-                                    ? 'bg-yc-orange text-white shadow-lg shadow-orange-500/30'
-                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-                                    }`}
+                                onClick={() => setPackCount(Math.max(1, packCount - 1))}
+                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
                             >
-                                {n}x
+                                <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
                             </button>
-                        ))}
-                    </div>
-
-                    {/* Price */}
-                    <div className="text-center mb-4 sm:mb-6 shrink-0">
-                        <p className="text-yc-orange font-mono font-bold text-xl sm:text-2xl">{formatXTZ(totalPrice)} XTZ</p>
-                        {packCount > 1 && (
-                            <p className="text-gray-500 text-xs mt-1">{formatXTZ(packPrice)} per pack</p>
-                        )}
-                    </div>
-
-                    {/* Error */}
-                    {txError && (
-                        <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-3 shrink-0">
-                            {txError}
+                            <div className="text-center min-w-[80px] sm:min-w-[100px]">
+                                <p className="text-2xl sm:text-3xl font-black text-white">{packCount}</p>
+                                <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">{packCount === 1 ? 'Pack' : 'Packs'} ({packCount * 5} cards)</p>
+                            </div>
+                            <button
+                                onClick={() => setPackCount(Math.min(10, packCount + 1))}
+                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
+                            >
+                                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
                         </div>
-                    )}
 
-                    {/* Buy button */}
-                    <button
-                        onClick={handleBuyAndOpen}
-                        className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
-                    >
-                        <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
-                        {packCount === 1 ? 'Buy & Open Pack' : `Buy & Open ${packCount} Packs`}
-                    </button>
+                        {/* Price */}
+                        <div className="text-center mb-3 shrink-0">
+                            <p className="text-yc-orange font-mono font-bold text-xl sm:text-2xl">{formatXTZ(totalPrice)} {currencySymbol()}</p>
+                            {packCount > 1 && (
+                                <p className="text-gray-500 text-xs mt-1">{formatXTZ(packPrice)} per pack</p>
+                            )}
+                        </div>
 
-                    <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
-                        Cancel
-                    </button>
-                </div>
+                        {/* Error */}
+                        {txError && (
+                            <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-3 shrink-0">
+                                {txError}
+                            </div>
+                        )}
+
+                        {/* Buy button */}
+                        <button
+                            onClick={handleBuyAndOpen}
+                            className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
+                        >
+                            <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
+                            {packCount === 1 ? 'Buy & Open Pack' : `Buy & Open ${packCount} Packs`}
+                        </button>
+
+                        <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
+                            Cancel
+                        </button>
+                    </div>
+                ) : (
+                    /* Etherlink: original layout */
+                    <div className="flex flex-col items-center w-full h-full relative px-4 overflow-y-auto py-6 sm:py-0 sm:justify-center">
+                        <div className="relative w-36 h-48 sm:w-52 sm:h-72 mb-4 sm:mb-8 group shrink-0">
+                            <div className="absolute inset-0 rounded-xl overflow-hidden border bg-[#151515] border-white/20 shadow-2xl shadow-orange-500/10">
+                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <div className="w-14 h-14 sm:w-20 sm:h-20 border-2 border-yc-orange rounded-full flex items-center justify-center mb-2 sm:mb-3 bg-black/50">
+                                        <span className="text-white font-black text-xl sm:text-2xl">YC</span>
+                                    </div>
+                                    <div className="px-2 sm:px-3 py-1 bg-yc-orange text-white text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em]">Season 4</div>
+                                </div>
+                            </div>
+                            {packCount > 1 && (
+                                <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-8 h-8 sm:w-10 sm:h-10 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-sm sm:text-lg shadow-lg shadow-orange-500/30 z-10">
+                                    {packCount}x
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Pack count selector */}
+                        <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 shrink-0">
+                            <button
+                                onClick={() => setPackCount(Math.max(1, packCount - 1))}
+                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
+                            >
+                                <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                            <div className="text-center min-w-[80px] sm:min-w-[100px]">
+                                <p className="text-2xl sm:text-3xl font-black text-white">{packCount}</p>
+                                <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">{packCount === 1 ? 'Pack' : 'Packs'} ({packCount * 5} cards)</p>
+                            </div>
+                            <button
+                                onClick={() => setPackCount(Math.min(10, packCount + 1))}
+                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
+                            >
+                                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                        </div>
+
+                        {/* Quick select presets */}
+                        <div className="flex gap-2 mb-4 sm:mb-6 shrink-0">
+                            {[1, 3, 5, 10].map(n => (
+                                <button
+                                    key={n}
+                                    onClick={() => setPackCount(n)}
+                                    className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${packCount === n
+                                        ? 'bg-yc-orange text-white shadow-lg shadow-orange-500/30'
+                                        : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+                                        }`}
+                                >
+                                    {n}x
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Price */}
+                        <div className="text-center mb-4 sm:mb-6 shrink-0">
+                            <p className="text-yc-orange font-mono font-bold text-xl sm:text-2xl">{formatXTZ(totalPrice)} {currencySymbol()}</p>
+                            {packCount > 1 && (
+                                <p className="text-gray-500 text-xs mt-1">{formatXTZ(packPrice)} per pack</p>
+                            )}
+                        </div>
+
+                        {/* Error */}
+                        {txError && (
+                            <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-3 shrink-0">
+                                {txError}
+                            </div>
+                        )}
+
+                        {/* Buy button */}
+                        <button
+                            onClick={handleBuyAndOpen}
+                            className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
+                        >
+                            <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
+                            {packCount === 1 ? 'Buy & Open Pack' : `Buy & Open ${packCount} Packs`}
+                        </button>
+
+                        <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
+                            Cancel
+                        </button>
+                    </div>
+                )
             )}
 
             {/* --- STAGE: BUYING (waiting for tx) --- */}
@@ -340,13 +425,30 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                             : `Buying & opening ${packCount} packs (${packCount * 5} cards)`
                         }
                     </p>
-                    <div className="text-yc-orange font-mono font-bold text-lg mb-6">{formatXTZ(totalPrice)} XTZ</div>
+                    <div className="text-yc-orange font-mono font-bold text-lg mb-6">{formatXTZ(totalPrice)} {currencySymbol()}</div>
                     <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors">Cancel</button>
                 </div>
             )}
 
-            {/* --- STAGE: TEARING & EXPLODING (single pack only) --- */}
-            {(stage === 'tearing' || stage === 'exploding') && (
+            {/* --- STAGE: MEGA BURST (MegaETH only) --- */}
+            {stage === 'exploding' && isMegaETH && (
+                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                    <div className="relative w-40 h-40">
+                        <div className="absolute inset-0 rounded-full border-2 border-yc-orange/60 animate-ping" />
+                        <div className="absolute inset-4 rounded-full border-2 border-yc-orange/40 animate-ping" style={{ animationDelay: '0.1s' }} />
+                        <div className="absolute inset-8 rounded-full border-2 border-yc-orange/20 animate-ping" style={{ animationDelay: '0.2s' }} />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-5xl">⚡</span>
+                        </div>
+                    </div>
+                    <h2 className="text-2xl font-black text-white mt-6 uppercase tracking-tighter animate-pulse">
+                        Pack Opened!
+                    </h2>
+                </div>
+            )}
+
+            {/* --- STAGE: TEARING & EXPLODING (Etherlink single pack only) --- */}
+            {(stage === 'tearing' || (stage === 'exploding' && !isMegaETH)) && (
                 <div className="flex flex-col items-center justify-center w-full h-full relative cursor-pointer" onClick={handleTapPack}>
                     <h2 className="absolute top-[15%] sm:top-1/4 text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tighter drop-shadow-glow pointer-events-none select-none animate-pulse">
                         {cuts.length === 0 ? "TAP TO BREACH" :
@@ -425,7 +527,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     {/* Header */}
                     <div className="flex-shrink-0 pt-4 sm:pt-8 pb-2 sm:pb-4 text-center">
                         <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white uppercase tracking-tighter animate-[fadeInUp_0.5s_ease-out]">
-                            {isMultiPack ? `${packCount} Packs Opened!` : 'Acquisition Complete'}
+                            {isMultiPack ? `${packCount} Packs Opened!` : isMegaETH ? 'Pack Opened!' : 'Acquisition Complete'}
                         </h2>
                         <p className="text-gray-400 text-xs sm:text-sm mt-1">{mintedCards.length} cards acquired</p>
                         {/* Scroll hint for multi-pack */}

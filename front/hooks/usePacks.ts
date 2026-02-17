@@ -1,9 +1,11 @@
 // Pack opener contract hook
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { getPackOpenerContract, getNFTContract, METADATA_API } from '../lib/contracts';
+import { getPackOpenerContract, getNFTContract } from '../lib/contracts';
 import { CardData, Rarity } from '../types';
 import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
+import { metadataUrl } from '../lib/api';
+import { getActiveNetworkId } from '../lib/networks';
 
 // Map rarity strings to enum
 const RARITY_STRING_MAP: Record<string, Rarity> = {
@@ -18,7 +20,7 @@ const RARITY_STRING_MAP: Record<string, Rarity> = {
 // Fetch metadata from API
 async function fetchCardMetadata(tokenId: number): Promise<CardData | null> {
     try {
-        const response = await fetch(`${METADATA_API}/metadata/${tokenId}`);
+        const response = await fetch(metadataUrl(`/${tokenId}`));
         if (!response.ok) return null;
 
         const data = await response.json();
@@ -113,7 +115,7 @@ export function usePacks() {
             const signerAddress = await signer.getAddress();
 
             // Get referrer from localStorage or URL params
-            let referrer = localStorage.getItem('fantasyyc_referrer');
+            let referrer = localStorage.getItem(`fantasyyc_referrer_${getActiveNetworkId()}`);
             if (!referrer) {
                 const params = new URLSearchParams(window.location.search);
                 const ref = params.get('ref');
@@ -192,7 +194,7 @@ export function usePacks() {
             const signerAddress = await signer.getAddress();
 
             // Get referrer
-            let referrer = localStorage.getItem('fantasyyc_referrer');
+            let referrer = localStorage.getItem(`fantasyyc_referrer_${getActiveNetworkId()}`);
             if (!referrer) {
                 const params = new URLSearchParams(window.location.search);
                 const ref = params.get('ref');

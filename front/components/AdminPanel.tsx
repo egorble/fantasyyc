@@ -23,6 +23,8 @@ import { useWalletContext } from '../context/WalletContext';
 import { useAdmin, isAdmin, ContractBalances, AdminStats, TournamentData } from '../hooks/useAdmin';
 import { useNFT } from '../hooks/useNFT';
 import { formatXTZ } from '../lib/contracts';
+import { apiUrl } from '../lib/api';
+import { currencySymbol } from '../lib/networks';
 import { ethers } from 'ethers';
 
 const AdminPanel: React.FC = () => {
@@ -150,7 +152,7 @@ const AdminPanel: React.FC = () => {
 
         const result = await admin.setPackPrice(signer, price);
         if (result.success) {
-            showMessage('success', `Pack price set to ${price} XTZ`);
+            showMessage('success', `Pack price set to ${price} ${currencySymbol()}`);
             loadData();
         } else {
             showMessage('error', result.error || 'Failed to set price');
@@ -301,7 +303,7 @@ const AdminPanel: React.FC = () => {
             address || ''
         );
         if (result.success) {
-            showMessage('success', `Withdrew ${formatXTZ(tournament.prizePool)} XTZ from tournament #${tournament.id}`);
+            showMessage('success', `Withdrew ${formatXTZ(tournament.prizePool)} ${currencySymbol()} from tournament #${tournament.id}`);
             loadData();
         } else {
             showMessage('error', result.error || 'Withdrawal failed');
@@ -348,7 +350,7 @@ const AdminPanel: React.FC = () => {
         setDbActionLoading(action);
         setConfirmAction(null);
         try {
-            const res = await fetch(`/api/admin/${action}`, {
+            const res = await fetch(apiUrl(`/admin/${action}`), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -414,7 +416,7 @@ const AdminPanel: React.FC = () => {
                     </div>
                     <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-4">
                         <p className="text-gray-500 text-xs uppercase mb-1">Pack Price</p>
-                        <p className="text-2xl font-bold text-yc-orange font-mono">{stats ? formatXTZ(stats.packPrice) : '5'} XTZ</p>
+                        <p className="text-2xl font-bold text-yc-orange font-mono">{stats ? formatXTZ(stats.packPrice) : '5'} {currencySymbol()}</p>
                     </div>
                     <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-4">
                         <p className="text-gray-500 text-xs uppercase mb-1">Total NFTs</p>
@@ -436,13 +438,13 @@ const AdminPanel: React.FC = () => {
                         <div className="bg-gray-50 dark:bg-black/50 rounded-lg p-4">
                             <p className="text-gray-500 text-xs mb-1">PackOpener</p>
                             <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">
-                                {balances ? formatXTZ(balances.packOpener) : '0'} XTZ
+                                {balances ? formatXTZ(balances.packOpener) : '0'} {currencySymbol()}
                             </p>
                         </div>
                         <div className="bg-gray-50 dark:bg-black/50 rounded-lg p-4">
                             <p className="text-gray-500 text-xs mb-1">TournamentManager</p>
                             <p className="text-xl font-mono font-bold text-gray-900 dark:text-white mb-2">
-                                {balances ? formatXTZ(balances.tournament) : '0'} XTZ
+                                {balances ? formatXTZ(balances.tournament) : '0'} {currencySymbol()}
                             </p>
                             {balances && balances.tournament > 0n && (
                                 <button
@@ -457,7 +459,7 @@ const AdminPanel: React.FC = () => {
                         <div className="bg-gray-50 dark:bg-black/50 rounded-lg p-4">
                             <p className="text-gray-500 text-xs mb-1">NFT Contract</p>
                             <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">
-                                {balances ? formatXTZ(balances.nft) : '0'} XTZ
+                                {balances ? formatXTZ(balances.nft) : '0'} {currencySymbol()}
                             </p>
                         </div>
                     </div>
@@ -485,7 +487,7 @@ const AdminPanel: React.FC = () => {
 
                         {/* Set Pack Price */}
                         <div className="mb-4">
-                            <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Pack Price (XTZ)</label>
+                            <label className="text-gray-500 dark:text-gray-400 text-sm mb-2 block">Pack Price ({currencySymbol()})</label>
                             <div className="flex gap-2">
                                 <input
                                     type="number"
@@ -708,7 +710,7 @@ const AdminPanel: React.FC = () => {
                                             <div className="flex items-center gap-4 text-sm">
                                                 <div className="flex items-center gap-1 text-yc-orange">
                                                     <DollarSign className="w-4 h-4" />
-                                                    <span className="font-mono">{formatXTZ(t.prizePool)} XTZ</span>
+                                                    <span className="font-mono">{formatXTZ(t.prizePool)} {currencySymbol()}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1 text-gray-400">
                                                     <Users className="w-4 h-4" />
@@ -783,7 +785,7 @@ const AdminPanel: React.FC = () => {
                                                 >
                                                     {actionLoading === 'withdraw-' + t.id
                                                         ? 'Withdrawing...'
-                                                        : `Withdraw ${formatXTZ(t.prizePool)} XTZ`}
+                                                        : `Withdraw ${formatXTZ(t.prizePool)} ${currencySymbol()}`}
                                                 </button>
                                             </div>
                                         )}

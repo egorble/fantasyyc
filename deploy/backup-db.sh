@@ -5,7 +5,6 @@
 set -euo pipefail
 
 BACKUP_DIR="/opt/fantasyyc/backups"
-DB_FILE="/opt/fantasyyc/server/db/fantasyyc.db"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 KEEP_DAYS=30
 LOG_FILE="/opt/fantasyyc/logs/backup.log"
@@ -17,34 +16,41 @@ log() {
 # Ensure backup dir exists
 mkdir -p "$BACKUP_DIR"
 
-# Check DB exists
-if [ ! -f "$DB_FILE" ]; then
-    log "ERROR: Database file not found: $DB_FILE"
-    exit 1
-fi
+# Backup a single database file
+backup_db() {
+    local DB_FILE="$1"
+    local PREFIX="$2"
 
-# Create backup (copy while service is running — sql.js saves atomically)
-BACKUP_FILE="${BACKUP_DIR}/fantasyyc_${TIMESTAMP}.db"
-cp "$DB_FILE" "$BACKUP_FILE"
+    if [ ! -f "$DB_FILE" ]; then
+        log "SKIP: Database file not found: $DB_FILE"
+        return 0
+    fi
 
-# Verify backup
-ORIG_SIZE=$(stat -c%s "$DB_FILE")
-BACK_SIZE=$(stat -c%s "$BACKUP_FILE")
+    BACKUP_FILE="${BACKUP_DIR}/${PREFIX}_${TIMESTAMP}.db"
+    cp "$DB_FILE" "$BACKUP_FILE"
 
-if [ "$BACK_SIZE" -lt 1024 ]; then
-    log "ERROR: Backup too small (${BACK_SIZE} bytes), possible corruption"
-    rm -f "$BACKUP_FILE"
-    exit 1
-fi
+    ORIG_SIZE=$(stat -c%s "$DB_FILE")
+    BACK_SIZE=$(stat -c%s "$BACKUP_FILE")
 
-# Compress
-gzip "$BACKUP_FILE"
-COMPRESSED_SIZE=$(stat -c%s "${BACKUP_FILE}.gz")
+    if [ "$BACK_SIZE" -lt 1024 ]; then
+        log "ERROR: Backup too small for ${PREFIX} (${BACK_SIZE} bytes), possible corruption"
+        rm -f "$BACKUP_FILE"
+        return 1
+    fi
 
-log "OK: Backup created ${BACKUP_FILE}.gz (original: ${ORIG_SIZE}B, compressed: ${COMPRESSED_SIZE}B)"
+    gzip "$BACKUP_FILE"
+    COMPRESSED_SIZE=$(stat -c%s "${BACKUP_FILE}.gz")
+    log "OK: ${PREFIX} backup created ${BACKUP_FILE}.gz (original: ${ORIG_SIZE}B, compressed: ${COMPRESSED_SIZE}B)"
+}
+
+# Backup Etherlink DB
+backup_db "/opt/fantasyyc/server/db/fantasyyc.db" "fantasyyc"
+
+# Backup MegaETH DB (if it exists)
+backup_db "/opt/fantasyyc/server/db/fantasyyc-megaeth.db" "fantasyyc-megaeth"
 
 # Delete old backups (older than KEEP_DAYS)
-DELETED=$(find "$BACKUP_DIR" -name "fantasyyc_*.db.gz" -mtime +${KEEP_DAYS} -delete -print | wc -l)
+DELETED=$(find "$BACKUP_DIR" -name "fantasyyc*.db.gz" -mtime +${KEEP_DAYS} -delete -print | wc -l)
 if [ "$DELETED" -gt 0 ]; then
     log "Cleaned up $DELETED old backups (>${KEEP_DAYS} days)"
 fi

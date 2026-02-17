@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ethers } from 'ethers';
 import * as db from './db/database.js';
-import { CHAIN, CONTRACTS } from './config.js';
+import { CHAIN, CONTRACTS, NETWORK_NAME } from './config.js';
 import { verifyWalletSignature, requireAdmin, isValidAddress, isValidTournamentId, isValidDate } from './middleware/auth.js';
 import { computeLeaderboardHmac, verifyHmac } from './middleware/integrity.js';
 
@@ -1179,7 +1179,7 @@ async function startServer() {
 
         // Start Express server
         app.listen(PORT, () => {
-            console.log(`🚀 FantasyYC API Server running on port ${PORT}`);
+            console.log(`🚀 FantasyYC API Server running on port ${PORT} [${NETWORK_NAME}]`);
             console.log(`📊 Endpoints:`);
             console.log(`   GET /api/tournaments/active`);
             console.log(`   GET /api/tournaments/:id`);

@@ -153,16 +153,31 @@ chown -R fantasyyc:fantasyyc "${APP_DIR}"
 log "Stopping services..."
 systemctl stop fantasyyc-api 2>/dev/null || true
 systemctl stop fantasyyc-metadata 2>/dev/null || true
+systemctl stop fantasyyc-megaeth-api 2>/dev/null || true
+systemctl stop fantasyyc-megaeth-metadata 2>/dev/null || true
 sleep 2
 
 # Kill any leftover node processes on our ports
 fuser -k 3003/tcp 2>/dev/null || true
 fuser -k 3001/tcp 2>/dev/null || true
+fuser -k 3004/tcp 2>/dev/null || true
+fuser -k 3002/tcp 2>/dev/null || true
 sleep 1
+
+# Install MegaETH service files if they exist
+if [ -f "${APP_DIR}/deploy/fantasyyc-megaeth-api.service" ]; then
+    cp "${APP_DIR}/deploy/fantasyyc-megaeth-api.service" /etc/systemd/system/
+    cp "${APP_DIR}/deploy/fantasyyc-megaeth-metadata.service" /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable fantasyyc-megaeth-api 2>/dev/null || true
+    systemctl enable fantasyyc-megaeth-metadata 2>/dev/null || true
+fi
 
 log "Starting services..."
 systemctl start fantasyyc-api
 systemctl start fantasyyc-metadata
+systemctl start fantasyyc-megaeth-api 2>/dev/null || true
+systemctl start fantasyyc-megaeth-metadata 2>/dev/null || true
 
 # ─── Reload nginx config (picks up burst/rate limit changes) ───
 if [ -f "${APP_DIR}/deploy/nginx.conf" ]; then
@@ -181,12 +196,19 @@ sleep 3
 # ─── Verify ───
 API_OK=$(systemctl is-active fantasyyc-api)
 META_OK=$(systemctl is-active fantasyyc-metadata)
+MEGA_API_OK=$(systemctl is-active fantasyyc-megaeth-api 2>/dev/null || echo "inactive")
+MEGA_META_OK=$(systemctl is-active fantasyyc-megaeth-metadata 2>/dev/null || echo "inactive")
 NGINX_OK=$(systemctl is-active nginx)
 
 echo ""
-echo -e "  fantasyyc-api:      ${API_OK} $([ "$API_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
-echo -e "  fantasyyc-metadata: ${META_OK} $([ "$META_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
-echo -e "  nginx:              ${NGINX_OK} $([ "$NGINX_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  ${CYAN}Etherlink:${NC}"
+echo -e "  fantasyyc-api:              ${API_OK} $([ "$API_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  fantasyyc-metadata:         ${META_OK} $([ "$META_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  ${CYAN}MegaETH:${NC}"
+echo -e "  fantasyyc-megaeth-api:      ${MEGA_API_OK} $([ "$MEGA_API_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  fantasyyc-megaeth-metadata: ${MEGA_META_OK} $([ "$MEGA_META_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
+echo -e "  ${CYAN}Infra:${NC}"
+echo -e "  nginx:                      ${NGINX_OK} $([ "$NGINX_OK" = "active" ] && echo "${GREEN}OK${NC}" || echo "${RED}FAIL${NC}")"
 
 # ─── Verify metadata server uses correct contract ───
 if [ -f "$DEPLOY_FILE" ]; then

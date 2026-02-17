@@ -3,6 +3,8 @@ import { Trophy, Users, Clock, ArrowRight, Zap } from 'lucide-react';
 import { NavSection } from '../types';
 import { blockchainCache } from '../lib/cache';
 import { PreloadKeys } from '../lib/preload';
+import { apiUrl } from '../lib/api';
+import { currencySymbol } from '../lib/networks';
 
 interface TournamentData {
     id: number;
@@ -26,7 +28,7 @@ const TournamentCTA: React.FC<TournamentCTAProps> = ({ onNavigate }) => {
     useEffect(() => {
         const fetchTournament = async () => {
             try {
-                const res = await fetch('/api/tournaments/active');
+                const res = await fetch(apiUrl('/tournaments/active'));
                 const data = await res.json();
                 if (data.success) {
                     setTournament(data.data);
@@ -118,7 +120,7 @@ const TournamentCTA: React.FC<TournamentCTAProps> = ({ onNavigate }) => {
                             <p className="text-sm md:text-xl font-black text-yc-orange font-mono leading-tight">
                                 {tournament.prizePool}
                             </p>
-                            <p className="text-[10px] md:text-xs text-yc-orange font-bold">XTZ</p>
+                            <p className="text-[10px] md:text-xs text-yc-orange font-bold">{currencySymbol()}</p>
                         </div>
                         <div className="text-center bg-white/80 dark:bg-black/50 rounded-xl px-2 md:px-4 py-2 md:py-3 border border-gray-200 dark:border-gray-800">
                             <div className="flex items-center justify-center gap-1 mb-0.5 md:mb-1">

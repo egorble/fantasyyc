@@ -23,7 +23,9 @@ import { Filter, Search, Wallet, Loader2, Sun, Moon, LogOut, User } from 'lucide
 import { useTheme } from './context/ThemeContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { WalletProvider, useWalletContext } from './context/WalletContext';
+import { NetworkProvider, useNetwork } from './context/NetworkContext';
 import { formatXTZ, CHAIN_NAME } from './lib/contracts';
+import { currencySymbol } from './lib/networks';
 import { isAdmin } from './hooks/useAdmin';
 import { useUser } from './hooks/useUser';
 import { generatePixelAvatar } from './lib/pixelAvatar';
@@ -47,18 +49,29 @@ const AppContent: React.FC = () => {
     const [dashboardListings, setDashboardListings] = useState<Array<{ listing: Listing; card: CardData }>>([]);
     const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
 
+    // Network hook (multi-chain)
+    const { activeNetwork, networkId, allNetworks, switchNetwork } = useNetwork();
+
     // Wallet hook
     const {
         isConnected,
         address,
         balance,
+        balanceLoading,
         isCorrectChain,
         connect,
         disconnect,
         switchChain,
+        refreshBalance,
         formatAddress,
         isConnecting
     } = useWalletContext();
+
+    const handleNetworkSwitch = (id: string) => {
+        if (id === networkId) return;
+        switchNetwork(id);
+        if (isConnected) { switchChain(); refreshBalance(); }
+    };
 
     // User profile hook
     const { profile, needsRegistration, isNewUser, registerUser, updateProfile } = useUser();
@@ -218,7 +231,7 @@ const AppContent: React.FC = () => {
                         <TournamentCTA onNavigate={handleSectionChange} />
 
                         {/* 3.5 Top Startups + Referral (visible below xl where RightPanel is hidden) */}
-                        <MobileWidgets />
+                        <MobileWidgets onOpenPack={() => setIsPackModalOpen(true)} />
 
                         {/* 4. Leaderboard */}
                         <DashboardLeaderboard onNavigate={handleSectionChange} />
@@ -310,7 +323,7 @@ const AppContent: React.FC = () => {
                                                 </div>
                                                 <div className="p-1.5 md:p-3">
                                                     <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm leading-tight truncate">{card.name}</p>
-                                                    <p className="text-yc-orange font-bold text-[11px] md:text-base mt-0.5">{formatXTZ(listing.price)} XTZ</p>
+                                                    <p className="text-yc-orange font-bold text-[11px] md:text-base mt-0.5">{formatXTZ(listing.price)} {currencySymbol()}</p>
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -380,16 +393,23 @@ const AppContent: React.FC = () => {
                                 <>
                                     <div className="text-right hidden lg:block">
                                         <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Balance</p>
-                                        <p className="text-lg font-black font-mono flex items-center">
-                                            <span className="text-yc-orange text-sm mr-2">◈</span>
-                                            {Number(ethers.formatEther(balance)).toFixed(2)} XTZ
-                                        </p>
+                                        {balanceLoading ? (
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-yc-orange text-sm">◈</span>
+                                                <div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                                            </div>
+                                        ) : (
+                                            <p className="text-lg font-black font-mono flex items-center">
+                                                <span className="text-yc-orange text-sm mr-2">◈</span>
+                                                {Number(ethers.formatEther(balance)).toFixed(2)} {activeNetwork.nativeCurrency.symbol}
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="text-right hidden lg:block border-l border-gray-200 dark:border-gray-800 pl-6">
                                         <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Network</p>
                                         <p className={`text-sm font-bold ${isCorrectChain ? 'text-yc-green' : 'text-yc-orange'}`}>
-                                            {isCorrectChain ? 'Etherlink' : 'Wrong Chain'}
+                                            {isCorrectChain ? activeNetwork.shortName : 'Wrong Chain'}
                                         </p>
                                     </div>
                                 </>
@@ -466,10 +486,14 @@ const AppContent: React.FC = () => {
                                             {isConnected && (
                                                 <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-[#121212]">
                                                     <span className="text-xs font-bold text-gray-400">Balance</span>
-                                                    <span className="text-sm font-black font-mono text-gray-900 dark:text-white">
-                                                        <span className="text-yc-orange mr-1">◈</span>
-                                                        {Number(ethers.formatEther(balance)).toFixed(2)} XTZ
-                                                    </span>
+                                                    {balanceLoading ? (
+                                                        <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                                                    ) : (
+                                                        <span className="text-sm font-black font-mono text-gray-900 dark:text-white">
+                                                            <span className="text-yc-orange mr-1">◈</span>
+                                                            {Number(ethers.formatEther(balance)).toFixed(2)} {activeNetwork.nativeCurrency.symbol}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             )}
 
@@ -491,6 +515,26 @@ const AppContent: React.FC = () => {
                                                     Switch Network
                                                 </button>
                                             ) : null}
+
+                                            {/* Network toggle */}
+                                            <div className="flex items-center justify-between p-2">
+                                                <span className="text-xs font-bold text-gray-400 uppercase">Network</span>
+                                                <div className="flex bg-gray-200 dark:bg-[#121212] rounded-full p-0.5 gap-0.5">
+                                                    {allNetworks.map((net) => (
+                                                        <button
+                                                            key={net.id}
+                                                            onClick={() => { setIsMobileMenuOpen(false); handleNetworkSwitch(net.id); }}
+                                                            className={`flex items-center gap-1 px-2 py-1.5 rounded-full text-xs font-bold transition-all ${
+                                                                networkId === net.id
+                                                                    ? 'bg-yc-orange text-white shadow'
+                                                                    : 'text-gray-400'
+                                                            }`}
+                                                        >
+                                                            <span>{net.shortName}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
 
                                             {/* Theme toggle */}
                                             <div className="flex items-center justify-between p-2">
@@ -584,6 +628,9 @@ const AppContent: React.FC = () => {
     );
 };
 
+// No key={networkId} — data is shared across networks, components stay alive
+// Network-specific UI (pack visual, price, currency) re-renders via useNetwork context
+
 // Main App with providers + splash screen
 const App: React.FC = () => {
     const [showSplash, setShowSplash] = useState(true);
@@ -594,10 +641,12 @@ const App: React.FC = () => {
 
     return (
         <ThemeProvider>
-            <WalletProvider>
-                {showSplash && <SplashScreen onReady={handleSplashReady} />}
-                <AppContent />
-            </WalletProvider>
+            <NetworkProvider>
+                <WalletProvider>
+                    {showSplash && <SplashScreen onReady={handleSplashReady} />}
+                    <AppContent />
+                </WalletProvider>
+            </NetworkProvider>
         </ThemeProvider>
     );
 };

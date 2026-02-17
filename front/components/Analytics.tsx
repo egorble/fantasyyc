@@ -6,8 +6,9 @@ import { useNFT } from '../hooks/useNFT';
 import { usePortfolioAnalytics, CardAnalytics } from '../hooks/usePortfolioAnalytics';
 import { CardData, RARITY_ORDER, sortByRarity } from '../types';
 import { formatXTZ } from '../lib/contracts';
+import { currencySymbol } from '../lib/networks';
 
-const API_BASE_URL = '/api';
+import { apiUrl } from '../lib/api';
 
 // Rarity color mapping
 const RARITY_COLORS: Record<string, string> = {
@@ -75,7 +76,7 @@ const Analytics: React.FC = () => {
 
         (async () => {
             try {
-                const tourRes = await fetch(`${API_BASE_URL}/tournaments/active`);
+                const tourRes = await fetch(apiUrl('/tournaments/active'));
                 const tourData = await tourRes.json();
                 if (!tourData.success || !tourData.data?.id) {
                     setTournamentId(null);
@@ -86,7 +87,7 @@ const Analytics: React.FC = () => {
                 const tId = tourData.data.id;
                 if (!cancelled) setTournamentId(tId);
 
-                const histRes = await fetch(`${API_BASE_URL}/player/${address.toLowerCase()}/history/${tId}`);
+                const histRes = await fetch(apiUrl(`/player/${address.toLowerCase()}/history/${tId}`));
                 const histData = await histRes.json();
                 if (!cancelled && histData.success) {
                     setDailyHistory(histData.data.map((d: any) => ({
@@ -121,16 +122,16 @@ const Analytics: React.FC = () => {
     const formatFloor = (price: bigint | null): string => {
         if (price === null) return '--';
         const val = parseFloat(formatXTZ(price));
-        if (val < 0.01) return '<0.01 XTZ';
-        return `${val.toFixed(2)} XTZ`;
+        if (val < 0.01) return `<0.01 ${currencySymbol()}`;
+        return `${val.toFixed(2)} ${currencySymbol()}`;
     };
 
     // Format portfolio value
     const formatPortfolioValue = (): string => {
         if (summary.portfolioValue === 0n && cards.length > 0) return 'No listings';
-        if (summary.portfolioValue === 0n) return '0 XTZ';
+        if (summary.portfolioValue === 0n) return `0 ${currencySymbol()}`;
         const val = parseFloat(formatXTZ(summary.portfolioValue));
-        return `${val.toFixed(2)} XTZ`;
+        return `${val.toFixed(2)} ${currencySymbol()}`;
     };
 
     // Sort card analytics: best performers first (by totalPoints desc)

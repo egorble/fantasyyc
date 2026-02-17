@@ -6,8 +6,10 @@ import { useNFT } from '../hooks/useNFT';
 import { useTournament, Tournament } from '../hooks/useTournament';
 import { useLeaderboard, usePlayerRank } from '../hooks/useLeaderboard';
 import { formatXTZ } from '../lib/contracts';
+import { currencySymbol } from '../lib/networks';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { blockchainCache, CacheKeys } from '../lib/cache';
+import { apiUrl } from '../lib/api';
 import gsap from 'gsap';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
@@ -170,7 +172,7 @@ const Leagues: React.FC = () => {
         if (phase !== 'registration' && phase !== 'active') return;
 
         setAiLoading(true);
-        fetch(`/api/ai/card-recommendation/${address}`)
+        fetch(apiUrl(`/ai/card-recommendation/${address}`))
             .then(res => res.json())
             .then(data => {
                 if (data.success && data.data) {
@@ -345,8 +347,8 @@ const Leagues: React.FC = () => {
         setSquadLoading(true);
         try {
             const [cardsRes, scoresRes] = await Promise.all([
-                fetch(`/api/player/${playerAddress}/cards/${activeTournamentId}`),
-                fetch(`/api/player/${playerAddress}/card-scores/${activeTournamentId}`)
+                fetch(apiUrl(`/player/${playerAddress}/cards/${activeTournamentId}`)),
+                fetch(apiUrl(`/player/${playerAddress}/card-scores/${activeTournamentId}`))
             ]);
             const cardsData = await cardsRes.json();
             if (cardsData.success) {
@@ -741,7 +743,7 @@ const Leagues: React.FC = () => {
                         <div>
                             <p className="text-gray-500 dark:text-gray-500 text-[10px] sm:text-xs uppercase font-bold">Prize Pool</p>
                             <p className="text-xl sm:text-2xl font-black text-yc-orange font-mono">
-                                {activeTournament ? formatXTZ(activeTournament.prizePool) : '0'} XTZ
+                                {activeTournament ? formatXTZ(activeTournament.prizePool) : '0'} {currencySymbol()}
                             </p>
                         </div>
                         <div className="w-px h-10 bg-gray-300 dark:bg-gray-800"></div>
@@ -776,7 +778,7 @@ const Leagues: React.FC = () => {
                                     <span className="animate-pulse">Claiming...</span>
                                 ) : (
                                     <>
-                                        <Gift className="w-4 h-4 mr-2" /> Claim {formatXTZ(userPrize)} XTZ
+                                        <Gift className="w-4 h-4 mr-2" /> Claim {formatXTZ(userPrize)} {currencySymbol()}
                                     </>
                                 )}
                             </button>

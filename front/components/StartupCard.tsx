@@ -1,6 +1,7 @@
 import React from 'react';
 import { Startup } from '../types';
 import { TrendingUp, TrendingDown, MoreHorizontal, Activity } from 'lucide-react';
+import { currencySymbol } from '../lib/networks';
 
 interface StartupCardProps {
   startup: Startup;
@@ -30,7 +31,7 @@ const StartupCard: React.FC<StartupCardProps> = ({ startup, onClick }) => {
 
         {/* Mobile: just price */}
         <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-lg leading-tight font-mono">
-            ${startup.value} XTZ
+            ${startup.value} {currencySymbol()}
         </p>
 
         {/* Desktop only: full details */}

@@ -4,6 +4,7 @@ import { Flame, Store, Wallet, Swords, Newspaper, Settings, Sun, Moon, ShieldChe
 import { useTheme } from '../context/ThemeContext';
 import { isAdmin } from '../hooks/useAdmin';
 import { useWalletContext } from '../context/WalletContext';
+import { useNetwork } from '../context/NetworkContext';
 
 interface SidebarProps {
   activeSection: NavSection;
@@ -16,8 +17,15 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user, isOpen = false, onClose, onSettingsClick }) => {
   const { theme, toggleTheme } = useTheme();
-  const { disconnect, isConnected } = useWalletContext();
+  const { disconnect, isConnected, switchChain, refreshBalance } = useWalletContext();
+  const { networkId, allNetworks, switchNetwork } = useNetwork();
   const userIsAdmin = isAdmin(user.address || null);
+
+  const handleNetworkSwitch = (id: string) => {
+      if (id === networkId) return;
+      switchNetwork(id);
+      if (isConnected) { switchChain(); refreshBalance(); }
+  };
 
   const navItems = [
     { id: NavSection.HOME, icon: Flame, label: 'Dashboard' },
@@ -88,6 +96,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
             <p className="text-xs text-gray-400 font-mono font-medium">Pro League</p>
           </div>
           <Settings className="w-5 h-5 text-gray-300 group-hover:text-yc-orange transition-colors shrink-0" />
+        </div>
+
+        {/* Network Toggle */}
+        <div className="flex bg-gray-200 dark:bg-[#1A1A1A] rounded-full p-1 gap-0.5">
+          {allNetworks.map((net) => (
+            <button
+              key={net.id}
+              onClick={() => handleNetworkSwitch(net.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                networkId === net.id
+                  ? 'bg-yc-orange text-white shadow'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+              }`}
+            >
+              <span>{net.shortName}</span>
+            </button>
+          ))}
         </div>
 
         {/* Theme Toggle - Minimal */}

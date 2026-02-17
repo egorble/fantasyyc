@@ -8,6 +8,8 @@ import { useNFT } from '../hooks/useNFT';
 import { useMarketplaceV2 } from '../hooks/useMarketplaceV2';
 import { usePollingData } from '../hooks/usePollingData';
 import { formatXTZ } from '../lib/contracts';
+import { currencySymbol } from '../lib/networks';
+import { useNetwork } from '../context/NetworkContext';
 import gsap from 'gsap';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
@@ -35,6 +37,8 @@ interface PortfolioProps {
 }
 
 const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
+    const { networkId } = useNetwork();
+    const packPriceLabel = networkId === 'megaeth' ? '0.01' : '5';
     const [activeTab, setActiveTab] = useState<'cards' | 'performance'>('cards');
     const [myCards, setMyCards] = useState<CardData[]>([]);
     const [isMergeMode, setIsMergeMode] = useState(false);
@@ -385,7 +389,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
             await listCard(BigInt(cardToSell.tokenId), sellPrice);
 
-            alert(`Card listed for ${sellPrice} XTZ!`);
+            alert(`Card listed for ${sellPrice} ${currencySymbol()}!`);
             setSellModalOpen(false);
             setCardToSell(null);
             setSellPrice('');
@@ -424,7 +428,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                 durationDays
             );
 
-            alert(`Auction created! Starting at ${auctionStartPrice} XTZ for ${auctionDuration} hours.`);
+            alert(`Auction created! Starting at ${auctionStartPrice} ${currencySymbol()} for ${auctionDuration} hours.`);
             setSellModalOpen(false);
             setCardToSell(null);
             await loadCards(true);
@@ -503,7 +507,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                     <div className="p-2 bg-yc-orange/10 rounded-lg text-yc-orange">
                                         <ShoppingCart className="w-6 h-6" />
                                     </div>
-                                    <span className="bg-black dark:bg-white text-white dark:text-black text-xs font-bold px-2 py-1 rounded">5 XTZ</span>
+                                    <span className="bg-black dark:bg-white text-white dark:text-black text-xs font-bold px-2 py-1 rounded">{packPriceLabel} {currencySymbol()}</span>
                                 </div>
                                 <h3 className="text-xl font-bold text-yc-text-primary dark:text-white mt-4 group-hover:text-yc-orange transition-colors">Buy Starter Pack</h3>
                                 <p className="text-sm text-gray-500 mt-1">Contains 5 random startup cards.</p>
@@ -874,7 +878,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         {sellMode === 'fixed' && (
                             <div className="mb-4">
                                 <label className="block text-sm font-bold text-gray-400 uppercase mb-2">
-                                    Sale Price (XTZ)
+                                    Sale Price ({currencySymbol()})
                                 </label>
                                 <div className="relative">
                                     <input
@@ -887,7 +891,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                         className="w-full bg-gray-50 dark:bg-black border border-gray-300 dark:border-[#2A2A2A] rounded-xl px-4 py-3 text-gray-900 dark:text-white text-lg font-mono focus:outline-none focus:border-yc-orange transition-colors"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                        XTZ
+                                        {currencySymbol()}
                                     </span>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2">
@@ -901,7 +905,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             <div className="space-y-4 mb-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-400 uppercase mb-2">
-                                        Starting Price (XTZ)
+                                        Starting Price ({currencySymbol()})
                                     </label>
                                     <div className="relative">
                                         <input
@@ -914,7 +918,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                             className="w-full bg-gray-50 dark:bg-black border border-gray-300 dark:border-[#2A2A2A] rounded-xl px-4 py-3 text-gray-900 dark:text-white text-lg font-mono focus:outline-none focus:border-purple-500 transition-colors"
                                         />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                            XTZ
+                                            {currencySymbol()}
                                         </span>
                                     </div>
                                 </div>
@@ -933,7 +937,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                             className="w-full bg-gray-50 dark:bg-black border border-gray-300 dark:border-[#2A2A2A] rounded-xl px-4 py-3 text-gray-900 dark:text-white text-lg font-mono focus:outline-none focus:border-purple-500 transition-colors"
                                         />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                            XTZ
+                                            {currencySymbol()}
                                         </span>
                                     </div>
                                     <p className="text-xs text-gray-500 mt-1">
@@ -1112,7 +1116,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                                     <div key={idx} className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                         <div className="flex justify-between items-center">
                                                             <div>
-                                                                <p className="text-gray-900 dark:text-white font-bold">{formatXTZ(bid.amount)} XTZ</p>
+                                                                <p className="text-gray-900 dark:text-white font-bold">{formatXTZ(bid.amount)} {currencySymbol()}</p>
                                                                 <p className="text-gray-500 text-xs font-mono">
                                                                     {bid.bidder.slice(0, 6)}...{bid.bidder.slice(-4)}
                                                                 </p>
@@ -1146,7 +1150,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                                     <div key={idx} className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                         <div className="flex justify-between items-center">
                                                             <div>
-                                                                <p className="text-gray-900 dark:text-white font-bold">{formatXTZ(sale.price)} XTZ</p>
+                                                                <p className="text-gray-900 dark:text-white font-bold">{formatXTZ(sale.price)} {currencySymbol()}</p>
                                                                 <p className="text-gray-500 text-xs">
                                                                     {sale.saleType === 0 ? 'Listing' : sale.saleType === 1 ? 'Bid Accepted' : 'Auction'}
                                                                 </p>
@@ -1182,26 +1186,26 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                                                         <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                             <p className="text-gray-500 text-xs uppercase mb-1">Total Volume</p>
                                                             <p className="text-gray-900 dark:text-white text-xl font-bold">
-                                                                {cardStats.totalVolume ? formatXTZ(cardStats.totalVolume) : '0'} XTZ
+                                                                {cardStats.totalVolume ? formatXTZ(cardStats.totalVolume) : '0'} {currencySymbol()}
                                                             </p>
                                                         </div>
                                                         <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                             <p className="text-gray-500 text-xs uppercase mb-1">Highest Sale</p>
                                                             <p className="text-green-600 dark:text-green-400 text-xl font-bold">
-                                                                {cardStats.highestSale ? formatXTZ(cardStats.highestSale) : '0'} XTZ
+                                                                {cardStats.highestSale ? formatXTZ(cardStats.highestSale) : '0'} {currencySymbol()}
                                                             </p>
                                                         </div>
                                                         <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                             <p className="text-gray-500 text-xs uppercase mb-1">Lowest Sale</p>
                                                             <p className="text-blue-600 dark:text-blue-400 text-xl font-bold">
-                                                                {cardStats.lowestSale && cardStats.lowestSale > 0n ? formatXTZ(cardStats.lowestSale) : '-'} XTZ
+                                                                {cardStats.lowestSale && cardStats.lowestSale > 0n ? formatXTZ(cardStats.lowestSale) : '-'} {currencySymbol()}
                                                             </p>
                                                         </div>
                                                     </div>
                                                     <div className="bg-gray-50 dark:bg-[#1A1A1A] rounded-xl p-4 border border-gray-200 dark:border-[#2A2A2A]">
                                                         <p className="text-gray-500 text-xs uppercase mb-1">Last Sale Price</p>
                                                         <p className="text-yc-orange text-2xl font-bold">
-                                                            {cardStats.lastSalePrice && cardStats.lastSalePrice > 0n ? formatXTZ(cardStats.lastSalePrice) : '-'} XTZ
+                                                            {cardStats.lastSalePrice && cardStats.lastSalePrice > 0n ? formatXTZ(cardStats.lastSalePrice) : '-'} {currencySymbol()}
                                                         </p>
                                                     </div>
                                                 </>

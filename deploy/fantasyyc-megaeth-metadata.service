@@ -1,0 +1,36 @@
+[Unit]
+Description=FantasyYC MegaETH Metadata Server (Express.js on port 3002)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fantasyyc
+Group=fantasyyc
+WorkingDirectory=/opt/fantasyyc/backend
+ExecStart=/usr/bin/node server.js
+EnvironmentFile=/opt/fantasyyc/.env
+Environment=NODE_ENV=production
+Environment=PORT=3002
+Environment=RPC_URL=https://carrot.megaeth.com/rpc
+Environment=NFT_CONTRACT_ADDRESS=0x45E817D93915D484bac01d27E26d19F30715B6Bc
+
+# Restart policy
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# Security
+NoNewPrivileges=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fantasyyc-megaeth-metadata
+
+[Install]
+WantedBy=multi-user.target

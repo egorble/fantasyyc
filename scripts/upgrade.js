@@ -22,6 +22,12 @@ const NETWORKS = {
         chainId: 42793,
         rpc: "https://node.mainnet.etherlink.com",
         explorer: "https://explorer.etherlink.com"
+    },
+    megaeth: {
+        name: "MegaETH Testnet",
+        chainId: 6343,
+        rpc: "https://carrot.megaeth.com/rpc",
+        explorer: "https://megaeth-testnet-v2.blockscout.com"
     }
 };
 
