@@ -49,8 +49,7 @@ function ContextGuard({ onLost }: { onLost: () => void }) {
     return null;
 }
 
-// Preload GLB at module level
-useGLTF.preload(GLB_PATH);
+// GLB preload happens in preload.ts (single request) — no duplicate here
 
 // Preload environment HDR so modal doesn't wait for it
 let _envPreloaded = false;

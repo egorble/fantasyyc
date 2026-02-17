@@ -10,13 +10,11 @@ import { blockchainCache } from './cache';
 import { apiUrl } from './api';
 import { useGLTF } from '@react-three/drei';
 
-// ── Preload 3D GLB model ──
+// ── Preload 3D GLB model (single request via drei's GLTFLoader) ──
+// This fires immediately on import and caches in three.js — useGLTF() will be instant later.
+// We do NOT await this in preloadAll() because it's ~5MB and would block the splash screen.
 const GLB_PATH = '/Meshy_AI_MegaETH_Card_Pack_0213081918_texture.glb';
-// 1. Start drei's GLTFLoader cache (so useGLTF() is instant later)
 useGLTF.preload(GLB_PATH);
-// 2. Also fetch raw bytes into browser HTTP cache — we await this in preloadAll()
-//    so splash screen doesn't dismiss until the 5MB GLB is fully downloaded.
-const glbPromise = fetch(GLB_PATH).then(r => r.arrayBuffer()).catch(() => {});
 
 // ── Cache keys for preloaded data ──
 export const PreloadKeys = {
@@ -119,8 +117,8 @@ async function preloadAll() {
             }
         }
 
-        // Wait for images + GLB to finish (they started in parallel with API calls)
-        await Promise.all([imagePromise, glbPromise]);
+        // Wait for images to finish (GLB loads in background via useGLTF.preload, not awaited)
+        await imagePromise;
 
         const elapsed = (performance.now() - start).toFixed(0);
     } catch (e) {
