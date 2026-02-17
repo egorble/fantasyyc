@@ -106,6 +106,24 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
         }
     }, [stage]);
 
+    // Clean up GSAP when entering finished stage — prevent residual 3D transforms
+    useLayoutEffect(() => {
+        if (stage === 'finished') {
+            cardRefs.current.forEach(card => {
+                if (card) {
+                    gsap.killTweensOf(card);
+                    gsap.set(card, { clearProps: 'all' });
+                    const inner = card.querySelector('.card-inner');
+                    if (inner) {
+                        gsap.killTweensOf(inner);
+                        gsap.set(inner, { clearProps: 'all' });
+                    }
+                }
+            });
+            cardRefs.current = [];
+        }
+    }, [stage]);
+
     // When pendingCards is set, transition
     useLayoutEffect(() => {
         if (pendingCards && stage === 'buying') {
@@ -258,7 +276,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const totalPrice = packPrice * BigInt(packCount);
 
     return (
-        <div ref={containerRef} className={`fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md perspective-1000 overflow-hidden ${isOpen ? '' : 'invisible pointer-events-none'}`}>
+        <div ref={containerRef} className={`fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md overflow-hidden ${isOpen ? '' : 'invisible pointer-events-none'}`}>
             {/* Flash Overlay */}
             <div ref={flashRef} className="absolute inset-0 bg-white pointer-events-none opacity-0 z-[60]" />
 
