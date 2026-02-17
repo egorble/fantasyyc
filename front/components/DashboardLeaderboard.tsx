@@ -1,70 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Trophy, ArrowRight, Crown, Medal, Award } from 'lucide-react';
 import { NavSection } from '../types';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { useWalletContext } from '../context/WalletContext';
-import { useNetwork } from '../context/NetworkContext';
-import { blockchainCache } from '../lib/cache';
-import { PreloadKeys, getPreloadedTournamentId } from '../lib/preload';
-import { apiUrl } from '../lib/api';
-
-interface LeaderboardPlayer {
-    rank: number;
-    address: string;
-    score: number;
-    lastUpdated: string;
-    username?: string | null;
-    avatar?: string | null;
-}
+import { useActiveTournament, useSharedLeaderboard } from '../hooks/useSharedData';
 
 interface DashboardLeaderboardProps {
     onNavigate: (section: NavSection) => void;
 }
 
 const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate }) => {
-    // Check preloaded data for instant first render
-    const preloadedId = getPreloadedTournamentId();
-    const preloadedPlayers = preloadedId
-        ? blockchainCache.get<LeaderboardPlayer[]>(PreloadKeys.leaderboard(preloadedId))
-        : undefined;
-
-    const [players, setPlayers] = useState<LeaderboardPlayer[]>(preloadedPlayers || []);
-    const [loading, setLoading] = useState(!preloadedPlayers);
-    const [tournamentId, setTournamentId] = useState<number | null>(preloadedId);
+    const { data: tournament } = useActiveTournament();
+    const tournamentId = tournament?.id ?? null;
+    const { data: players, isLoading: loading } = useSharedLeaderboard(tournamentId);
     const { address } = useWalletContext();
-    const { networkId } = useNetwork();
-
-    useEffect(() => {
-        // Show loading only if no data yet (first load)
-        if (players.length === 0) setLoading(true);
-
-        const fetchData = async () => {
-            try {
-                const tRes = await fetch(apiUrl('/tournaments/active'));
-                const tData = await tRes.json();
-                if (!tData.success) { setLoading(false); return; }
-                const tId = tData.data.id;
-
-                setTournamentId(tId);
-
-                const lRes = await fetch(apiUrl(`/leaderboard/${tId}?limit=10`));
-                const lData = await lRes.json();
-
-                if (lData.success) {
-                    setPlayers(lData.data);
-                    blockchainCache.set(PreloadKeys.leaderboard(tId), lData.data);
-                }
-            } catch {
-                // Keep stale data on error
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-        const interval = setInterval(fetchData, 30000);
-        return () => clearInterval(interval);
-    }, [networkId]);
 
     const formatAddress = (addr: string) => {
         if (addr.length <= 12) return addr;
@@ -97,7 +46,7 @@ const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate 
         );
     }
 
-    if (!tournamentId || players.length === 0) {
+    if (!tournamentId || !players || players.length === 0) {
         return (
             <div className="my-8">
                 <div className="flex items-center justify-between mb-4">

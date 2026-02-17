@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { apiUrl } from '../lib/api';
+import { apiUrl, fetchJson } from '../lib/api';
 
 export interface LeaderboardEntry {
     rank: number;
@@ -48,8 +48,7 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
             if (!hasFetched.current) setLoading(true);
 
             try {
-                const response = await fetch(apiUrl(`/leaderboard/${tournamentId}?limit=${limit}`));
-                const data = await response.json();
+                const data = await fetchJson(apiUrl(`/leaderboard/${tournamentId}?limit=${limit}`));
 
                 if (data.success) {
                     setLeaderboard(data.data);
@@ -95,8 +94,7 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
             if (!hasFetched.current) setLoading(true);
 
             try {
-                const response = await fetch(apiUrl(`/player/${playerAddress}/rank/${tournamentId}`));
-                const data = await response.json();
+                const data = await fetchJson(apiUrl(`/player/${playerAddress}/rank/${tournamentId}`));
 
                 if (data.success) {
                     setRank(data.data);
@@ -142,8 +140,7 @@ export function useDailyScores(tournamentId: number | null, date: string) {
             setError(null);
 
             try {
-                const response = await fetch(apiUrl(`/daily-scores/${tournamentId}/${date}`));
-                const data = await response.json();
+                const data = await fetchJson(apiUrl(`/daily-scores/${tournamentId}/${date}`));
 
                 if (data.success) {
                     setScores(data.data);
@@ -181,8 +178,7 @@ export function useTournamentStats(tournamentId: number | null) {
             if (!hasFetched.current) setLoading(true);
 
             try {
-                const response = await fetch(apiUrl(`/stats/${tournamentId}`));
-                const data = await response.json();
+                const data = await fetchJson(apiUrl(`/stats/${tournamentId}`));
 
                 if (data.success) {
                     setStats(data.data);

@@ -1,23 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { UserPlus, Copy, Check, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';
+import { UserPlus, Copy, Check } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useReferral } from '../hooks/useReferral';
-import { blockchainCache } from '../lib/cache';
-import { PreloadKeys, getPreloadedTournamentId } from '../lib/preload';
 import { currencySymbol } from '../lib/networks';
 import { useNetwork } from '../context/NetworkContext';
 import ModelViewer3D from './ModelViewer3D';
-
-interface TopStartup {
-  name: string;
-  points: number;
-}
+import { useActiveTournament, useSharedTopStartups } from '../hooks/useSharedData';
 
 interface RightPanelProps {
   onOpenPack: () => void;
 }
-
-import { apiUrl } from '../lib/api';
 
 const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
   const { isConnected } = useWalletContext();
@@ -27,38 +19,10 @@ const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
   const [copied, setCopied] = useState(false);
   const packPrice = isMegaETH ? '0.01' : '5';
 
-  // Use preloaded top startups for instant render
-  const preloadedId = getPreloadedTournamentId();
-  const preloaded = preloadedId
-      ? blockchainCache.get<TopStartup[]>(PreloadKeys.topStartups(preloadedId))
-      : undefined;
-  const [topStartups, setTopStartups] = useState<TopStartup[]>(preloaded || []);
+  const { data: tournament } = useActiveTournament();
+  const { data: topStartups } = useSharedTopStartups(tournament?.id ?? null);
 
   const referralLink = getReferralLink();
-
-  useEffect(() => {
-    const fetchTopStartups = async () => {
-      try {
-        const tourRes = await fetch(apiUrl('/tournaments/active'));
-        const tourData = await tourRes.json();
-        if (!tourData.success) return;
-        const tId = tourData.data.id;
-
-        const res = await fetch(apiUrl(`/top-startups/${tId}?limit=5`));
-        const data = await res.json();
-        if (data.success) {
-          setTopStartups(data.data);
-          blockchainCache.set(PreloadKeys.topStartups(tId), data.data);
-        }
-      } catch {
-        // Silently fail
-      }
-    };
-
-    fetchTopStartups();
-    const interval = setInterval(fetchTopStartups, 60000);
-    return () => clearInterval(interval);
-  }, [networkId]);
 
   const handleCopy = () => {
     if (!referralLink) return;
@@ -150,7 +114,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
         </div>
 
         <div className="space-y-1">
-            {topStartups.length > 0 ? (
+            {topStartups && topStartups.length > 0 ? (
               topStartups.map((startup, i) => (
                 <div key={startup.name} className="flex items-center justify-between group hover:bg-gray-100 dark:hover:bg-white/5 px-1 py-1 rounded transition-colors">
                     <div className="flex items-center min-w-0">

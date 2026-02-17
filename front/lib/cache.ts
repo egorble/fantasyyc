@@ -64,6 +64,8 @@ class BlockchainCache {
     private subscriptions = new Map<string, Subscription>();
     private pollingIntervalId: NodeJS.Timeout | null = null;
     private isPolling = false;
+    private _tabVisible = typeof document !== 'undefined' ? !document.hidden : true;
+    private _visibilityHandler: (() => void) | null = null;
 
     // Get cached data immediately, optionally fetch fresh in background
     get<T>(key: string): T | undefined {
@@ -230,6 +232,9 @@ class BlockchainCache {
 
         // Main polling loop - checks every 5 seconds what needs to be refreshed
         const pollTick = async () => {
+            // Skip all fetches when tab is hidden — saves API requests
+            if (!this._tabVisible) return;
+
             const now = Date.now();
 
             for (const [key, sub] of this.subscriptions) {
@@ -262,6 +267,15 @@ class BlockchainCache {
             }
         };
 
+        // Tab visibility: pause polling when hidden, refresh immediately when visible
+        if (typeof document !== 'undefined') {
+            this._visibilityHandler = () => {
+                this._tabVisible = !document.hidden;
+                if (this._tabVisible) pollTick(); // Instant refresh on tab return
+            };
+            document.addEventListener('visibilitychange', this._visibilityHandler);
+        }
+
         // Run immediately, then every 5 seconds
         pollTick();
         this.pollingIntervalId = setInterval(pollTick, 5000);
@@ -272,6 +286,11 @@ class BlockchainCache {
         if (this.pollingIntervalId) {
             clearInterval(this.pollingIntervalId);
             this.pollingIntervalId = null;
+        }
+        // Clean up visibility listener
+        if (this._visibilityHandler && typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this._visibilityHandler);
+            this._visibilityHandler = null;
         }
         this.isPolling = false;
     }

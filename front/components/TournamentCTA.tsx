@@ -1,50 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Users, Clock, ArrowRight, Zap } from 'lucide-react';
 import { NavSection } from '../types';
-import { blockchainCache } from '../lib/cache';
-import { PreloadKeys } from '../lib/preload';
-import { apiUrl } from '../lib/api';
 import { currencySymbol } from '../lib/networks';
-import { useNetwork } from '../context/NetworkContext';
-
-interface TournamentData {
-    id: number;
-    startTime: number;
-    endTime: number;
-    prizePool: string;
-    entryCount: number;
-    status: string;
-}
+import { useActiveTournament } from '../hooks/useSharedData';
 
 interface TournamentCTAProps {
     onNavigate: (section: NavSection) => void;
 }
 
 const TournamentCTA: React.FC<TournamentCTAProps> = ({ onNavigate }) => {
-    const { networkId } = useNetwork();
-    const [tournament, setTournament] = useState<TournamentData | null>(
-        () => blockchainCache.get<TournamentData>(PreloadKeys.activeTournament) || null
-    );
+    const { data: tournament } = useActiveTournament();
     const [timeLeft, setTimeLeft] = useState('');
-
-    useEffect(() => {
-        const fetchTournament = async () => {
-            try {
-                const res = await fetch(apiUrl('/tournaments/active'));
-                const data = await res.json();
-                if (data.success) {
-                    setTournament(data.data);
-                    blockchainCache.set(PreloadKeys.activeTournament, data.data);
-                }
-            } catch {
-                // Silently fail
-            }
-        };
-
-        fetchTournament();
-        const interval = setInterval(fetchTournament, 60000);
-        return () => clearInterval(interval);
-    }, [networkId]);
 
     // Update countdown
     useEffect(() => {

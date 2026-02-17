@@ -9,6 +9,7 @@
 import { blockchainCache } from './cache';
 import { apiUrl } from './api';
 import { useGLTF } from '@react-three/drei';
+import { seedSharedCache } from '../hooks/useSharedData';
 
 // ── Preload 3D assets (fire-and-forget) ──
 // These start downloading immediately on import but DON'T block splash.
@@ -67,11 +68,17 @@ async function preloadNetworkData() {
             blockchainCache.set(PreloadKeys.activeTournament, tournamentRes.data);
             _tournamentId = tournamentRes.data.id;
         }
+        let leaderboardData;
         if (_tournamentId) {
             const leaderboardRes = await fetch(apiUrl(`/leaderboard/${_tournamentId}?limit=10`)).then(r => r.json()).catch(() => null);
             if (leaderboardRes?.success) {
-                blockchainCache.set(PreloadKeys.leaderboard(_tournamentId), leaderboardRes.data);
+                leaderboardData = leaderboardRes.data;
+                blockchainCache.set(PreloadKeys.leaderboard(_tournamentId), leaderboardData);
             }
+        }
+        // Seed shared hooks so useActiveTournament/useSharedLeaderboard find data instantly
+        if (tournamentRes?.success) {
+            seedSharedCache(tournamentRes.data, leaderboardData);
         }
     } catch {}
 }
@@ -98,6 +105,7 @@ async function preloadAll() {
         }
 
         // Phase 2: leaderboard + top startups (need tournament ID)
+        let leaderboardData, startupsData;
         if (_tournamentId) {
             const [leaderboardRes, startupsRes] = await Promise.all([
                 fetch(apiUrl(`/leaderboard/${_tournamentId}?limit=10`)).then(r => r.json()).catch(() => null),
@@ -105,11 +113,19 @@ async function preloadAll() {
             ]);
 
             if (leaderboardRes?.success) {
-                blockchainCache.set(PreloadKeys.leaderboard(_tournamentId), leaderboardRes.data);
+                leaderboardData = leaderboardRes.data;
+                blockchainCache.set(PreloadKeys.leaderboard(_tournamentId), leaderboardData);
             }
             if (startupsRes?.success) {
-                blockchainCache.set(PreloadKeys.topStartups(_tournamentId), startupsRes.data);
+                startupsData = startupsRes.data;
+                blockchainCache.set(PreloadKeys.topStartups(_tournamentId), startupsData);
             }
+        }
+
+        // Seed shared hooks so useActiveTournament/useSharedLeaderboard/useSharedTopStartups
+        // find data instantly on first render (no spinner)
+        if (tournamentRes?.success) {
+            seedSharedCache(tournamentRes.data, leaderboardData, startupsData);
         }
 
         // Wait for images to finish
