@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, useEnvironment } from '@react-three/drei';
 import * as THREE from 'three';
 
-const GLB_PATH = '/Meshy_AI_MegaETH_Card_Pack_0213081918_texture.glb';
+const GLB_PATH = '/megaeth-pack.glb';
 
 interface PackModelProps {
     mode: 'gentle' | 'auto' | 'static';
@@ -11,7 +11,7 @@ interface PackModelProps {
 }
 
 function PackModel({ mode, scale = 1 }: PackModelProps) {
-    const { scene } = useGLTF(GLB_PATH);
+    const { scene } = useGLTF(GLB_PATH, false, true);
     // Deep-clone so each instance owns its own scene (prevents steal on mount/unmount)
     const cloned = useMemo(() => scene.clone(true), [scene]);
     const ref = useRef<THREE.Group>(null!);
@@ -51,10 +51,12 @@ function ContextGuard({ onLost }: { onLost: () => void }) {
 
 // GLB preload happens in preload.ts (single request) — no duplicate here
 
+const ENV_HDR = '/env-city.hdr';
+
 // Preload environment HDR so modal doesn't wait for it
 let _envPreloaded = false;
 function EnvPreloader() {
-    useEnvironment({ preset: 'city' });
+    useEnvironment({ files: ENV_HDR });
     _envPreloaded = true;
     return null;
 }
@@ -110,7 +112,7 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                 <directionalLight position={[-3, 2, -3]} intensity={0.3} />
                 <Suspense fallback={null}>
                     <PackModel mode={packMode} scale={modelScale} />
-                    {isInteractive && <Environment preset="city" />}
+                    {isInteractive && <Environment files={ENV_HDR} />}
                     {!isInteractive && !_envPreloaded && <EnvPreloader />}
                 </Suspense>
                 {mode === 'gentle' && <GentleInvalidator />}

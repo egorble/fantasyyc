@@ -10,20 +10,15 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onReady }) => {
     const [fadeOut, setFadeOut] = useState(false);
 
     useEffect(() => {
-        // Animate progress bar smoothly
-        // Phase 1: quick ramp to ~60% (simulated, feels fast)
         const t1 = setTimeout(() => setProgress(30), 100);
         const t2 = setTimeout(() => setProgress(55), 300);
         const t3 = setTimeout(() => setProgress(70), 600);
 
-        // Wait for actual preload to finish
         preloadPromise.then(() => {
             setProgress(100);
-            // Short pause at 100% then fade out
             setTimeout(() => setFadeOut(true), 200);
-            setTimeout(() => onReady(), 700); // match fade duration
+            setTimeout(() => onReady(), 700);
         }).catch(() => {
-            // Even on error, proceed to app
             setProgress(100);
             setTimeout(() => setFadeOut(true), 200);
             setTimeout(() => onReady(), 700);
@@ -52,7 +47,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onReady }) => {
                 }}
             />
 
-            {/* Glow effect behind logo */}
+            {/* Glow effect */}
             <div className="absolute w-64 h-64 bg-yc-orange/10 rounded-full blur-[100px]" />
 
             {/* Logo */}
@@ -81,7 +76,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onReady }) => {
                 />
             </div>
 
-            {/* Loading text */}
             <p className="mt-4 text-gray-600 text-[11px] font-mono">
                 {progress < 100 ? 'Loading...' : 'Ready'}
             </p>
