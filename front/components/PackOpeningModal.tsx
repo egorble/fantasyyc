@@ -564,17 +564,17 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                             {mintedCards.map((card, index) => (
                                 <div
                                     key={card.tokenId}
-                                    className="relative bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl overflow-hidden transition-transform hover:scale-[1.03] animate-[fadeInUp_0.3s_ease-out]"
-                                    style={{ animationDelay: isMultiPack ? `${index * 30}ms` : '0ms', animationFillMode: 'both' }}
+                                    className="relative bg-[#121212] border border-[#2A2A2A] rounded-xl overflow-hidden transition-transform hover:scale-[1.03]"
+                                    style={{
+                                        animation: `fadeInUp 0.3s ease-out ${isMultiPack ? index * 30 : 0}ms both`,
+                                    }}
                                 >
-                                    <div className="relative">
-                                        <img
-                                            src={card.image}
-                                            className="w-full object-contain"
-                                            loading={index < 20 ? 'eager' : 'lazy'}
-                                            alt={card.name}
-                                        />
-                                    </div>
+                                    <img
+                                        src={card.image}
+                                        className="block w-full"
+                                        loading={index < 20 ? 'eager' : 'lazy'}
+                                        alt={card.name}
+                                    />
                                 </div>
                             ))}
                         </div>
