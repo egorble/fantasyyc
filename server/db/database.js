@@ -14,6 +14,7 @@ const DB_PATH = join(__dirname, DB_FILENAME);
 
 let SQL;
 let db;
+let currentDbPath = DB_PATH;
 
 /**
  * Initialize database connection
@@ -45,7 +46,39 @@ export function saveDatabase() {
     if (!db) return;
     const data = db.export();
     const buffer = Buffer.from(data);
-    writeFileSync(DB_PATH, buffer);
+    writeFileSync(currentDbPath, buffer);
+}
+
+/**
+ * Switch the active database to a different file.
+ * Saves current DB first, then loads the new one.
+ * Used by the unified scorer to write to multiple network DBs.
+ * @param {string} newPath - Absolute path to the new DB file
+ * @param {string} schemaPath - Optional path to schema.sql to apply if DB is new
+ */
+export async function switchToDb(newPath, schemaPath) {
+    saveDatabase();
+    if (!SQL) SQL = await initSqlJs();
+    if (existsSync(newPath)) {
+        db = new SQL.Database(readFileSync(newPath));
+    } else {
+        db = new SQL.Database();
+        // Apply schema to new DB
+        if (schemaPath && existsSync(schemaPath)) {
+            const schema = readFileSync(schemaPath, 'utf-8');
+            schema.split(';').filter(s => s.trim()).forEach(stmt => {
+                if (stmt.trim()) db.run(stmt);
+            });
+        }
+    }
+    currentDbPath = newPath;
+}
+
+/**
+ * Get the current DB file path.
+ */
+export function getCurrentDbPath() {
+    return currentDbPath;
 }
 
 /**

@@ -93,3 +93,20 @@ export const CONTRACTS = CONTRACT_CONFIGS[NETWORK_NAME] || CONTRACT_CONFIGS.ethe
 export const DB_FILENAME = NETWORK_NAME === 'etherlink'
     ? 'fantasyyc.db'
     : `fantasyyc-${NETWORK_NAME}.db`;
+
+// Expose all network configs for the unified scorer
+export { CHAIN_CONFIGS, CONTRACT_CONFIGS };
+
+/** All supported network IDs */
+export const ALL_NETWORKS = Object.keys(CHAIN_CONFIGS);
+
+/** Get absolute DB path for a given network */
+export function dbPathForNetwork(networkName) {
+    const dbFile = networkName === 'etherlink' ? 'fantasyyc.db' : `fantasyyc-${networkName}.db`;
+    return join(__dirname, 'db', dbFile);
+}
+
+/** Get schema.sql path */
+export function schemaPath() {
+    return join(__dirname, 'db', 'schema.sql');
+}
