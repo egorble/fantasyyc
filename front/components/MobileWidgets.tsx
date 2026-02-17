@@ -39,13 +39,10 @@ const MobileWidgets: React.FC<MobileWidgetsProps> = ({ onOpenPack }) => {
     useEffect(() => {
         const fetchTopStartups = async () => {
             try {
-                let tId = getPreloadedTournamentId();
-                if (!tId) {
-                    const tourRes = await fetch(apiUrl('/tournaments/active'));
-                    const tourData = await tourRes.json();
-                    if (!tourData.success) return;
-                    tId = tourData.data.id;
-                }
+                const tourRes = await fetch(apiUrl('/tournaments/active'));
+                const tourData = await tourRes.json();
+                if (!tourData.success) return;
+                const tId = tourData.data.id;
 
                 const res = await fetch(apiUrl(`/top-startups/${tId}?limit=5`));
                 const data = await res.json();
@@ -56,11 +53,10 @@ const MobileWidgets: React.FC<MobileWidgetsProps> = ({ onOpenPack }) => {
             } catch { /* silently fail */ }
         };
 
-        const delay = preloaded ? 60000 : 0;
-        const timeout = setTimeout(fetchTopStartups, delay);
+        fetchTopStartups();
         const interval = setInterval(fetchTopStartups, 60000);
-        return () => { clearTimeout(timeout); clearInterval(interval); };
-    }, []);
+        return () => clearInterval(interval);
+    }, [networkId]);
 
     const handleCopy = () => {
         if (!referralLink) return;

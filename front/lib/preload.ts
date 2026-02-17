@@ -60,13 +60,7 @@ function preloadImages(): Promise<void> {
 
 // ── Network-switch preload (tournament + leaderboard only) ──
 // Live feed & top startups are shared across networks — skip them.
-// Throttled: max once per 30s to avoid 429.
-let _lastNetworkPreload = 0;
 async function preloadNetworkData() {
-    const now = Date.now();
-    if (now - _lastNetworkPreload < 30_000) return;
-    _lastNetworkPreload = now;
-
     try {
         const tournamentRes = await fetch(apiUrl('/tournaments/active')).then(r => r.json()).catch(() => null);
         if (tournamentRes?.success) {

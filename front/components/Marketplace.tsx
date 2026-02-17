@@ -6,6 +6,7 @@ import { useWalletContext } from '../context/WalletContext';
 import { usePollingData } from '../hooks/usePollingData';
 import { formatXTZ } from '../lib/contracts';
 import { currencySymbol } from '../lib/networks';
+import { useNetwork } from '../context/NetworkContext';
 import { blockchainCache, CacheKeys } from '../lib/cache';
 import { CardData, Rarity, sortByRarity } from '../types';
 import { useOnboarding } from '../hooks/useOnboarding';
@@ -111,6 +112,7 @@ const Marketplace: React.FC = () => {
     } = useMarketplaceV2();
     const { getCardInfo, getCards, clearCache } = useNFT();
     const { address, isConnected } = useWalletContext();
+    const { networkId } = useNetwork();
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('marketplace');
 
     // State
@@ -239,8 +241,8 @@ const Marketplace: React.FC = () => {
         isLoading: pollingListingsLoading,
         refresh: refreshListings
     } = usePollingData<ListingWithMeta[]>(fetchListings, {
-        cacheKey: 'marketplace:active-listings',
-        interval: 30000, // 30 seconds — avoid flooding metadata API
+        cacheKey: `marketplace:active-listings:${networkId}`,
+        interval: 30000,
         enabled: true
     });
 
@@ -250,8 +252,8 @@ const Marketplace: React.FC = () => {
         isLoading: pollingAuctionsLoading,
         refresh: refreshAuctions
     } = usePollingData<AuctionWithMeta[]>(fetchAuctions, {
-        cacheKey: 'marketplace:active-auctions',
-        interval: 30000, // 30 seconds — avoid flooding metadata API
+        cacheKey: `marketplace:active-auctions:${networkId}`,
+        interval: 30000,
         enabled: true
     });
 

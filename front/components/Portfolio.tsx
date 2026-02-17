@@ -94,8 +94,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             return await getCards(address);
         },
         {
-            cacheKey: `portfolio:cards:${address || 'none'}`,
-            interval: 30000, // 30 seconds
+            cacheKey: `portfolio:cards:${networkId}:${address || 'none'}`,
+            interval: 30000,
             enabled: isConnected && !!address
         }
     );

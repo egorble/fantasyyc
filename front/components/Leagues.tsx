@@ -10,6 +10,7 @@ import { currencySymbol } from '../lib/networks';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { blockchainCache, CacheKeys } from '../lib/cache';
 import { apiUrl } from '../lib/api';
+import { useNetwork } from '../context/NetworkContext';
 import gsap from 'gsap';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
@@ -102,6 +103,7 @@ const Leagues: React.FC = () => {
 
     // Hooks
     const { isConnected, address, getSigner, connect } = useWalletContext();
+    const { networkId } = useNetwork();
     const { getCards, clearCache, isLoading: nftLoading } = useNFT();
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('leagues');
     const {
@@ -116,10 +118,10 @@ const Leagues: React.FC = () => {
         isLoading: tournamentLoading
     } = useTournament();
 
-    // Load tournament and user cards
+    // Load tournament and user cards (re-run on network switch)
     useEffect(() => {
         loadTournamentData();
-    }, [isConnected, address]);
+    }, [isConnected, address, networkId]);
 
     const loadTournamentData = async () => {
         // Get active tournament ID from PackOpener

@@ -5,6 +5,7 @@ import { blockchainCache } from '../lib/cache';
 import { PreloadKeys } from '../lib/preload';
 import { apiUrl } from '../lib/api';
 import { currencySymbol } from '../lib/networks';
+import { useNetwork } from '../context/NetworkContext';
 
 interface TournamentData {
     id: number;
@@ -20,9 +21,10 @@ interface TournamentCTAProps {
 }
 
 const TournamentCTA: React.FC<TournamentCTAProps> = ({ onNavigate }) => {
-    // Use preloaded tournament data for instant render
-    const preloaded = blockchainCache.get<TournamentData>(PreloadKeys.activeTournament);
-    const [tournament, setTournament] = useState<TournamentData | null>(preloaded || null);
+    const { networkId } = useNetwork();
+    const [tournament, setTournament] = useState<TournamentData | null>(
+        () => blockchainCache.get<TournamentData>(PreloadKeys.activeTournament) || null
+    );
     const [timeLeft, setTimeLeft] = useState('');
 
     useEffect(() => {
@@ -39,12 +41,10 @@ const TournamentCTA: React.FC<TournamentCTAProps> = ({ onNavigate }) => {
             }
         };
 
-        // If preloaded, delay first fetch; otherwise fetch immediately
-        const delay = preloaded ? 60000 : 0;
-        const timeout = setTimeout(fetchTournament, delay);
+        fetchTournament();
         const interval = setInterval(fetchTournament, 60000);
-        return () => { clearTimeout(timeout); clearInterval(interval); };
-    }, []);
+        return () => clearInterval(interval);
+    }, [networkId]);
 
     // Update countdown
     useEffect(() => {

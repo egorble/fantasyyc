@@ -3,6 +3,7 @@ import { Trophy, ArrowRight, Crown, Medal, Award } from 'lucide-react';
 import { NavSection } from '../types';
 import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { useWalletContext } from '../context/WalletContext';
+import { useNetwork } from '../context/NetworkContext';
 import { blockchainCache } from '../lib/cache';
 import { PreloadKeys, getPreloadedTournamentId } from '../lib/preload';
 import { apiUrl } from '../lib/api';
@@ -31,18 +32,18 @@ const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate 
     const [loading, setLoading] = useState(!preloadedPlayers);
     const [tournamentId, setTournamentId] = useState<number | null>(preloadedId);
     const { address } = useWalletContext();
+    const { networkId } = useNetwork();
 
     useEffect(() => {
+        // Show loading only if no data yet (first load)
+        if (players.length === 0) setLoading(true);
+
         const fetchData = async () => {
             try {
-                // Use preloaded tournament if available, otherwise fetch
-                let tId = getPreloadedTournamentId();
-                if (!tId) {
-                    const tRes = await fetch(apiUrl('/tournaments/active'));
-                    const tData = await tRes.json();
-                    if (!tData.success) { setLoading(false); return; }
-                    tId = tData.data.id;
-                }
+                const tRes = await fetch(apiUrl('/tournaments/active'));
+                const tData = await tRes.json();
+                if (!tData.success) { setLoading(false); return; }
+                const tId = tData.data.id;
 
                 setTournamentId(tId);
 
@@ -54,20 +55,16 @@ const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({ onNavigate 
                     blockchainCache.set(PreloadKeys.leaderboard(tId), lData.data);
                 }
             } catch {
-                // Silently fail
+                // Keep stale data on error
             } finally {
                 setLoading(false);
             }
         };
 
-        // If we already have preloaded data, delay first poll
-        const delay = preloadedPlayers ? 10000 : 0;
-        const timeout = setTimeout(() => {
-            fetchData();
-        }, delay);
-        const interval = setInterval(fetchData, 10000);
-        return () => { clearTimeout(timeout); clearInterval(interval); };
-    }, []);
+        fetchData();
+        const interval = setInterval(fetchData, 30000);
+        return () => clearInterval(interval);
+    }, [networkId]);
 
     const formatAddress = (addr: string) => {
         if (addr.length <= 12) return addr;

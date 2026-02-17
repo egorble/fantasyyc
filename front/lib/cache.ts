@@ -347,39 +347,42 @@ if (_restored > 0) {
 // Export polling intervals for use in hooks
 export { POLLING_INTERVALS };
 
-// Cache keys
+// Cache keys — all prefixed with active network ID for per-chain isolation
+// Each network gets its own namespace so switching back shows cached data instantly
+const n = () => getActiveNetworkId();
+
 export const CacheKeys = {
     // Balance data
-    balance: (address: string) => `balance:${address}`,
+    balance: (address: string) => `${n()}:balance:${address}`,
 
     // Pack data
-    packPrice: () => 'pack:price',
-    packsSold: () => 'pack:sold',
+    packPrice: () => `${n()}:pack:price`,
+    packsSold: () => `${n()}:pack:sold`,
 
     // User-specific pack data
-    userUnopenedPacks: (address: string) => `pack:unopened:${address}`,
-    userPacks: (address: string) => `pack:user:${address}`,
+    userUnopenedPacks: (address: string) => `${n()}:pack:unopened:${address}`,
+    userPacks: (address: string) => `${n()}:pack:user:${address}`,
 
     // NFT data
-    ownedTokens: (address: string) => `nft:owned:${address}`,
-    cardMetadata: (tokenId: number) => `nft:card:${tokenId}`,
-    userCards: (address: string) => `nft:cards:${address}`,
+    ownedTokens: (address: string) => `${n()}:nft:owned:${address}`,
+    cardMetadata: (tokenId: number) => `${n()}:nft:card:${tokenId}`,
+    userCards: (address: string) => `${n()}:nft:cards:${address}`,
 
     // Tournament data
-    activeTournamentId: () => 'tournament:activeId',
-    tournament: (id: number) => `tournament:${id}`,
-    allTournaments: () => 'tournament:all',
-    canRegister: (id: number) => `tournament:canRegister:${id}`,
-    userEntered: (id: number, address: string) => `tournament:entered:${id}:${address}`,
-    userLineup: (id: number, address: string) => `tournament:lineup:${id}:${address}`,
-    tournamentPhase: (id: number) => `tournament:phase:${id}`,
+    activeTournamentId: () => `${n()}:tournament:activeId`,
+    tournament: (id: number) => `${n()}:tournament:${id}`,
+    allTournaments: () => `${n()}:tournament:all`,
+    canRegister: (id: number) => `${n()}:tournament:canRegister:${id}`,
+    userEntered: (id: number, address: string) => `${n()}:tournament:entered:${id}:${address}`,
+    userLineup: (id: number, address: string) => `${n()}:tournament:lineup:${id}:${address}`,
+    tournamentPhase: (id: number) => `${n()}:tournament:phase:${id}`,
 
     // Marketplace data
-    activeListings: () => 'marketplace:listings',
-    userListings: (address: string) => `marketplace:userListings:${address}`,
-    userBids: (address: string) => `marketplace:userBids:${address}`,
-    marketplaceStats: () => 'marketplace:stats',
-    activeAuctions: () => 'marketplace:auctions',
+    activeListings: () => `${n()}:marketplace:listings`,
+    userListings: (address: string) => `${n()}:marketplace:userListings:${address}`,
+    userBids: (address: string) => `${n()}:marketplace:userBids:${address}`,
+    marketplaceStats: () => `${n()}:marketplace:stats`,
+    activeAuctions: () => `${n()}:marketplace:auctions`,
 };
 
 // TTL constants
