@@ -46,7 +46,6 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
 
         const fetchLeaderboard = async () => {
             if (!hasFetched.current) setLoading(true);
-            setError(null);
 
             try {
                 const response = await fetch(apiUrl(`/leaderboard/${tournamentId}?limit=${limit}`));
@@ -54,11 +53,16 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
 
                 if (data.success) {
                     setLeaderboard(data.data);
-                } else {
+                    setError(null);
+                } else if (!hasFetched.current) {
+                    // Only show error on first load, not on refetch
                     setError(data.message || 'Failed to fetch leaderboard');
                 }
             } catch (err) {
-                setError('Network error');
+                if (!hasFetched.current) {
+                    setError('Network error');
+                }
+                // On refetch error: keep stale data, don't show error
             } finally {
                 hasFetched.current = true;
                 setLoading(false);
@@ -67,7 +71,7 @@ export function useLeaderboard(tournamentId: number | null, limit: number = 100)
 
         fetchLeaderboard();
 
-        const interval = setInterval(fetchLeaderboard, 10000);
+        const interval = setInterval(fetchLeaderboard, 30000);
         return () => clearInterval(interval);
     }, [tournamentId, limit]);
 
@@ -89,7 +93,6 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
 
         const fetchRank = async () => {
             if (!hasFetched.current) setLoading(true);
-            setError(null);
 
             try {
                 const response = await fetch(apiUrl(`/player/${playerAddress}/rank/${tournamentId}`));
@@ -97,12 +100,15 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
 
                 if (data.success) {
                     setRank(data.data);
-                } else {
+                    setError(null);
+                } else if (!hasFetched.current) {
                     setRank(null);
                     setError(data.message || 'Player not found');
                 }
             } catch (err) {
-                setError('Network error');
+                if (!hasFetched.current) {
+                    setError('Network error');
+                }
             } finally {
                 hasFetched.current = true;
                 setLoading(false);
@@ -111,7 +117,7 @@ export function usePlayerRank(tournamentId: number | null, playerAddress: string
 
         fetchRank();
 
-        const interval = setInterval(fetchRank, 10000);
+        const interval = setInterval(fetchRank, 30000);
         return () => clearInterval(interval);
     }, [tournamentId, playerAddress]);
 
@@ -173,7 +179,6 @@ export function useTournamentStats(tournamentId: number | null) {
 
         const fetchStats = async () => {
             if (!hasFetched.current) setLoading(true);
-            setError(null);
 
             try {
                 const response = await fetch(apiUrl(`/stats/${tournamentId}`));
@@ -181,11 +186,14 @@ export function useTournamentStats(tournamentId: number | null) {
 
                 if (data.success) {
                     setStats(data.data);
-                } else {
+                    setError(null);
+                } else if (!hasFetched.current) {
                     setError(data.message || 'Failed to fetch stats');
                 }
             } catch (err) {
-                setError('Network error');
+                if (!hasFetched.current) {
+                    setError('Network error');
+                }
             } finally {
                 hasFetched.current = true;
                 setLoading(false);

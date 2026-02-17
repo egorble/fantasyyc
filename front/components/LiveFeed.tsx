@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, RefreshCw } from 'lucide-react';
 import { blockchainCache } from '../lib/cache';
 import { PreloadKeys } from '../lib/preload';
-import { apiUrl } from '../lib/api';
+
 
 interface FeedEvent {
     id: number;
@@ -64,7 +64,7 @@ const LiveFeed: React.FC = () => {
 
     const fetchFeed = async () => {
         try {
-            const res = await fetch(apiUrl('/live-feed?limit=15'));
+            const res = await fetch('/api/live-feed?limit=15');
             const data = await res.json();
             if (data.success && data.data.length > 0) {
                 setEvents(data.data);
