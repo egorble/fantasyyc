@@ -25,9 +25,25 @@ import { dirname, join } from 'path';
 import * as db from '../db/database.js';
 import {
     CHAIN_CONFIGS, CONTRACT_CONFIGS, ALL_NETWORKS,
-    dbPathForNetwork, schemaPath, NETWORK_NAME
+    dbPathForNetwork, schemaPath, NETWORK_NAME, ADMIN_API_KEY
 } from '../config.js';
 import { computeDailyScoreHmac, computeScoreHmac, computeLeaderboardHmac, computeIntegrityHash } from '../middleware/integrity.js';
+
+/** Notify a secondary server to reload its DB from disk after scorer writes */
+async function notifyReloadDb(networkName) {
+    const port = CHAIN_CONFIGS[networkName]?.SERVER_PORT;
+    if (!port || networkName === NETWORK_NAME) return; // skip self
+    try {
+        const res = await fetch(`http://localhost:${port}/api/reload-db`, {
+            method: 'POST',
+            headers: { 'X-Admin-Key': ADMIN_API_KEY, 'Content-Type': 'application/json' },
+        });
+        if (res.ok) console.log(`  [${networkName}] Notified server (port ${port}) to reload DB`);
+        else console.error(`  [${networkName}] Reload failed: ${res.status}`);
+    } catch (e) {
+        console.error(`  [${networkName}] Could not reach server on port ${port}: ${e.message}`);
+    }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -333,6 +349,9 @@ async function applyToNetwork(networkName, scoringDate, startupBaseScores, tweet
         db.saveDatabase();
         console.log(`  [${networkName}] DB saved.`);
 
+        // Notify secondary server to reload from disk
+        await notifyReloadDb(networkName);
+
     } finally {
         // Switch back to original DB if we swapped
         if (targetPath !== originalPath) {
@@ -384,7 +403,7 @@ async function runDailyScoring(dateOverride, force = false) {
 
         // Rate limit between startups
         if (i < handles.length - 1) {
-            await new Promise(r => setTimeout(r, 5000));
+            await new Promise(r => setTimeout(r, 1000));
         }
     }
 

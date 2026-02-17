@@ -68,6 +68,10 @@ interface ModelViewer3DProps {
     modelScale?: number;
     /** Camera distance (default 2.5) */
     cameraZ?: number;
+    /** Camera vertical position (default 0.5) */
+    cameraY?: number;
+    /** Camera field of view (default 35) */
+    fov?: number;
     /** CSS class for the outer container */
     className?: string;
     /** Inline style override */
@@ -80,6 +84,8 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     mode = 'auto',
     modelScale = 1,
     cameraZ = 2.5,
+    cameraY = 0.5,
+    fov = 35,
     className = '',
     style,
     paused = false,
@@ -96,7 +102,7 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         <div className={className} style={{ width: '100%', height: '100%', ...style }}>
             <Canvas
                 key={canvasKey}
-                camera={{ position: [0, 0.5, cameraZ], fov: 35 }}
+                camera={{ position: [0, cameraY, cameraZ], fov }}
                 gl={{
                     alpha: true,
                     antialias: mode !== 'gentle',

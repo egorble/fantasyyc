@@ -874,6 +874,21 @@ app.post('/api/run-scorer', adminLimiter, requireAdmin, async (req, res) => {
 });
 
 /**
+ * POST /api/reload-db
+ * Reload the database from disk. Used by the unified scorer to notify
+ * secondary servers after writing to their DB files.
+ */
+app.post('/api/reload-db', adminLimiter, requireAdmin, async (req, res) => {
+    try {
+        await db.initDatabase(true);
+        console.log('[RELOAD] Database reloaded from disk');
+        return res.json({ success: true, message: 'Database reloaded' });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * POST /api/finalize
  * Manually trigger tournament finalization check.
  */

@@ -62,11 +62,13 @@ const CHAIN_CONFIGS = {
         RPC_URL: 'https://node.shadownet.etherlink.com',
         CHAIN_ID: 127823,
         EXPLORER: 'https://shadownet.explorer.etherlink.com',
+        SERVER_PORT: 3003,
     },
     megaeth: {
         RPC_URL: 'https://carrot.megaeth.com/rpc',
         CHAIN_ID: 6343,
         EXPLORER: 'https://megaeth-testnet-v2.blockscout.com',
+        SERVER_PORT: 3004,
     },
 };
 
