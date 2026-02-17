@@ -45,18 +45,28 @@ export function resetPreloadState(): void {
 }
 
 // ── Preload all 19 startup images into browser cache ──
+// Batched (6 at a time) to avoid overwhelming HTTP/2 streams
 function preloadImages(): Promise<void> {
     const STARTUP_COUNT = 19;
-    const promises: Promise<void>[] = [];
-    for (let i = 1; i <= STARTUP_COUNT; i++) {
-        promises.push(new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => resolve();
-            img.onerror = () => resolve(); // don't block on error
-            img.src = `/images/${i}.png`;
-        }));
-    }
-    return Promise.all(promises).then(() => {});
+    const BATCH = 6;
+    const ids = Array.from({ length: STARTUP_COUNT }, (_, i) => i + 1);
+
+    const loadOne = (id: number) => new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = `/images/${id}.png`;
+    });
+
+    let idx = 0;
+    const next = async (): Promise<void> => {
+        const batch = ids.slice(idx, idx + BATCH);
+        if (!batch.length) return;
+        idx += BATCH;
+        await Promise.all(batch.map(loadOne));
+        return next();
+    };
+    return next();
 }
 
 // ── Network-switch preload (tournament + leaderboard only) ──
@@ -85,16 +95,16 @@ async function preloadNetworkData() {
 
 // ── Full preload (first load only — includes live feed + images) ──
 async function preloadAll() {
-    const start = performance.now();
-
-    // Fire image + GLB preloads in parallel with API calls
-    const imagePromise = preloadImages();
+    // Images preload in background (batched, non-blocking) — don't hold splash
+    preloadImages();
 
     try {
-        // Phase 1: tournament + live feed + images + GLB in parallel
+        // Phase 1: tournament + live feed + GLB + HDR in parallel
         const [tournamentRes, feedRes] = await Promise.all([
             fetch(apiUrl('/tournaments/active')).then(r => r.json()).catch(() => null),
             fetch(apiUrl('/live-feed?limit=15')).then(r => r.json()).catch(() => null),
+            glbPromise,
+            hdrPromise,
         ]);
 
         if (tournamentRes?.success) {
@@ -120,11 +130,6 @@ async function preloadAll() {
                 blockchainCache.set(PreloadKeys.topStartups(_tournamentId), startupsRes.data);
             }
         }
-
-        // Wait for images + GLB + HDR to finish (all started in parallel with API calls)
-        await Promise.all([imagePromise, glbPromise, hdrPromise]);
-
-        const elapsed = (performance.now() - start).toFixed(0);
     } catch (e) {
     }
 }
