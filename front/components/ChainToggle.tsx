@@ -15,7 +15,7 @@ const ChainToggle: React.FC = () => {
         // switchNetwork updates the module-level active network synchronously,
         // so switchChain/refreshBalance read the correct new network
         if (isConnected) {
-            switchChain();
+            switchChain().catch(() => {});
             refreshBalance();
         }
     };

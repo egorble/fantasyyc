@@ -24,7 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
   const handleNetworkSwitch = (id: string) => {
       if (id === networkId) return;
       switchNetwork(id);
-      if (isConnected) { switchChain(); refreshBalance(); }
+      if (isConnected) { switchChain().catch(() => {}); refreshBalance(); }
   };
 
   const navItems = [

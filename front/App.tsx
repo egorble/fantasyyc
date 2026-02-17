@@ -70,7 +70,7 @@ const AppContent: React.FC = () => {
     const handleNetworkSwitch = (id: string) => {
         if (id === networkId) return;
         switchNetwork(id);
-        if (isConnected) { switchChain(); refreshBalance(); }
+        if (isConnected) { switchChain().catch(() => {}); refreshBalance(); }
     };
 
     // User profile hook

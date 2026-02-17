@@ -58,6 +58,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const activeProviderRef = useRef<any>(null);
     const wcProviderRef = useRef<InstanceType<typeof EthereumProvider> | null>(null);
     const listenersRef = useRef<{ onAccounts: (a: string[]) => void; onChain: (h: string) => void; onDisconnect: () => void } | null>(null);
+    const switchingChainRef = useRef(false); // Guard: ignore disconnect events during chain switch
 
     const isConnected = !!address;
     const isCorrectChain = chainId === activeNetwork.chainId;
@@ -128,6 +129,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const onAccounts = (accounts: string[]) => handleAccounts(accounts);
         const onChain = (hexChainId: string) => setChainId(parseInt(typeof hexChainId === 'string' ? hexChainId : String(hexChainId), 16));
         const onDisconnect = () => {
+            // Some wallets emit 'disconnect' during wallet_switchEthereumChain — ignore it
+            if (switchingChainRef.current) return;
             setAddress(null);
             setBalance(0n);
             setChainId(null);
@@ -248,6 +251,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             }
         } catch { /* proceed with switch */ }
 
+        // Guard: some wallets emit 'disconnect' during chain switch — suppress it
+        switchingChainRef.current = true;
         try {
             // Try switch first (works when chain is already in wallet)
             await provider.request({
@@ -281,6 +286,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 }
                 // Any other error code: wallet knows the chain but has a quirk — ignore
             }
+        } finally {
+            // Release guard after a short delay (disconnect events may fire async)
+            setTimeout(() => { switchingChainRef.current = false; }, 2000);
         }
         // Always sync chain ID state from wallet
         await readChainId(provider);

@@ -92,10 +92,12 @@ class BlockchainCache {
         this.cache.delete(key);
     }
 
-    // Invalidate all keys starting with prefix
+    // Invalidate all keys starting with prefix (auto-prepends active network ID)
+    // Callers pass raw prefix like 'nft:owned:' → matches 'megaeth:nft:owned:...'
     invalidatePrefix(prefix: string): void {
+        const fullPrefix = `${getActiveNetworkId()}:${prefix}`;
         for (const key of this.cache.keys()) {
-            if (key.startsWith(prefix)) {
+            if (key.startsWith(fullPrefix)) {
                 this.cache.delete(key);
             }
         }
@@ -292,11 +294,14 @@ class BlockchainCache {
     // ── LocalStorage persistence ──
 
     // Persist cache entries matching prefix to localStorage (namespaced by network)
+    // CacheKeys are prefixed with networkId (e.g. "megaeth:nft:cards:0x...")
+    // so we match keys starting with "${networkId}:${prefix}"
     persistKeys(prefix: string): void {
         const netId = getActiveNetworkId();
+        const fullPrefix = `${netId}:${prefix}`;
         const toSave: Record<string, CacheEntry<any>> = {};
         for (const [key, entry] of this.cache) {
-            if (key.startsWith(prefix)) {
+            if (key.startsWith(fullPrefix)) {
                 toSave[key] = entry;
             }
         }

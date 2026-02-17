@@ -172,7 +172,8 @@ export function useNFT() {
         } catch (e) {
             pendingBatchRequest = null;
             pendingBatchIds = '';
-            const fallbackCards = await fetchInBatches(uncachedIds, fetchMetadata, 5, 200);
+            console.warn('[NFT] Batch metadata failed, falling back to individual fetches:', (e as Error).message);
+            const fallbackCards = await fetchInBatches(uncachedIds, fetchMetadata, 10, 50);
             for (let fi = 0; fi < uncachedIndices.length; fi++) {
                 results[uncachedIndices[fi]] = fallbackCards[fi];
             }
@@ -382,6 +383,16 @@ export function useNFT() {
                         blockchainCache.set(cardsKey, serverCards);
                         blockchainCache.persistKeys('nft:');
                         return serverCards;
+                    }
+
+                    // Server cache empty — check local blockchainCache
+                    // (covers MegaETH where server POST/GET may not work yet)
+                    const cardsKey = CacheKeys.userCards(address);
+                    const localCached = blockchainCache.get<CardData[]>(cardsKey);
+                    if (localCached && localCached.length > 0) {
+                        // Return cached data, refresh from blockchain in background
+                        fetchCardsFromBlockchain(address).catch(() => {});
+                        return localCached;
                     }
                 }
 
