@@ -78,9 +78,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             ctx.current = gsap.context(() => { }, containerRef);
         }
         return () => {
-            if (stage === 'select') {
-                ctx.current?.revert();
-            }
+            ctx.current?.revert();
         };
     }, [isOpen, stage]);
 
@@ -416,7 +414,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
             {/* --- STAGE: BUYING (waiting for tx) --- */}
             {stage === 'buying' && (
-                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                <div key="stage-buying" className="flex flex-col items-center justify-center w-full h-full relative">
                     <div className="w-24 h-24 mb-8 border-4 border-yc-orange/30 border-t-yc-orange rounded-full animate-spin" />
                     <h2 className="text-2xl font-bold text-white mb-2">Confirm in Wallet</h2>
                     <p className="text-gray-400 text-sm mb-4">
@@ -432,7 +430,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
             {/* --- STAGE: MEGA BURST (MegaETH only) --- */}
             {stage === 'exploding' && isMegaETH && (
-                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                <div key="stage-exploding-mega" className="flex flex-col items-center justify-center w-full h-full relative">
                     <div className="relative w-40 h-40">
                         <div className="absolute inset-0 rounded-full border-2 border-yc-orange/60 animate-ping" />
                         <div className="absolute inset-4 rounded-full border-2 border-yc-orange/40 animate-ping" style={{ animationDelay: '0.1s' }} />
@@ -449,7 +447,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
             {/* --- STAGE: TEARING & EXPLODING (Etherlink single pack only) --- */}
             {(stage === 'tearing' || (stage === 'exploding' && !isMegaETH)) && (
-                <div className="flex flex-col items-center justify-center w-full h-full relative cursor-pointer" onClick={handleTapPack}>
+                <div key="stage-tearing" className="flex flex-col items-center justify-center w-full h-full relative cursor-pointer" onClick={handleTapPack}>
                     <h2 className="absolute top-[15%] sm:top-1/4 text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tighter drop-shadow-glow pointer-events-none select-none animate-pulse">
                         {cuts.length === 0 ? "TAP TO BREACH" :
                             cuts.length < maxTaps - 1 ? "TEAR IT OPEN" : "CRITICAL OVERLOAD"}
@@ -481,7 +479,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
             {/* --- STAGE: DEALING (single pack - tap to reveal) --- */}
             {stage === 'dealing' && !isMultiPack && (
-                <div className="w-full h-full flex flex-col items-center relative z-40 pt-10 sm:pt-20">
+                <div key="stage-dealing" className="w-full h-full flex flex-col items-center relative z-40 pt-10 sm:pt-20">
                     <div ref={cardsContainerRef} className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-8 perspective-1000 w-full max-w-6xl px-4 mt-4 sm:mt-10">
                         {mintedCards.map((card, index) => (
                             <div
@@ -523,7 +521,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
             {/* --- STAGE: FINISHED --- */}
             {stage === 'finished' && (
-                <div className="w-full h-full flex flex-col relative z-40">
+                <div key="stage-finished" className="w-full h-full flex flex-col relative z-40">
                     {/* Header */}
                     <div className="flex-shrink-0 pt-4 sm:pt-8 pb-2 sm:pb-4 text-center">
                         <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white uppercase tracking-tighter animate-[fadeInUp_0.5s_ease-out]">
@@ -548,7 +546,6 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                             {mintedCards.map((card, index) => (
                                 <div
                                     key={card.tokenId}
-                                    ref={!isMultiPack ? (el) => { cardRefs.current[index] = el } : undefined}
                                     className="relative bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl overflow-hidden transition-transform hover:scale-[1.03] animate-[fadeInUp_0.3s_ease-out]"
                                     style={{ animationDelay: isMultiPack ? `${index * 30}ms` : '0ms', animationFillMode: 'both' }}
                                 >
