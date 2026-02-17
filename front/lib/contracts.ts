@@ -2,6 +2,8 @@
 import { ethers } from 'ethers';
 import { getActiveNetwork } from './networks';
 
+declare global { interface Window { ethereum?: ethers.Eip1193Provider } }
+
 // ============ Dynamic Network Configuration ============
 // These functions read from the active network (set by ChainToggle)
 export function getChainConfig() {
@@ -207,7 +209,7 @@ export const STARTUPS: Record<number, { name: string; rarity: string; multiplier
 // ============ Provider ============
 export function getProvider() {
     if (typeof window !== 'undefined' && window.ethereum) {
-        return new ethers.BrowserProvider(window.ethereum as unknown as ethers.Eip1193Provider);
+        return new ethers.BrowserProvider(window.ethereum);
     }
     return new ethers.JsonRpcProvider(getActiveNetwork().rpcUrl);
 }
