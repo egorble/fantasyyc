@@ -489,7 +489,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                                 ref={(el) => { cardRefs.current[index] = el }}
                                 className="relative w-36 h-52 sm:w-48 sm:h-72 md:w-56 md:h-80 group cursor-pointer opacity-0"
                             >
-                                <div className="card-inner w-full h-full relative preserve-3d">
+                                <div className="card-inner w-full h-full relative transform-style-3d">
                                     <div className="absolute inset-0 backface-hidden rounded-xl overflow-hidden shadow-2xl">
                                         <img src={card.image} className="w-full h-full object-contain" loading="eager" />
                                     </div>

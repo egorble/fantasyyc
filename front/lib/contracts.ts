@@ -215,8 +215,16 @@ export function getProvider() {
 }
 
 // Read-only provider that always uses the active network's RPC (no wallet)
+// Singleton cache: one provider per RPC URL to avoid 429 rate limits
+const _providerCache = new Map<string, ethers.JsonRpcProvider>();
 export function getReadProvider() {
-    return new ethers.JsonRpcProvider(getActiveNetwork().rpcUrl);
+    const url = getActiveNetwork().rpcUrl;
+    let provider = _providerCache.get(url);
+    if (!provider) {
+        provider = new ethers.JsonRpcProvider(url);
+        _providerCache.set(url, provider);
+    }
+    return provider;
 }
 
 // ============ Contract Instances ============
