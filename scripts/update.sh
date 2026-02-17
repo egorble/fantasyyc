@@ -182,7 +182,19 @@ systemctl start fantasyyc-megaeth-metadata 2>/dev/null || true
 # ─── Reload nginx config (picks up burst/rate limit changes) ───
 if [ -f "${APP_DIR}/deploy/nginx.conf" ]; then
     log "Updating nginx config..."
-    cp "${APP_DIR}/deploy/nginx.conf" /etc/nginx/sites-available/fantasyyc
+    DOMAIN="app.unicornx.fun"
+    NGINX_TARGET="/etc/nginx/sites-available/${DOMAIN}"
+
+    # Clean up old 'fantasyyc' config that conflicts with the canonical name
+    if [ -f "/etc/nginx/sites-available/fantasyyc" ] && [ "fantasyyc" != "${DOMAIN}" ]; then
+        rm -f /etc/nginx/sites-enabled/fantasyyc
+        rm -f /etc/nginx/sites-available/fantasyyc
+        log "Removed old duplicate nginx config 'fantasyyc'"
+    fi
+
+    cp "${APP_DIR}/deploy/nginx.conf" "$NGINX_TARGET"
+    ln -sf "$NGINX_TARGET" "/etc/nginx/sites-enabled/${DOMAIN}"
+
     if nginx -t 2>/dev/null; then
         systemctl reload nginx
         log "Nginx reloaded"
