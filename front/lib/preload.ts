@@ -10,14 +10,15 @@ import { blockchainCache } from './cache';
 import { apiUrl } from './api';
 import { useGLTF } from '@react-three/drei';
 
-// ── Preload 3D assets (background, non-blocking) ──
-// Fire fetches immediately on import to warm browser cache.
-// Splash does NOT wait for these — they download in parallel.
+// ── Preload 3D assets ──
+// GLB: drei's GLTFLoader cache (so useGLTF() is instant later)
+// HDR: environment map for interactive 3D viewer (~1.5MB from local)
+// Both fire immediately on import — splash waits for them.
 const GLB_PATH = '/megaeth-pack.glb';
 const ENV_HDR = '/env-city.hdr';
 useGLTF.preload(GLB_PATH, false, true);
-fetch(GLB_PATH).catch(() => {});
-fetch(ENV_HDR).catch(() => {});
+const glbPromise = fetch(GLB_PATH).then(r => r.arrayBuffer()).catch(() => {});
+const hdrPromise = fetch(ENV_HDR).then(r => r.arrayBuffer()).catch(() => {});
 
 // ── Cache keys for preloaded data ──
 export const PreloadKeys = {
@@ -98,10 +99,12 @@ async function preloadAll() {
     preloadImages();
 
     try {
-        // Phase 1: tournament + live feed (API data only — fast)
+        // Phase 1: tournament + live feed + GLB + HDR in parallel
         const [tournamentRes, feedRes] = await Promise.all([
             fetch(apiUrl('/tournaments/active')).then(r => r.json()).catch(() => null),
             fetch(apiUrl('/live-feed?limit=15')).then(r => r.json()).catch(() => null),
+            glbPromise,
+            hdrPromise,
         ]);
 
         if (tournamentRes?.success) {
