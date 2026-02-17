@@ -1,5 +1,6 @@
 // Preload fires all API calls immediately — before React mounts
 import './lib/preload';
+import './index.css';
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
