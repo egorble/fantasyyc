@@ -257,6 +257,17 @@ const Marketplace: React.FC = () => {
         enabled: true
     });
 
+    // Clear stale data on network switch
+    useEffect(() => {
+        setListings([]);
+        setAuctions([]);
+        setMyListings([]);
+        setMyAuctions([]);
+        setMyBids([]);
+        setLoadingListings(true);
+        setLoadingAuctions(true);
+    }, [networkId]);
+
     // Update listings/auctions when polled data changes
     useEffect(() => {
         if (polledListings) {
@@ -559,7 +570,7 @@ const Marketplace: React.FC = () => {
 
     useEffect(() => {
         if (activeTab === 'activity') fetchActivity(true);
-    }, [activeTab, fetchActivity]);
+    }, [activeTab, fetchActivity, networkId]);
 
     // Handle cancel bid from activity
     const handleCancelBid = async (bidId: bigint) => {

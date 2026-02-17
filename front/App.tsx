@@ -103,15 +103,15 @@ const AppContent: React.FC = () => {
         address: address || undefined,
     };
 
-    // Pre-fetch user's NFT cards as soon as wallet connects (background, non-blocking)
+    // Pre-fetch user's NFT cards as soon as wallet connects or network changes
     // Cards get cached in blockchainCache + localStorage → Portfolio loads instantly
     useEffect(() => {
         if (isConnected && address) {
             getCards(address).catch(() => {}); // fire-and-forget
         }
-    }, [isConnected, address, getCards]);
+    }, [isConnected, address, getCards, networkId]);
 
-    // Load dashboard listings with NFT metadata
+    // Load dashboard listings with NFT metadata (refetch on network switch)
     useEffect(() => {
         const loadDashboardData = async () => {
             setIsLoadingDashboard(true);
@@ -136,7 +136,7 @@ const AppContent: React.FC = () => {
         };
 
         loadDashboardData();
-    }, [getActiveListings, getCardInfo]);
+    }, [getActiveListings, getCardInfo, networkId]);
 
     // Filter and sort dashboard listings
     const filteredAndSortedListings = useMemo(() => {

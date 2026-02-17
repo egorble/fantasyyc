@@ -114,7 +114,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         }
     }, [pollingLoading]);
 
-    // Load cards when address changes
+    // Reload cards when address or network changes
     useEffect(() => {
         if (isConnected && address) {
             setIsRefreshing(true);
@@ -122,7 +122,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
         } else {
             setMyCards([]);
         }
-    }, [isConnected, address]);
+    }, [isConnected, address, networkId]);
 
     const loadCards = async (forceBlockchain = false) => {
         if (!address) return;

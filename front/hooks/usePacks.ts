@@ -1,7 +1,7 @@
 // Pack opener contract hook
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { getPackOpenerContract, getNFTContract } from '../lib/contracts';
+import { getPackOpenerContract, getNFTContract, STARTUPS } from '../lib/contracts';
 import { CardData, Rarity } from '../types';
 import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
 import { metadataUrl } from '../lib/api';
@@ -141,13 +141,17 @@ export function usePacks() {
 
             const receipt = await tx.wait();
 
-            // Parse CardMinted events to get token IDs
-            const tokenIds: number[] = [];
+            // Parse CardMinted events to get token IDs + startup data
+            const mintedTokens: { tokenId: number; startupId: number; edition: number }[] = [];
             for (const log of receipt.logs) {
                 try {
                     const parsed = nftContract.interface.parseLog(log);
                     if (parsed?.name === 'CardMinted') {
-                        tokenIds.push(Number(parsed.args.tokenId));
+                        mintedTokens.push({
+                            tokenId: Number(parsed.args.tokenId),
+                            startupId: Number(parsed.args.startupId),
+                            edition: Number(parsed.args.edition),
+                        });
                     }
                 } catch { }
             }
@@ -159,15 +163,27 @@ export function usePacks() {
             blockchainCache.invalidatePrefix(`nft:cards:${signerAddress}`);
             blockchainCache.invalidatePrefix(`pack:user:${signerAddress}`);
 
-            // Fetch metadata for each card from the API
+            // Fetch metadata for each card from the API, fallback to event data
             const cards: CardData[] = [];
-            for (const tokenId of tokenIds) {
-                const card = await fetchCardMetadata(tokenId);
+            for (const mt of mintedTokens) {
+                const card = await fetchCardMetadata(mt.tokenId);
                 if (card) {
                     cards.push(card);
-                    // Cache the new card metadata
-                    blockchainCache.set(CacheKeys.cardMetadata(tokenId), card);
+                } else {
+                    // Fallback: construct from on-chain event data
+                    const startup = STARTUPS[mt.startupId];
+                    cards.push({
+                        tokenId: mt.tokenId,
+                        startupId: mt.startupId,
+                        name: startup?.name || 'Unknown',
+                        rarity: RARITY_STRING_MAP[startup?.rarity || 'Common'] || Rarity.COMMON,
+                        multiplier: startup?.multiplier || 1,
+                        isLocked: false,
+                        image: `/images/${mt.startupId}.png`,
+                        edition: mt.edition,
+                    });
                 }
+                blockchainCache.set(CacheKeys.cardMetadata(mt.tokenId), cards[cards.length - 1]);
             }
 
             return { success: true, cards };
@@ -220,13 +236,17 @@ export function usePacks() {
 
             const receipt = await tx.wait();
 
-            // Parse CardMinted events to get all token IDs
-            const tokenIds: number[] = [];
+            // Parse CardMinted events to get all token IDs + startup data
+            const mintedTokens: { tokenId: number; startupId: number; edition: number }[] = [];
             for (const log of receipt.logs) {
                 try {
                     const parsed = nftContract.interface.parseLog(log);
                     if (parsed?.name === 'CardMinted') {
-                        tokenIds.push(Number(parsed.args.tokenId));
+                        mintedTokens.push({
+                            tokenId: Number(parsed.args.tokenId),
+                            startupId: Number(parsed.args.startupId),
+                            edition: Number(parsed.args.edition),
+                        });
                     }
                 } catch { }
             }
@@ -238,14 +258,26 @@ export function usePacks() {
             blockchainCache.invalidatePrefix(`nft:cards:${signerAddress}`);
             blockchainCache.invalidatePrefix(`pack:user:${signerAddress}`);
 
-            // Fetch metadata for all cards
+            // Fetch metadata for all cards, fallback to event data
             const cards: CardData[] = [];
-            for (const tokenId of tokenIds) {
-                const card = await fetchCardMetadata(tokenId);
+            for (const mt of mintedTokens) {
+                const card = await fetchCardMetadata(mt.tokenId);
                 if (card) {
                     cards.push(card);
-                    blockchainCache.set(CacheKeys.cardMetadata(tokenId), card);
+                } else {
+                    const startup = STARTUPS[mt.startupId];
+                    cards.push({
+                        tokenId: mt.tokenId,
+                        startupId: mt.startupId,
+                        name: startup?.name || 'Unknown',
+                        rarity: RARITY_STRING_MAP[startup?.rarity || 'Common'] || Rarity.COMMON,
+                        multiplier: startup?.multiplier || 1,
+                        isLocked: false,
+                        image: `/images/${mt.startupId}.png`,
+                        edition: mt.edition,
+                    });
                 }
+                blockchainCache.set(CacheKeys.cardMetadata(mt.tokenId), cards[cards.length - 1]);
             }
 
             return { success: true, cards };
