@@ -218,25 +218,25 @@ export function getReadProvider() {
 }
 
 // ============ Contract Instances ============
+// Default to getReadProvider() (JSON-RPC) for reads — works without wallet.
+// Pass a signer explicitly for write operations.
 export function getNFTContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
-    const provider = signerOrProvider || getProvider();
+    const provider = signerOrProvider || getReadProvider();
     return new ethers.Contract(getActiveContracts().UnicornX_NFT, NFT_ABI, provider);
 }
 
 export function getPackOpenerContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
-    const provider = signerOrProvider || getProvider();
+    const provider = signerOrProvider || getReadProvider();
     return new ethers.Contract(getActiveContracts().PackOpener, PACK_OPENER_ABI, provider);
 }
 
 export function getTournamentContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
-    const provider = signerOrProvider || getProvider();
+    const provider = signerOrProvider || getReadProvider();
     return new ethers.Contract(getActiveContracts().TournamentManager, TOURNAMENT_ABI, provider);
 }
 
-// Old getMarketplaceContract removed - using getMarketplaceV2Contract exclusively
-
 export function getMarketplaceV2Contract(signerOrProvider?: ethers.Signer | ethers.Provider) {
-    const provider = signerOrProvider || getProvider();
+    const provider = signerOrProvider || getReadProvider();
     return new ethers.Contract(getActiveContracts().MarketplaceV2, MARKETPLACE_V2_ABI, provider);
 }
 
