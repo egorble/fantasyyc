@@ -103,19 +103,6 @@ const Analytics: React.FC = () => {
         return () => { cancelled = true; };
     }, [address]);
 
-    // Not connected state
-    if (!isConnected) {
-        return (
-            <div className="overflow-x-hidden">
-                <h2 className="text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight mb-8">Analytics</h2>
-                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-12 text-center">
-                    <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg">Connect your wallet to view analytics</p>
-                </div>
-            </div>
-        );
-    }
-
     const isLoading = cardsLoading || loading;
 
     // Format floor price for display
@@ -296,7 +283,7 @@ const Analytics: React.FC = () => {
 
                 {cards.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">
-                        {isLoading ? 'Loading cards...' : 'No cards in your portfolio'}
+                        {isLoading ? 'Loading cards...' : !isConnected ? 'Connect your wallet to see your card breakdown' : 'No cards in your portfolio'}
                     </p>
                 ) : (
                     <div className="overflow-x-auto">

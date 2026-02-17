@@ -465,23 +465,6 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     return (
         <div className="relative min-h-[80vh] overflow-x-hidden">
 
-            {/* Not Connected State */}
-            {!isConnected && (
-                <div className="flex flex-col items-center justify-center py-20">
-                    <Wallet className="w-16 h-16 text-gray-400 mb-4" />
-                    <h3 className="text-xl font-bold text-gray-400 mb-2">Connect Your Wallet</h3>
-                    <p className="text-gray-500 mb-6">Connect to view your NFT portfolio</p>
-                    <button
-                        onClick={connect}
-                        className="bg-yc-orange hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold"
-                    >
-                        Connect Wallet
-                    </button>
-                </div>
-            )}
-
-            {isConnected && (
-                <>
                     {/* Header Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
                         <div className="col-span-1 md:col-span-2 p-4 md:p-6 bg-gradient-to-r from-yc-orange to-red-600 rounded-2xl text-white shadow-xl relative overflow-hidden">
@@ -609,12 +592,12 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         <div className="text-center py-20">
                             <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                             <h3 className="text-xl font-bold text-gray-400 mb-2">No Cards Yet</h3>
-                            <p className="text-gray-500 mb-6">Buy a pack to get started!</p>
+                            <p className="text-gray-500 mb-6">{isConnected ? 'Buy a pack to get started!' : 'Connect your wallet and buy a pack to get started!'}</p>
                             <button
-                                onClick={onBuyPack}
+                                onClick={isConnected ? onBuyPack : connect}
                                 className="bg-yc-orange hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold"
                             >
-                                Buy First Pack
+                                {isConnected ? 'Buy First Pack' : 'Connect Wallet'}
                             </button>
                         </div>
                     )}
@@ -698,8 +681,6 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         </div>
                     )}
                 </>)}
-                </>
-            )}
 
             {/* --- DETAILED CARD VIEW MODAL --- */}
             <CardDetailModal

@@ -893,13 +893,6 @@ const Marketplace: React.FC = () => {
             {/* ACTIVITY TAB */}
             {activeTab === 'activity' && (
                 <>
-                    {!isConnected ? (
-                        <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
-                            <User className="w-16 h-16 text-gray-400 dark:text-gray-600 mb-4" />
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">My Activity</h3>
-                            <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">Connect your wallet to see your marketplace activity.</p>
-                        </div>
-                    ) : (
                         <>
                             {/* Activity sub-filters */}
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
@@ -1056,17 +1049,17 @@ const Marketplace: React.FC = () => {
                                             <Activity className="w-12 h-12 text-gray-400 dark:text-gray-600 mb-3" />
                                             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No Activity</h3>
                                             <p className="text-gray-500 dark:text-gray-400 text-sm text-center max-w-sm">
-                                                {activityFilter === 'listings' && "You haven't listed any NFTs yet."}
-                                                {activityFilter === 'auctions' && "You haven't created any auctions yet."}
-                                                {activityFilter === 'bids' && "You haven't placed any bids yet."}
-                                                {activityFilter === 'all' && "No marketplace activity yet. List an NFT or place a bid to get started!"}
+                                                {!isConnected ? 'Connect your wallet to see your marketplace activity.' :
+                                                    activityFilter === 'listings' ? "You haven't listed any NFTs yet." :
+                                                    activityFilter === 'auctions' ? "You haven't created any auctions yet." :
+                                                    activityFilter === 'bids' ? "You haven't placed any bids yet." :
+                                                    "No marketplace activity yet. List an NFT or place a bid to get started!"}
                                             </p>
                                         </div>
                                     )}
                                 </div>
                             )}
                         </>
-                    )}
                 </>
             )}
 
