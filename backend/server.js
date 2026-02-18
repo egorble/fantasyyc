@@ -5,7 +5,11 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const { ethers } = require("ethers");
-require("dotenv").config({ path: path.join(__dirname, ".env"), override: false });
+
+// Support --network flag: node server.js --network megaeth → loads .env.megaeth
+const networkArg = process.argv.find((_, i) => i > 0 && process.argv[i - 1] === "--network") || "";
+const envFile = networkArg ? `.env.${networkArg}` : ".env";
+require("dotenv").config({ path: path.join(__dirname, envFile), override: false });
 
 const app = express();
 const PORT = process.env.PORT || 3001;

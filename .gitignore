@@ -8,8 +8,10 @@ front/dist/
 # Environment files
 .env
 *.env
+.env.*
 scripts/.env
 backend/.env
+backend/.env.*
 
 # Deployment files (deployment-shadownet.json is tracked — needed by server for contract sync)
 test-results.json
