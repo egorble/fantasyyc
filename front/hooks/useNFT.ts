@@ -442,10 +442,25 @@ export function useNFT() {
 
                 // Check all cards have the same on-chain rarity
                 if (onChainRarities[0] !== onChainRarities[1] || onChainRarities[0] !== onChainRarities[2]) {
+                    // Fix stale cache: update individual card metadata with on-chain rarity
+                    const rarityEnumMap = [Rarity.COMMON, Rarity.RARE, Rarity.EPIC, Rarity.EPIC_RARE, Rarity.LEGENDARY];
+                    for (let i = 0; i < tokenIds.length; i++) {
+                        const key = CacheKeys.cardMetadata(tokenIds[i]);
+                        const cached = blockchainCache.get<CardData>(key);
+                        if (cached && cached.rarity !== rarityEnumMap[onChainRarities[i]]) {
+                            blockchainCache.set(key, {
+                                ...cached,
+                                rarity: rarityEnumMap[onChainRarities[i]],
+                                multiplier: Number(cardInfos[i].multiplier),
+                            });
+                        }
+                    }
+                    blockchainCache.persistKeys('nft:');
+
                     const details = tokenIds.map((id, i) =>
                         `Token #${id}: ${RARITY_NAMES[onChainRarities[i]] || 'Unknown'}`
                     ).join(', ');
-                    const errorMsg = `On-chain rarity mismatch! ${details}. The contract startups data may need re-initialization.`;
+                    const errorMsg = `On-chain rarity mismatch! ${details}. Card data has been refreshed — please re-select cards.`;
                     setError(errorMsg);
                     return { success: false, error: errorMsg };
                 }
@@ -507,9 +522,10 @@ export function useNFT() {
         }
     }, []);
 
-    // Clear all NFT-related cache
+    // Clear all NFT-related cache (in-memory + localStorage)
     const clearCache = useCallback(() => {
         blockchainCache.invalidatePrefix('nft:');
+        blockchainCache.clearPersistedKeys('nft:');
     }, []);
 
     return {

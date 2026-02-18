@@ -15,6 +15,9 @@ const NETWORKS = {
     },
     mainnet: {
         rpc: "https://node.mainnet.etherlink.com",
+    },
+    megaeth: {
+        rpc: "https://carrot.megaeth.com/rpc",
     }
 };
 
