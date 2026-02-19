@@ -126,19 +126,20 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
     // When pendingCards is set, transition
     useLayoutEffect(() => {
+        console.log('[PackOpen] useLayoutEffect: pendingCards=', !!pendingCards, 'stage=', stage, 'isMegaETH=', isMegaETH, 'isMultiPack=', isMultiPack);
         if (pendingCards && stage === 'buying') {
             if (isMegaETH) {
-                // MegaETH: skip tearing, show burst then finished
+                console.log('[PackOpen] → exploding (MegaETH)');
                 setMintedCards(sortByRarity(pendingCards));
                 setPendingCards(null);
                 setStage('exploding');
             } else if (isMultiPack) {
-                // Multi-pack on Etherlink: skip tearing, go straight to finished
+                console.log('[PackOpen] → finished (multi-pack)');
                 setMintedCards(sortByRarity(pendingCards));
                 setPendingCards(null);
                 setStage('finished');
             } else {
-                // Single pack on Etherlink: show tearing animation
+                console.log('[PackOpen] → tearing (single pack Etherlink)');
                 setStage('tearing');
             }
         }
@@ -146,14 +147,22 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
     // MegaETH burst: quick flash then dealing (single) or finished (multi)
     useLayoutEffect(() => {
+        console.log('[PackOpen] burst effect: stage=', stage, 'isMegaETH=', isMegaETH, 'ctx=', !!ctx.current);
         if (stage === 'exploding' && isMegaETH && ctx.current) {
+            console.log('[PackOpen] → starting burst animation, flashRef=', !!flashRef.current);
             ctx.current.add(() => {
                 const tl = gsap.timeline({
-                    onComplete: () => setStage(isMultiPack ? 'finished' : 'dealing'),
+                    onComplete: () => {
+                        console.log('[PackOpen] burst complete → ', isMultiPack ? 'finished' : 'dealing');
+                        setStage(isMultiPack ? 'finished' : 'dealing');
+                    },
                 });
                 if (flashRef.current) {
                     tl.to(flashRef.current, { opacity: 0.8, duration: 0.15, ease: 'power4.in' })
                       .to(flashRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out' });
+                } else {
+                    console.warn('[PackOpen] flashRef is null! Skipping to next stage immediately');
+                    setStage(isMultiPack ? 'finished' : 'dealing');
                 }
             });
         }
@@ -203,13 +212,15 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
     // Buy and open packs
     const handleBuyAndOpen = async () => {
+        console.log('[PackOpen] handleBuyAndOpen: stage=', stage);
         if (stage !== 'select') return;
 
-        if (!isConnected) { await connect(); return; }
-        if (!isCorrectChain) { await switchChain(); return; }
+        if (!isConnected) { console.log('[PackOpen] not connected, connecting...'); await connect(); return; }
+        if (!isCorrectChain) { console.log('[PackOpen] wrong chain, switching...'); await switchChain(); return; }
 
         setStage('buying');
         setTxError(null);
+        console.log('[PackOpen] stage → buying, calling buyAndOpenPack...');
 
         try {
             const signer = await getSigner();
@@ -219,15 +230,21 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 ? await buyAndOpenMultiplePacks(signer, packCount)
                 : await buyAndOpenPack(signer);
 
+            console.log('[PackOpen] buyAndOpenPack result:', result.success, 'cards:', result.cards?.length);
+
             if (result.success && result.cards) {
+                console.log('[PackOpen] setPendingCards with', result.cards.length, 'cards');
                 setPendingCards(result.cards);
                 onCardsAcquired?.(result.cards);
                 refreshBalance();
+                console.log('[PackOpen] onCardsAcquired + refreshBalance called');
             } else {
+                console.log('[PackOpen] FAILED:', result.error);
                 setTxError(result.error || 'Failed to buy pack');
                 setStage('select');
             }
         } catch (e: any) {
+            console.error('[PackOpen] EXCEPTION:', e.message);
             setTxError(e.message);
             setStage('select');
         }
