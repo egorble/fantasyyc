@@ -810,7 +810,7 @@ const Leagues: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-1">
+            {(phase === 'active' || phase === 'ended' || phase === 'finalized') && <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-1">
                 <h3 className="font-bold text-lg sm:text-xl text-yc-text-primary dark:text-white flex items-center">
                     Live Leaderboard
                     {leaderboardLoading && <RefreshCw className="w-4 h-4 ml-2 animate-spin text-gray-400" />}
@@ -939,7 +939,7 @@ const Leagues: React.FC = () => {
                         })}
                     </div>
                 )}
-            </div>
+            </div>}
 
             {/* Onboarding Guide */}
             {showGuide && (
