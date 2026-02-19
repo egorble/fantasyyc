@@ -588,8 +588,6 @@ const AppContent: React.FC = () => {
                 onCardsAcquired={(cards) => {
                     if (address) {
                         updateServerCache(address, cards);
-                        clearCache();
-                        getCards(address, true);
                     }
                 }}
             />
