@@ -49,7 +49,9 @@
       "Bash(npx vite:*)",
       "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 3003 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_OwningProcess -Force -ErrorAction SilentlyContinue }\")",
       "Bash(powershell -Command:*)",
-      "WebFetch(domain:app.unicornx.fun)"
+      "WebFetch(domain:app.unicornx.fun)",
+      "WebFetch(domain:docs.megaeth.com)",
+      "WebFetch(domain:chainlist.org)"
     ]
   }
 }

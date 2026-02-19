@@ -45,11 +45,11 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     },
     megaeth: {
         id: 'megaeth',
-        name: 'MegaETH Testnet',
+        name: 'MegaETH',
         shortName: 'MegaETH',
-        chainId: 6343,
-        rpcUrl: 'https://carrot.megaeth.com/rpc',
-        explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
+        chainId: 4326,
+        rpcUrl: 'https://mainnet.megaeth.com/rpc',
+        explorerUrl: 'https://megaeth.blockscout.com',
         nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
         contracts: {
             UnicornX_NFT: '0x45E817D93915D484bac01d27E26d19F30715B6Bc',

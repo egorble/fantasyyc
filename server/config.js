@@ -65,9 +65,9 @@ const CHAIN_CONFIGS = {
         SERVER_PORT: 3003,
     },
     megaeth: {
-        RPC_URL: 'https://carrot.megaeth.com/rpc',
-        CHAIN_ID: 6343,
-        EXPLORER: 'https://megaeth-testnet-v2.blockscout.com',
+        RPC_URL: 'https://mainnet.megaeth.com/rpc',
+        CHAIN_ID: 4326,
+        EXPLORER: 'https://megaeth.blockscout.com',
         SERVER_PORT: 3004,
     },
 };

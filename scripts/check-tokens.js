@@ -12,7 +12,7 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 const NETWORKS = {
     shadownet: { rpc: "https://node.shadownet.etherlink.com" },
     mainnet: { rpc: "https://node.mainnet.etherlink.com" },
-    megaeth: { rpc: "https://carrot.megaeth.com/rpc" },
+    megaeth: { rpc: "https://mainnet.megaeth.com/rpc" },
 };
 
 const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];

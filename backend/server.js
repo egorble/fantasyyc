@@ -22,8 +22,8 @@ const NETWORKS = {
         imageBase: "https://app.unicornx.fun/metadata/images",
     },
     megaeth: {
-        name: "MegaETH Testnet",
-        rpc: "https://carrot.megaeth.com/rpc",
+        name: "MegaETH Mainnet",
+        rpc: "https://mainnet.megaeth.com/rpc",
         port: 3002,
         deploymentFile: "deployment-megaeth.json",
         imageBase: "https://app.unicornx.fun/metadata-mega/images",

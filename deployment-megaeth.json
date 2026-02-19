@@ -1,9 +1,9 @@
 {
   "network": "megaeth",
-  "networkName": "MegaETH Testnet",
-  "chainId": 6343,
-  "explorer": "https://megaeth-testnet-v2.blockscout.com",
-  "timestamp": "2026-02-16T12:21:09.485Z",
+  "networkName": "MegaETH Mainnet",
+  "chainId": 4326,
+  "explorer": "https://megaeth.blockscout.com",
+  "timestamp": "2026-02-19T12:16:49.707Z",
   "deployer": "0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c",
   "deployMode": "UUPS Proxy",
   "proxies": {
