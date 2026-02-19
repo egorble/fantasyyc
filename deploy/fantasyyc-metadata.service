@@ -1,5 +1,5 @@
 [Unit]
-Description=FantasyYC NFT Metadata Server (Express.js on port 3001)
+Description=FantasyYC Etherlink Metadata Server (port 3001)
 After=network.target
 Wants=network-online.target
 
@@ -9,11 +9,8 @@ User=fantasyyc
 Group=fantasyyc
 WorkingDirectory=/opt/fantasyyc/backend
 ExecStart=/usr/bin/node server.js
-EnvironmentFile=/opt/fantasyyc/.env
 Environment=NODE_ENV=production
-Environment=PORT=3001
 
-# Restart policy
 Restart=always
 RestartSec=5
 StartLimitBurst=5
@@ -21,11 +18,8 @@ StartLimitIntervalSec=60
 
 KillSignal=SIGTERM
 TimeoutStopSec=10
-
-# Security
 NoNewPrivileges=true
 
-# Logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=fantasyyc-metadata

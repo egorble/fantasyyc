@@ -102,66 +102,15 @@ npm ci --silent 2>&1 | tail -3 || npm install --silent 2>&1 | tail -3
 npm run build
 log "Frontend built"
 
-# ─── Sync contract addresses from deployment files into .env ───
-# After a fresh deploy/upgrade, deployment-*.json have the new addresses
-# but /opt/fantasyyc/.env may still have old ones (systemd EnvironmentFile takes
-# priority over dotenv, so the metadata server would read stale addresses).
-ENV_FILE="${APP_DIR}/.env"
-BACKEND_ENV="${APP_DIR}/backend/.env"
-
-# Create .env if missing (copy from backend/.env as base)
-if [ ! -f "$ENV_FILE" ] && [ -f "$BACKEND_ENV" ]; then
-    cp "$BACKEND_ENV" "$ENV_FILE"
-    log "Created ${ENV_FILE} from backend/.env"
-fi
-
-# --- Etherlink (port 3001 metadata) ---
-DEPLOY_FILE="${APP_DIR}/deployment-shadownet.json"
-NEW_NFT_ADDR=""
-if [ -f "$DEPLOY_FILE" ]; then
-    NEW_NFT_ADDR=$(node -e "console.log(JSON.parse(require('fs').readFileSync('${DEPLOY_FILE}','utf8')).proxies.UnicornX_NFT || '')" 2>/dev/null || echo "")
-fi
-if [ -z "$NEW_NFT_ADDR" ] && [ -f "$BACKEND_ENV" ]; then
-    NEW_NFT_ADDR=$(grep -oP '(?<=NFT_CONTRACT_ADDRESS=).*' "$BACKEND_ENV" 2>/dev/null || echo "")
-    [ -n "$NEW_NFT_ADDR" ] && log "Using NFT address from backend/.env (deployment file not found)"
-fi
-
-if [ -n "$NEW_NFT_ADDR" ] && [ -f "$ENV_FILE" ]; then
-    OLD_NFT_ADDR=$(grep -oP '(?<=NFT_CONTRACT_ADDRESS=).*' "$ENV_FILE" 2>/dev/null || echo "")
-
-    if [ "$OLD_NFT_ADDR" != "$NEW_NFT_ADDR" ]; then
-        if grep -q "^NFT_CONTRACT_ADDRESS=" "$ENV_FILE"; then
-            sed -i "s|^NFT_CONTRACT_ADDRESS=.*|NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}|" "$ENV_FILE"
-        else
-            echo "NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}" >> "$ENV_FILE"
-        fi
-        log "Updated Etherlink NFT_CONTRACT_ADDRESS: ${OLD_NFT_ADDR:-<unset>} → ${NEW_NFT_ADDR}"
-    else
-        log "Etherlink NFT_CONTRACT_ADDRESS already correct: ${NEW_NFT_ADDR}"
+# ─── Contract addresses ───
+# No .env sync needed — metadata server reads directly from deployment-*.json
+log "Contract addresses from deployment files (no .env sync needed):"
+for NET_FILE in deployment-shadownet.json deployment-megaeth.json; do
+    if [ -f "${APP_DIR}/${NET_FILE}" ]; then
+        ADDR=$(node -e "console.log(JSON.parse(require('fs').readFileSync('${APP_DIR}/${NET_FILE}','utf8')).proxies.UnicornX_NFT || 'N/A')" 2>/dev/null || echo "N/A")
+        log "  ${NET_FILE}: ${ADDR}"
     fi
-elif [ -z "$NEW_NFT_ADDR" ]; then
-    warn "Could not determine NFT_CONTRACT_ADDRESS from deployment file or backend/.env"
-elif [ ! -f "$ENV_FILE" ]; then
-    warn ".env not found at ${ENV_FILE} — creating with NFT address"
-    echo "NFT_CONTRACT_ADDRESS=${NEW_NFT_ADDR}" > "$ENV_FILE"
-fi
-
-# --- MegaETH (port 3002 metadata) — sync into systemd override if addresses changed ---
-MEGA_DEPLOY="${APP_DIR}/deployment-megaeth.json"
-MEGA_SERVICE="/etc/systemd/system/fantasyyc-megaeth-metadata.service"
-if [ -f "$MEGA_DEPLOY" ] && [ -f "$MEGA_SERVICE" ]; then
-    MEGA_NFT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('${MEGA_DEPLOY}','utf8')).proxies.UnicornX_NFT || '')" 2>/dev/null || echo "")
-    if [ -n "$MEGA_NFT" ]; then
-        CURRENT_MEGA=$(grep -oP '(?<=NFT_CONTRACT_ADDRESS=).*' "$MEGA_SERVICE" 2>/dev/null || echo "")
-        if [ "$CURRENT_MEGA" != "$MEGA_NFT" ]; then
-            sed -i "s|^Environment=NFT_CONTRACT_ADDRESS=.*|Environment=NFT_CONTRACT_ADDRESS=${MEGA_NFT}|" "$MEGA_SERVICE"
-            systemctl daemon-reload
-            log "Updated MegaETH NFT_CONTRACT_ADDRESS in service: ${CURRENT_MEGA:-<unset>} → ${MEGA_NFT}"
-        else
-            log "MegaETH NFT_CONTRACT_ADDRESS already correct: ${MEGA_NFT}"
-        fi
-    fi
-fi
+done
 
 # ─── Fix ownership ───
 chown -R fantasyyc:fantasyyc "${APP_DIR}"
@@ -254,7 +203,7 @@ if [ -f "$DEPLOY_FILE" ]; then
         echo -e "  Etherlink metadata:  ${RED}MISMATCH${NC}"
         echo -e "    expected: ${EXPECTED_ADDR}"
         echo -e "    actual:   ${ACTUAL_ADDR}"
-        warn "Etherlink metadata server may be using wrong contract! Check /opt/fantasyyc/.env"
+        warn "Etherlink metadata server using wrong contract! Check deployment-shadownet.json"
     fi
 fi
 
@@ -270,7 +219,7 @@ if [ -f "$MEGA_DEPLOY" ]; then
         echo -e "  MegaETH metadata:    ${RED}MISMATCH${NC}"
         echo -e "    expected: ${MEGA_EXPECTED}"
         echo -e "    actual:   ${MEGA_ACTUAL}"
-        warn "MegaETH metadata server may be using wrong contract! Check fantasyyc-megaeth-metadata.service"
+        warn "MegaETH metadata server using wrong contract! Check deployment-megaeth.json"
     fi
 fi
 
