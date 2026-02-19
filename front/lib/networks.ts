@@ -17,6 +17,7 @@ export interface NetworkConfig {
     };
     apiBase: string;
     metadataBase: string;   // prefix for metadata server routes
+    packPrice: bigint;      // default pack price in wei (avoids RPC call on load)
     icon: string;
     deployed: boolean;
 }
@@ -38,6 +39,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
         },
         apiBase: '/api',
         metadataBase: '/metadata',
+        packPrice: BigInt('5000000000000000000'),  // 5 XTZ
         icon: '',
         deployed: true,
     },
@@ -57,6 +59,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
         },
         apiBase: '/api-mega',
         metadataBase: '/metadata-mega',
+        packPrice: BigInt('10000000000000000'),    // 0.01 ETH
         icon: '',
         deployed: true,
     },

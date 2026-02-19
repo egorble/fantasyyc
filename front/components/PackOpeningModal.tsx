@@ -4,7 +4,7 @@ import { Layers, Package, Minus, Plus, ChevronDown } from 'lucide-react';
 import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
 import { formatXTZ } from '../lib/contracts';
-import { currencySymbol } from '../lib/networks';
+import { currencySymbol, getActiveNetwork } from '../lib/networks';
 import { useNetwork } from '../context/NetworkContext';
 import ModelViewer3D from './ModelViewer3D';
 import gsap from 'gsap';
@@ -28,7 +28,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const [packCount, setPackCount] = useState(1);
     const [cardsDealtCount, setCardsDealtCount] = useState(0);
     const [mintedCards, setMintedCards] = useState<CardData[]>([]);
-    const [packPrice, setPackPrice] = useState<bigint>(BigInt(5e18));
+    const packPrice = getActiveNetwork().packPrice;
     const [txError, setTxError] = useState<string | null>(null);
     const [pendingCards, setPendingCards] = useState<CardData[] | null>(null);
     const [cuts, setCuts] = useState<string[]>([]);
@@ -40,7 +40,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
     // Hooks
     const { isConnected, getSigner, connect, isCorrectChain, switchChain, refreshBalance } = useWalletContext();
-    const { buyAndOpenPack, buyAndOpenMultiplePacks, getPackPrice, isLoading } = usePacks();
+    const { buyAndOpenPack, buyAndOpenMultiplePacks, isLoading } = usePacks();
 
     // Helper: Generate jagged tear path
     const generateTearPath = (seed: number) => {
@@ -64,13 +64,6 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
         d += ` L ${end.x} ${end.y}`;
         return d;
     };
-
-    // Load pack price on mount
-    useEffect(() => {
-        if (isOpen) {
-            getPackPrice().then(setPackPrice);
-        }
-    }, [isOpen, getPackPrice]);
 
     // Initialize GSAP Context
     useLayoutEffect(() => {
@@ -126,39 +119,29 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
     // When pendingCards is set, transition
     useLayoutEffect(() => {
-        console.log('[PackOpen] useLayoutEffect: pendingCards=', !!pendingCards, 'stage=', stage, 'isMegaETH=', isMegaETH, 'isMultiPack=', isMultiPack);
         if (pendingCards && stage === 'buying') {
             if (isMegaETH) {
-                console.log('[PackOpen] → exploding (MegaETH)');
                 setMintedCards(sortByRarity(pendingCards));
                 setPendingCards(null);
                 setStage('exploding');
             } else if (isMultiPack) {
-                console.log('[PackOpen] → finished (multi-pack)');
                 setMintedCards(sortByRarity(pendingCards));
                 setPendingCards(null);
                 setStage('finished');
             } else {
-                console.log('[PackOpen] → tearing (single pack Etherlink)');
                 setStage('tearing');
             }
         }
     }, [pendingCards, stage]);
 
     // Exploding stage animation — handles both MegaETH and Etherlink
-    // Moved into useLayoutEffect to prevent GSAP context revert killing the animation
     useLayoutEffect(() => {
         if (stage !== 'exploding' || !ctx.current) return;
-        console.log('[PackOpen] exploding effect: isMegaETH=', isMegaETH, 'flashRef=', !!flashRef.current, 'packRef=', !!packRef.current);
 
         if (isMegaETH) {
-            // MegaETH: quick flash then dealing/finished
             ctx.current.add(() => {
                 const tl = gsap.timeline({
-                    onComplete: () => {
-                        console.log('[PackOpen] MegaETH burst complete →', isMultiPack ? 'finished' : 'dealing');
-                        setStage(isMultiPack ? 'finished' : 'dealing');
-                    },
+                    onComplete: () => setStage(isMultiPack ? 'finished' : 'dealing'),
                 });
                 if (flashRef.current) {
                     tl.to(flashRef.current, { opacity: 0.8, duration: 0.15, ease: 'power4.in' })
@@ -168,11 +151,9 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 }
             });
         } else {
-            // Etherlink: pack explosion → flash → dealing
             ctx.current.add(() => {
                 const tl = gsap.timeline({
                     onComplete: () => {
-                        console.log('[PackOpen] Etherlink explode complete → dealing');
                         if (pendingCards) {
                             setMintedCards(pendingCards);
                             setPendingCards(null);
@@ -186,8 +167,6 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                       .set(packRef.current, { opacity: 0 })
                       .to(flashRef.current, { opacity: 0, duration: 0.3, ease: "power2.out" });
                 } else {
-                    // Refs not ready — skip animation, go straight to dealing
-                    console.warn('[PackOpen] refs missing, skipping explode animation');
                     if (pendingCards) {
                         setMintedCards(pendingCards);
                         setPendingCards(null);
@@ -202,7 +181,6 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const handleTapPack = () => {
         if (stage !== 'tearing') return;
         const newCount = cuts.length + 1;
-        console.log('[PackOpen] tap', newCount, '/', maxTaps);
         setCuts(prev => [...prev, generateTearPath(newCount)]);
 
         if (packRef.current && ctx.current) {
@@ -218,23 +196,18 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             });
         }
 
-        if (newCount >= maxTaps) {
-            console.log('[PackOpen] max taps reached → exploding');
-            setStage('exploding');
-        }
+        if (newCount >= maxTaps) setStage('exploding');
     };
 
     // Buy and open packs
     const handleBuyAndOpen = async () => {
-        console.log('[PackOpen] handleBuyAndOpen: stage=', stage);
         if (stage !== 'select') return;
 
-        if (!isConnected) { console.log('[PackOpen] not connected, connecting...'); await connect(); return; }
-        if (!isCorrectChain) { console.log('[PackOpen] wrong chain, switching...'); await switchChain(); return; }
+        if (!isConnected) { await connect(); return; }
+        if (!isCorrectChain) { await switchChain(); return; }
 
         setStage('buying');
         setTxError(null);
-        console.log('[PackOpen] stage → buying, calling buyAndOpenPack...');
 
         try {
             const signer = await getSigner();
@@ -244,21 +217,15 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 ? await buyAndOpenMultiplePacks(signer, packCount)
                 : await buyAndOpenPack(signer);
 
-            console.log('[PackOpen] buyAndOpenPack result:', result.success, 'cards:', result.cards?.length);
-
             if (result.success && result.cards) {
-                console.log('[PackOpen] setPendingCards with', result.cards.length, 'cards');
                 setPendingCards(result.cards);
                 onCardsAcquired?.(result.cards);
                 refreshBalance();
-                console.log('[PackOpen] onCardsAcquired + refreshBalance called');
             } else {
-                console.log('[PackOpen] FAILED:', result.error);
                 setTxError(result.error || 'Failed to buy pack');
                 setStage('select');
             }
         } catch (e: any) {
-            console.error('[PackOpen] EXCEPTION:', e.message);
             setTxError(e.message);
             setStage('select');
         }
