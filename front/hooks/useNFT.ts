@@ -77,30 +77,6 @@ function parseMetadataResponse(tokenId: number, data: any): CardData {
     };
 }
 
-// Spot-check a few cached cards against on-chain rarity to detect stale data
-// Returns true if cache is stale (mismatch found)
-const RARITY_ENUM_MAP = [Rarity.COMMON, Rarity.RARE, Rarity.EPIC, Rarity.EPIC_RARE, Rarity.LEGENDARY];
-
-async function spotCheckRarity(cards: CardData[]): Promise<boolean> {
-    if (cards.length === 0) return false;
-    try {
-        // Pick up to 3 random cards to verify
-        const shuffled = [...cards].sort(() => Math.random() - 0.5);
-        const sample = shuffled.slice(0, Math.min(3, shuffled.length));
-        const contract = getNFTContract();
-        const infos = await Promise.all(sample.map(c => contract.getCardInfo(c.tokenId)));
-        for (let i = 0; i < sample.length; i++) {
-            const chainRarity = RARITY_ENUM_MAP[Number(infos[i].rarity)] ?? Rarity.COMMON;
-            if (sample[i].rarity !== chainRarity) {
-                return true; // stale!
-            }
-        }
-        return false;
-    } catch {
-        return false; // can't verify — trust cache
-    }
-}
-
 export function useNFT() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -356,8 +332,8 @@ export function useNFT() {
         const tokenIds = await getOwnedTokens(address);
         if (tokenIds.length === 0) return [];
 
-        // Metadata batch + contract fallback for any nulls
         const cards = await fetchMetadataBatch(tokenIds);
+
         const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
         if (nullIndices.length > 0) {
             const fallbacks = await fetchInBatches(
@@ -373,74 +349,13 @@ export function useNFT() {
 
         const cardsKey = CacheKeys.userCards(address);
         blockchainCache.set(cardsKey, validCards);
-        for (const card of validCards) {
-            blockchainCache.set(CacheKeys.cardMetadata(card.tokenId), card);
-        }
         blockchainCache.persistKeys('nft:');
 
-        // Push to server DB cache in background (overwrites stale data)
+        // Push to server DB cache in background
         pushCardsToServer(address, validCards);
 
         return validCards;
     }, [getOwnedTokens, fetchMetadataBatch, fetchCardFromContract, pushCardsToServer]);
-
-    // Force refresh: get fresh token list from chain, read each card from contract
-    // Used when cache is detected as stale (spot-check mismatch)
-    const forceRefreshFromChain = useCallback(async (address: string): Promise<CardData[]> => {
-        const contract = getNFTContract();
-        const rawTokens = await contract.getOwnedTokens(address);
-        const tokenIds = rawTokens.map((t: bigint) => Number(t));
-        if (tokenIds.length === 0) return [];
-
-        // Use metadata batch (fresh, cache already cleared) + contract fallback
-        const cards = await fetchMetadataBatch(tokenIds);
-        const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
-        if (nullIndices.length > 0) {
-            const fallbacks = await fetchInBatches(
-                nullIndices.map(i => tokenIds[i]),
-                fetchCardFromContract, 5, 100
-            );
-            fallbacks.forEach((card, fi) => {
-                if (card) cards[nullIndices[fi]] = card;
-            });
-        }
-
-        const validCards = cards.filter((c): c is CardData => c !== null);
-
-        // Spot-check a few cards against chain to fix any remaining mismatches
-        try {
-            const sample = validCards.slice(0, Math.min(5, validCards.length));
-            const chainInfos = await Promise.all(
-                sample.map(c => contract.getCardInfo(c.tokenId))
-            );
-            for (let i = 0; i < sample.length; i++) {
-                const chainRarity = RARITY_ENUM_MAP[Number(chainInfos[i].rarity)] ?? Rarity.COMMON;
-                const chainMultiplier = Number(chainInfos[i].multiplier);
-                const chainStartupId = Number(chainInfos[i].startupId);
-                if (sample[i].rarity !== chainRarity || sample[i].startupId !== chainStartupId) {
-                    // Fix this card with chain data
-                    const startup = STARTUPS[chainStartupId];
-                    if (startup) {
-                        sample[i].rarity = chainRarity;
-                        sample[i].multiplier = chainMultiplier;
-                        sample[i].startupId = chainStartupId;
-                        sample[i].name = startup.name;
-                        sample[i].image = `/images/${chainStartupId}.png`;
-                    }
-                }
-            }
-        } catch { /* spot-check failed, use metadata as-is */ }
-
-        const cardsKey = CacheKeys.userCards(address);
-        blockchainCache.set(cardsKey, validCards);
-        for (const card of validCards) {
-            blockchainCache.set(CacheKeys.cardMetadata(card.tokenId), card);
-        }
-        blockchainCache.persistKeys('nft:');
-        pushCardsToServer(address, validCards);
-
-        return validCards;
-    }, [fetchMetadataBatch, fetchCardFromContract, pushCardsToServer]);
 
     // Get all cards for an address — server cache first, blockchain fallback
     // Pass forceRefresh=true after mutations (merge, pack open, purchase) to skip stale cache
@@ -464,12 +379,6 @@ export function useNFT() {
                 if (!forceRefresh) {
                     const serverCards = await fetchCardsFromServer(address);
                     if (serverCards && serverCards.length > 0) {
-                        // Spot-check: verify 3 random cards' rarity against chain
-                        // If any mismatch → cache is stale, force full refresh from chain
-                        const stale = await spotCheckRarity(serverCards);
-                        if (stale) {
-                            return await forceRefreshFromChain(address);
-                        }
                         const cardsKey = CacheKeys.userCards(address);
                         blockchainCache.set(cardsKey, serverCards);
                         blockchainCache.persistKeys('nft:');
@@ -488,9 +397,6 @@ export function useNFT() {
                 }
 
                 // Fetch from blockchain (+ push to server)
-                if (forceRefresh) {
-                    return await forceRefreshFromChain(address);
-                }
                 return await fetchCardsFromBlockchain(address);
             } catch (e: any) {
                 const cardsKey = CacheKeys.userCards(address);
@@ -509,7 +415,7 @@ export function useNFT() {
         const promise = doFetch();
         pendingGetCards.set(addrKey, promise);
         return promise;
-    }, [fetchCardsFromBlockchain, forceRefreshFromChain, fetchCardsFromServer]);
+    }, [fetchCardsFromBlockchain, fetchCardsFromServer]);
 
     // Rarity names for logging
     const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'EpicRare', 'Legendary'];
