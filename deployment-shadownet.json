@@ -15,7 +15,7 @@
   "implementations": {
     "UnicornX_NFT": "0x20Cc3F19F4fAB1427D56787c311f288F234C2Cc1",
     "PackOpener": "0xFe6c5DCdB2F422D4FC3B762D97Df6538c705Fe8a",
-    "TournamentManager": "0x68ac26B3e6F44ACb9d59928392033670C3A689cA",
+    "TournamentManager": "0x95F0dB7a7eC0d80B6DB3475A1c6c389Ea8F512db",
     "MarketplaceV2": "0x2EC254320f1a76c747abBB12325023f2267B20eA"
   },
   "configuration": {
@@ -50,6 +50,13 @@
       "newImplementation": "0x2EC254320f1a76c747abBB12325023f2267B20eA",
       "timestamp": "2026-02-12T13:41:58.634Z",
       "txHash": "0x2e01bbea54a48b80205e04d2cea7e5182f4f760f049ab3228d8e7e88d888bcae"
+    },
+    {
+      "contract": "TournamentManager",
+      "oldImplementation": "0x68ac26B3e6F44ACb9d59928392033670C3A689cA",
+      "newImplementation": "0x95F0dB7a7eC0d80B6DB3475A1c6c389Ea8F512db",
+      "timestamp": "2026-02-19T13:16:48.354Z",
+      "txHash": "0x6ebb3c5e79b36486b4fc6aa0b6a35d6fc93e4b45f5cc6d6179cfd358121e30b5"
     }
   ]
 }

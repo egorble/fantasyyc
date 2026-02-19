@@ -332,6 +332,12 @@ contract TournamentManager is Initializable, Ownable2StepUpgradeable, PausableUp
 
     function emergencyWithdraw(uint256 amount, address to) external onlyAdmin nonReentrant {
         if (to == address(0)) revert ZeroAddress();
+        // Zero out prizePool for all tournaments to keep state consistent
+        for (uint256 i = 0; i < nextTournamentId; i++) {
+            if (tournaments[i].prizePool > 0) {
+                tournaments[i].prizePool = 0;
+            }
+        }
         (bool success, ) = to.call{value: amount}("");
         if (!success) revert WithdrawFailed();
     }

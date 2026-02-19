@@ -280,6 +280,8 @@ const AdminPanel: React.FC = () => {
             );
             if (result.success) {
                 showMessage('success', 'Funds withdrawn from TournamentManager!');
+                // Emergency withdraw doesn't update prizePool in contract — zero out locally
+                setTournaments(prev => prev.map(t => ({ ...t, prizePool: 0n })));
                 loadData();
             } else {
                 showMessage('error', result.error || 'Withdrawal failed');
