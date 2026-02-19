@@ -17,10 +17,13 @@ const RARITY_STRING_MAP: Record<string, Rarity> = {
     'Legendary': Rarity.LEGENDARY,
 };
 
-// Fetch metadata from API
+// Fetch metadata from API with 5s timeout
 async function fetchCardMetadata(tokenId: number): Promise<CardData | null> {
     try {
-        const response = await fetch(metadataUrl(`/${tokenId}`));
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const response = await fetch(metadataUrl(`/${tokenId}`), { signal: controller.signal });
+        clearTimeout(timeout);
         if (!response.ok) return null;
 
         const data = await response.json();
@@ -163,28 +166,27 @@ export function usePacks() {
             blockchainCache.invalidatePrefix(`nft:cards:${signerAddress}`);
             blockchainCache.invalidatePrefix(`pack:user:${signerAddress}`);
 
-            // Fetch metadata for each card from the API, fallback to event data
-            const cards: CardData[] = [];
-            for (const mt of mintedTokens) {
-                const card = await fetchCardMetadata(mt.tokenId);
-                if (card) {
-                    cards.push(card);
-                } else {
-                    // Fallback: construct from on-chain event data
-                    const startup = STARTUPS[mt.startupId];
-                    cards.push({
-                        tokenId: mt.tokenId,
-                        startupId: mt.startupId,
-                        name: startup?.name || 'Unknown',
-                        rarity: RARITY_STRING_MAP[startup?.rarity || 'Common'] || Rarity.COMMON,
-                        multiplier: startup?.multiplier || 1,
-                        isLocked: false,
-                        image: `/images/${mt.startupId}.png`,
-                        edition: mt.edition,
-                    });
-                }
-                blockchainCache.set(CacheKeys.cardMetadata(mt.tokenId), cards[cards.length - 1]);
-            }
+            // Fetch metadata for all cards in parallel, fallback to event data
+            const metadataResults = await Promise.all(
+                mintedTokens.map(mt => fetchCardMetadata(mt.tokenId))
+            );
+            const cards: CardData[] = mintedTokens.map((mt, i) => {
+                const card = metadataResults[i];
+                if (card) return card;
+                // Fallback: construct from on-chain event data
+                const startup = STARTUPS[mt.startupId];
+                return {
+                    tokenId: mt.tokenId,
+                    startupId: mt.startupId,
+                    name: startup?.name || 'Unknown',
+                    rarity: RARITY_STRING_MAP[startup?.rarity || 'Common'] || Rarity.COMMON,
+                    multiplier: startup?.multiplier || 1,
+                    isLocked: false,
+                    image: `/images/${mt.startupId}.png`,
+                    edition: mt.edition,
+                };
+            });
+            cards.forEach(card => blockchainCache.set(CacheKeys.cardMetadata(card.tokenId), card));
 
             return { success: true, cards };
         } catch (e: any) {
@@ -258,27 +260,26 @@ export function usePacks() {
             blockchainCache.invalidatePrefix(`nft:cards:${signerAddress}`);
             blockchainCache.invalidatePrefix(`pack:user:${signerAddress}`);
 
-            // Fetch metadata for all cards, fallback to event data
-            const cards: CardData[] = [];
-            for (const mt of mintedTokens) {
-                const card = await fetchCardMetadata(mt.tokenId);
-                if (card) {
-                    cards.push(card);
-                } else {
-                    const startup = STARTUPS[mt.startupId];
-                    cards.push({
-                        tokenId: mt.tokenId,
-                        startupId: mt.startupId,
-                        name: startup?.name || 'Unknown',
-                        rarity: RARITY_STRING_MAP[startup?.rarity || 'Common'] || Rarity.COMMON,
-                        multiplier: startup?.multiplier || 1,
-                        isLocked: false,
-                        image: `/images/${mt.startupId}.png`,
-                        edition: mt.edition,
-                    });
-                }
-                blockchainCache.set(CacheKeys.cardMetadata(mt.tokenId), cards[cards.length - 1]);
-            }
+            // Fetch metadata for all cards in parallel, fallback to event data
+            const metadataResults = await Promise.all(
+                mintedTokens.map(mt => fetchCardMetadata(mt.tokenId))
+            );
+            const cards: CardData[] = mintedTokens.map((mt, i) => {
+                const card = metadataResults[i];
+                if (card) return card;
+                const startup = STARTUPS[mt.startupId];
+                return {
+                    tokenId: mt.tokenId,
+                    startupId: mt.startupId,
+                    name: startup?.name || 'Unknown',
+                    rarity: RARITY_STRING_MAP[startup?.rarity || 'Common'] || Rarity.COMMON,
+                    multiplier: startup?.multiplier || 1,
+                    isLocked: false,
+                    image: `/images/${mt.startupId}.png`,
+                    edition: mt.edition,
+                };
+            });
+            cards.forEach(card => blockchainCache.set(CacheKeys.cardMetadata(card.tokenId), card));
 
             return { success: true, cards };
         } catch (e: any) {
