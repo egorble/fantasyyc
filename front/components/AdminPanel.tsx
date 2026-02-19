@@ -304,7 +304,9 @@ const AdminPanel: React.FC = () => {
         );
         if (result.success) {
             showMessage('success', `Withdrew ${formatXTZ(tournament.prizePool)} ${currencySymbol()} from tournament #${tournament.id}`);
-            loadData();
+            // Wait for RPC to reflect new on-chain state before reloading
+            await new Promise(r => setTimeout(r, 2000));
+            await loadData();
         } else {
             showMessage('error', result.error || 'Withdrawal failed');
         }
