@@ -145,15 +145,18 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
         }
     }, [pendingCards, stage]);
 
-    // MegaETH burst: quick flash then dealing (single) or finished (multi)
+    // Exploding stage animation — handles both MegaETH and Etherlink
+    // Moved into useLayoutEffect to prevent GSAP context revert killing the animation
     useLayoutEffect(() => {
-        console.log('[PackOpen] burst effect: stage=', stage, 'isMegaETH=', isMegaETH, 'ctx=', !!ctx.current);
-        if (stage === 'exploding' && isMegaETH && ctx.current) {
-            console.log('[PackOpen] → starting burst animation, flashRef=', !!flashRef.current);
+        if (stage !== 'exploding' || !ctx.current) return;
+        console.log('[PackOpen] exploding effect: isMegaETH=', isMegaETH, 'flashRef=', !!flashRef.current, 'packRef=', !!packRef.current);
+
+        if (isMegaETH) {
+            // MegaETH: quick flash then dealing/finished
             ctx.current.add(() => {
                 const tl = gsap.timeline({
                     onComplete: () => {
-                        console.log('[PackOpen] burst complete → ', isMultiPack ? 'finished' : 'dealing');
+                        console.log('[PackOpen] MegaETH burst complete →', isMultiPack ? 'finished' : 'dealing');
                         setStage(isMultiPack ? 'finished' : 'dealing');
                     },
                 });
@@ -161,8 +164,35 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     tl.to(flashRef.current, { opacity: 0.8, duration: 0.15, ease: 'power4.in' })
                       .to(flashRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out' });
                 } else {
-                    console.warn('[PackOpen] flashRef is null! Skipping to next stage immediately');
                     setStage(isMultiPack ? 'finished' : 'dealing');
+                }
+            });
+        } else {
+            // Etherlink: pack explosion → flash → dealing
+            ctx.current.add(() => {
+                const tl = gsap.timeline({
+                    onComplete: () => {
+                        console.log('[PackOpen] Etherlink explode complete → dealing');
+                        if (pendingCards) {
+                            setMintedCards(pendingCards);
+                            setPendingCards(null);
+                        }
+                        setStage('dealing');
+                    }
+                });
+                if (packRef.current && flashRef.current) {
+                    tl.to(packRef.current, { scale: 1.1, duration: 0.1, ease: "back.in(2)" })
+                      .to(flashRef.current, { opacity: 1, duration: 0.05, ease: "power4.in" })
+                      .set(packRef.current, { opacity: 0 })
+                      .to(flashRef.current, { opacity: 0, duration: 0.3, ease: "power2.out" });
+                } else {
+                    // Refs not ready — skip animation, go straight to dealing
+                    console.warn('[PackOpen] refs missing, skipping explode animation');
+                    if (pendingCards) {
+                        setMintedCards(pendingCards);
+                        setPendingCards(null);
+                    }
+                    setStage('dealing');
                 }
             });
         }
@@ -172,6 +202,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const handleTapPack = () => {
         if (stage !== 'tearing') return;
         const newCount = cuts.length + 1;
+        console.log('[PackOpen] tap', newCount, '/', maxTaps);
         setCuts(prev => [...prev, generateTearPath(newCount)]);
 
         if (packRef.current && ctx.current) {
@@ -187,26 +218,9 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             });
         }
 
-        if (newCount >= maxTaps) explode();
-    };
-
-    // Explode Animation
-    const explode = () => {
-        setStage('exploding');
-        if (packRef.current && flashRef.current && ctx.current && pendingCards) {
-            ctx.current.add(() => {
-                const tl = gsap.timeline({
-                    onComplete: () => {
-                        setMintedCards(pendingCards);
-                        setPendingCards(null);
-                        setStage('dealing');
-                    }
-                });
-                tl.to(packRef.current, { scale: 1.1, duration: 0.1, ease: "back.in(2)" })
-                    .to(flashRef.current, { opacity: 1, duration: 0.05, ease: "power4.in" })
-                    .set(packRef.current, { opacity: 0 })
-                    .to(flashRef.current, { opacity: 0, duration: 0.3, ease: "power2.out" });
-            });
+        if (newCount >= maxTaps) {
+            console.log('[PackOpen] max taps reached → exploding');
+            setStage('exploding');
         }
     };
 
