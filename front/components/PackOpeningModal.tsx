@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { CardData, sortByRarity } from '../types';
-import { Layers, Package, Minus, Plus, ChevronDown } from 'lucide-react';
+import { Layers, Package, Minus, Plus, ChevronDown, Zap } from 'lucide-react';
 import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
 import { formatXTZ } from '../lib/contracts';
@@ -145,7 +145,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 });
                 if (flashRef.current) {
                     tl.to(flashRef.current, { opacity: 0.8, duration: 0.15, ease: 'power4.in' })
-                      .to(flashRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out' });
+                        .to(flashRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out' });
                 } else {
                     setStage(isMultiPack ? 'finished' : 'dealing');
                 }
@@ -163,9 +163,9 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 });
                 if (packRef.current && flashRef.current) {
                     tl.to(packRef.current, { scale: 1.1, duration: 0.1, ease: "back.in(2)" })
-                      .to(flashRef.current, { opacity: 1, duration: 0.05, ease: "power4.in" })
-                      .set(packRef.current, { opacity: 0 })
-                      .to(flashRef.current, { opacity: 0, duration: 0.3, ease: "power2.out" });
+                        .to(flashRef.current, { opacity: 1, duration: 0.05, ease: "power4.in" })
+                        .set(packRef.current, { opacity: 0 })
+                        .to(flashRef.current, { opacity: 0, duration: 0.3, ease: "power2.out" });
                 } else {
                     if (pendingCards) {
                         setMintedCards(pendingCards);
@@ -274,17 +274,17 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const totalPrice = packPrice * BigInt(packCount);
 
     return (
-        <div ref={containerRef} className={`fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md overflow-hidden ${isOpen ? '' : 'invisible pointer-events-none'}`}>
+        <div ref={containerRef} className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md overflow-hidden ${isOpen ? '' : 'invisible pointer-events-none'}`}>
             {/* Flash Overlay */}
-            <div ref={flashRef} className="absolute inset-0 bg-white pointer-events-none opacity-0 z-[60]" />
+            <div ref={flashRef} className="absolute inset-0 bg-white pointer-events-none opacity-0 z-[110]" />
 
             {/* --- STAGE: PACK SELECTION --- */}
             {stage === 'select' && (
                 isMegaETH ? (
                     /* MegaETH: 3D pack on top, controls below */
-                    <div className="flex flex-col items-center w-full h-full px-4 py-4 sm:py-0 sm:justify-center">
+                    <div className="flex flex-col items-center w-full h-full px-4 py-8 overflow-y-auto sm:py-0 sm:justify-center">
                         {/* 3D pack — takes upper space */}
-                        <div className="relative w-full flex-1 min-h-0 max-h-[65%] shrink mb-2">
+                        <div className="relative w-full flex-1 min-h-[40vh] sm:min-h-0 max-h-[50vh] sm:max-h-[65%] shrink-0 sm:shrink mb-6 sm:mb-2">
                             <ModelViewer3D mode="interactive" cameraZ={4.5} modelScale={1} paused={!isOpen} />
                             {packCount > 1 && (
                                 <div className="absolute top-2 right-2 w-9 h-9 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-base shadow-lg shadow-orange-500/30 z-10">
@@ -343,8 +343,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     </div>
                 ) : (
                     /* Etherlink: original layout */
-                    <div className="flex flex-col items-center w-full h-full relative px-4 overflow-y-auto py-6 sm:py-0 sm:justify-center">
-                        <div className="relative w-36 h-48 sm:w-52 sm:h-72 mb-4 sm:mb-8 group shrink-0">
+                    <div className="flex flex-col items-center w-full h-full relative px-4 overflow-y-auto py-8 sm:py-0 sm:justify-center">
+                        <div className="relative w-36 h-48 sm:w-52 sm:h-72 mt-4 sm:mt-0 mb-4 sm:mb-8 group shrink-0">
                             <div className="absolute inset-0 rounded-xl overflow-hidden border bg-[#151515] border-white/20 shadow-2xl shadow-orange-500/10">
                                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -451,8 +451,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                         <div className="absolute inset-0 rounded-full border-2 border-yc-orange/60 animate-ping" />
                         <div className="absolute inset-4 rounded-full border-2 border-yc-orange/40 animate-ping" style={{ animationDelay: '0.1s' }} />
                         <div className="absolute inset-8 rounded-full border-2 border-yc-orange/20 animate-ping" style={{ animationDelay: '0.2s' }} />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-5xl">⚡</span>
+                        <div className="absolute inset-0 flex items-center justify-center text-yc-orange">
+                            <Zap className="w-12 h-12 fill-current" />
                         </div>
                     </div>
                     <h2 className="text-2xl font-black text-white mt-6 uppercase tracking-tighter animate-pulse">

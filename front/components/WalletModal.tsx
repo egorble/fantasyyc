@@ -37,7 +37,7 @@ const WalletModal: React.FC<WalletModalProps> = ({
             onClick={onClose}
         >
             <div
-                className="bg-white dark:bg-[#121212] rounded-t-2xl md:rounded-2xl p-6 w-full max-w-sm md:mx-4 shadow-2xl animate-[slideUp_0.2s_ease-out]"
+                className="bg-white/90 dark:bg-[#121212]/90 backdrop-blur-2xl rounded-t-3xl md:rounded-2xl p-6 w-full max-w-sm md:mx-4 shadow-[0_-20px_60px_rgba(0,0,0,0.2)] dark:shadow-[0_-20px_60px_rgba(0,0,0,0.6)] border border-white/50 dark:border-white/10 animate-[slideUp_0.2s_ease-out]"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}

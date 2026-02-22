@@ -58,7 +58,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ data, cardData, onClo
     return (
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm md:p-4" onClick={onClose}>
             <div
-                className="bg-white dark:bg-[#09090b] w-full md:max-w-5xl max-h-[85vh] md:max-h-[90vh] rounded-t-2xl md:rounded-xl shadow-2xl border border-gray-200 dark:border-[#27272a] flex flex-col relative overflow-hidden"
+                className="bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-2xl w-full md:max-w-5xl max-h-[85vh] md:max-h-[90vh] rounded-t-3xl md:rounded-2xl shadow-[0_-20px_60px_rgba(0,0,0,0.2)] dark:shadow-[0_-20px_60px_rgba(0,0,0,0.6)] border border-white/50 dark:border-white/10 flex flex-col relative overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Mobile drag handle */}

@@ -24,6 +24,7 @@ import { useTheme } from './context/ThemeContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { WalletProvider, useWalletContext } from './context/WalletContext';
 import { NetworkProvider, useNetwork } from './context/NetworkContext';
+import { ToastProvider, useToast } from './context/ToastContext';
 import { formatXTZ, CHAIN_NAME } from './lib/contracts';
 import { currencySymbol } from './lib/networks';
 import { isAdmin } from './hooks/useAdmin';
@@ -70,7 +71,7 @@ const AppContent: React.FC = () => {
     const handleNetworkSwitch = (id: string) => {
         if (id === networkId) return;
         switchNetwork(id);
-        if (isConnected) { switchChain().catch(() => {}); refreshBalance(); }
+        if (isConnected) { switchChain().catch(() => { }); refreshBalance(); }
     };
 
     // User profile hook
@@ -90,6 +91,9 @@ const AppContent: React.FC = () => {
     // NFT hook
     const { getCardInfo, getCards, updateServerCache, clearCache } = useNFT();
 
+    // Toast hook
+    const { toast, success, error, info } = useToast();
+
     // Dynamic user from wallet + profile
     const user: UserProfile = {
         name: isConnected
@@ -107,7 +111,7 @@ const AppContent: React.FC = () => {
     // Cards get cached in blockchainCache + localStorage → Portfolio loads instantly
     useEffect(() => {
         if (isConnected && address) {
-            getCards(address).catch(() => {}); // fire-and-forget
+            getCards(address).catch(() => { }); // fire-and-forget
         }
     }, [isConnected, address, getCards, networkId]);
 
@@ -327,12 +331,12 @@ const AppContent: React.FC = () => {
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            if (!isConnected) { alert('Please connect your wallet first'); return; }
-                                                            if (listing.seller.toLowerCase() === address?.toLowerCase()) { alert("You can't buy your own listing"); return; }
+                                                            if (!isConnected) { error('Please connect your wallet first'); return; }
+                                                            if (listing.seller.toLowerCase() === address?.toLowerCase()) { error("You can't buy your own listing"); return; }
                                                             setBuyingId(Number(listing.listingId));
                                                             buyCard(listing.listingId, listing.price)
-                                                                .then(() => { alert('Purchase successful!'); window.location.reload(); })
-                                                                .catch((err: any) => alert(`Error: ${err.message}`))
+                                                                .then(() => { success('Purchase successful!'); setTimeout(() => window.location.reload(), 1500); })
+                                                                .catch((err: any) => error(`Error: ${err.message}`))
                                                                 .finally(() => setBuyingId(null));
                                                         }}
                                                         disabled={buyingId === Number(listing.listingId)}
@@ -420,12 +424,12 @@ const AppContent: React.FC = () => {
                                 onClick={handleWalletClick}
                                 disabled={isConnecting}
                                 className={`
-                                    hidden md:flex items-center px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95
+                                    hidden md:flex items-center px-6 py-3 rounded-xl font-bold text-sm transition-all duration-300 ease-in-out shadow-lg shadow-orange-500/10 hover:shadow-orange-500/30 hover:scale-105 active:scale-95
                                     ${isConnected
                                         ? isCorrectChain
-                                            ? 'bg-yc-green/20 text-yc-green border border-yc-green/30 hover:bg-yc-green/30'
-                                            : 'bg-yc-orange hover:bg-orange-600 text-white shadow-orange-500/20'
-                                        : 'bg-yc-orange hover:bg-orange-600 text-white shadow-orange-500/20'
+                                            ? 'bg-yc-green/20 text-yc-green border border-yc-green/30 hover:bg-yc-green/30 shadow-none hover:shadow-none'
+                                            : 'bg-yc-orange hover:bg-orange-600 text-white'
+                                        : 'bg-yc-orange hover:bg-orange-600 text-white'
                                     }
                                 `}
                             >
@@ -524,11 +528,10 @@ const AppContent: React.FC = () => {
                                                         <button
                                                             key={net.id}
                                                             onClick={() => { setIsMobileMenuOpen(false); handleNetworkSwitch(net.id); }}
-                                                            className={`flex items-center gap-1 px-2 py-1.5 rounded-full text-xs font-bold transition-all ${
-                                                                networkId === net.id
-                                                                    ? 'bg-yc-orange text-white shadow'
-                                                                    : 'text-gray-400'
-                                                            }`}
+                                                            className={`flex items-center gap-1 px-2 py-1.5 rounded-full text-xs font-bold transition-all ${networkId === net.id
+                                                                ? 'bg-yc-orange text-white shadow'
+                                                                : 'text-gray-400'
+                                                                }`}
                                                         >
                                                             <span>{net.shortName}</span>
                                                         </button>
@@ -640,10 +643,12 @@ const App: React.FC = () => {
     return (
         <ThemeProvider>
             <NetworkProvider>
-                <WalletProvider>
-                    {showSplash && <SplashScreen onReady={handleSplashReady} />}
-                    <AppContent />
-                </WalletProvider>
+                <ToastProvider>
+                    <WalletProvider>
+                        {showSplash && <SplashScreen onReady={handleSplashReady} />}
+                        <AppContent />
+                    </WalletProvider>
+                </ToastProvider>
             </NetworkProvider>
         </ThemeProvider>
     );

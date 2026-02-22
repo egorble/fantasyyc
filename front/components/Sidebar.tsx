@@ -22,9 +22,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
   const userIsAdmin = isAdmin(user.address || null);
 
   const handleNetworkSwitch = (id: string) => {
-      if (id === networkId) return;
-      switchNetwork(id);
-      if (isConnected) { switchChain().catch(() => {}); refreshBalance(); }
+    if (id === networkId) return;
+    switchNetwork(id);
+    if (isConnected) { switchChain().catch(() => { }); refreshBalance(); }
   };
 
   const navItems = [
@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
 
   return (
     <aside
-      className="w-72 h-screen fixed top-0 left-0 bg-yc-light-panel dark:bg-yc-dark-panel border-r border-yc-light-border dark:border-yc-dark-border hidden md:flex flex-col z-50"
+      className="w-72 h-screen fixed top-0 left-0 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-2xl border-r border-gray-200/50 dark:border-white/10 hidden md:flex flex-col z-50"
     >
       {/* Logo Area */}
       <div className="px-8 py-10 flex items-center justify-between">
@@ -58,10 +58,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id)}
-              className={`w-full flex items-center px-5 py-4 rounded-2xl transition-all duration-300 group font-bold text-base
+              className={`w-full flex items-center px-5 py-4 rounded-xl transition-all duration-300 ease-in-out group font-bold text-base
                 ${isActive
-                  ? 'bg-white dark:bg-[#1A1A1A] text-yc-text-primary dark:text-white shadow-lg shadow-gray-200/50 dark:shadow-none'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-yc-text-primary dark:hover:text-white'}
+                  ? 'bg-yc-orange/10 dark:bg-yc-orange/10 text-yc-orange shadow-inner'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-yc-text-primary dark:hover:text-white hover:translate-x-1'}
               `}
             >
               <item.icon
@@ -99,16 +99,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
         </div>
 
         {/* Network Toggle */}
-        <div className="flex bg-gray-200 dark:bg-[#1A1A1A] rounded-full p-1 gap-0.5">
+        <div className="flex bg-gray-200 dark:bg-[#1A1A1A] rounded-xl p-1 gap-0.5">
           {allNetworks.map((net) => (
             <button
               key={net.id}
               onClick={() => handleNetworkSwitch(net.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-bold transition-all ${
-                networkId === net.id
-                  ? 'bg-yc-orange text-white shadow'
-                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
-              }`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ease-in-out ${networkId === net.id
+                ? 'bg-yc-orange text-white shadow'
+                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                }`}
             >
               <span>{net.shortName}</span>
             </button>

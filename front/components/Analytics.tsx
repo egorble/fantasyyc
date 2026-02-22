@@ -142,50 +142,50 @@ const Analytics: React.FC = () => {
 
             {/* Summary Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Wallet className="w-4 h-4 text-yc-orange" />
-                        <span className="text-gray-500 text-xs uppercase font-bold">Portfolio Value</span>
+                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Wallet className="w-5 h-5 text-yc-orange" />
+                        <span className="text-gray-600 dark:text-gray-300 text-sm font-semibold tracking-wide">Portfolio Value</span>
                     </div>
-                    <p className="text-xl font-bold text-yc-text-primary dark:text-white">
+                    <p className="text-2xl font-black text-yc-text-primary dark:text-white">
                         {isLoading ? '...' : formatPortfolioValue()}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">{summary.totalCards} cards</p>
+                    <p className="text-sm text-gray-500 mt-1">{summary.totalCards} cards</p>
                 </div>
 
-                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Trophy className="w-4 h-4 text-yc-orange" />
-                        <span className="text-gray-500 text-xs uppercase font-bold">Tournament Rank</span>
+                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Trophy className="w-5 h-5 text-yc-orange" />
+                        <span className="text-gray-600 dark:text-gray-300 text-sm font-semibold tracking-wide">Tournament Rank</span>
                     </div>
-                    <p className="text-xl font-bold text-yc-text-primary dark:text-white">
+                    <p className="text-2xl font-black text-yc-text-primary dark:text-white">
                         {isLoading ? '...' : summary.rank ? `#${summary.rank}` : '--'}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 mt-1">
                         {summary.totalScore > 0 ? `${summary.totalScore.toFixed(1)} pts total` : 'Not in tournament'}
                     </p>
                 </div>
 
-                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp className="w-4 h-4 text-yc-green" />
-                        <span className="text-gray-500 text-xs uppercase font-bold">Today's Points</span>
+                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="w-5 h-5 text-yc-green" />
+                        <span className="text-gray-600 dark:text-gray-300 text-sm font-semibold tracking-wide">Today's Points</span>
                     </div>
-                    <p className="text-xl font-bold text-yc-green">
+                    <p className="text-2xl font-black text-yc-green">
                         {isLoading ? '...' : summary.todayPoints > 0 ? `+${summary.todayPoints.toFixed(1)}` : '0'}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">{summary.totalMultiplier}x total multiplier</p>
+                    <p className="text-sm text-gray-500 mt-1">{summary.totalMultiplier}x total multiplier</p>
                 </div>
 
-                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Target className="w-4 h-4 text-purple-400" />
-                        <span className="text-gray-500 text-xs uppercase font-bold">Best Performer</span>
+                <div className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Target className="w-5 h-5 text-purple-400" />
+                        <span className="text-gray-600 dark:text-gray-300 text-sm font-semibold tracking-wide">Best Performer</span>
                     </div>
-                    <p className="text-xl font-bold text-yc-text-primary dark:text-white truncate">
+                    <p className="text-2xl font-black text-yc-text-primary dark:text-white truncate">
                         {isLoading ? '...' : summary.bestPerformer || '--'}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 mt-1">
                         {bestPerformer && bestPerformer.totalPoints > 0 ? `${bestPerformer.totalPoints.toFixed(1)} pts` : 'No data'}
                     </p>
                 </div>

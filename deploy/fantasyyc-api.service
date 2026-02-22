@@ -3,6 +3,8 @@ Description=FantasyYC API Server (Express.js on port 3003)
 Documentation=https://github.com/unicornx/fantasyyc
 After=network.target
 Wants=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
@@ -10,15 +12,13 @@ User=fantasyyc
 Group=fantasyyc
 WorkingDirectory=/opt/fantasyyc/server
 ExecStart=/usr/bin/node index.js
-EnvironmentFile=/opt/fantasyyc/.env
+EnvironmentFile=-/opt/fantasyyc/.env
 Environment=NODE_ENV=production
 Environment=PORT=3003
 
 # Restart policy
 Restart=always
 RestartSec=5
-StartLimitBurst=5
-StartLimitIntervalSec=60
 
 # Graceful shutdown (gives sql.js time to save DB)
 KillSignal=SIGTERM

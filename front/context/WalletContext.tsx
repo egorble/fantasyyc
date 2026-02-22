@@ -7,7 +7,7 @@ import { useNetwork } from './NetworkContext';
 import EthereumProvider from '@walletconnect/ethereum-provider';
 import WalletModal, { DetectedWallet } from '../components/WalletModal';
 
-const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
+const WC_PROJECT_ID = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID || '';
 
 interface WalletContextType {
     isConnected: boolean;

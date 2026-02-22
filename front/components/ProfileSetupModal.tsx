@@ -99,7 +99,7 @@ const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, address, 
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-out]">
+            <div className="bg-white/90 dark:bg-[#121212]/90 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_-20px_60px_rgba(0,0,0,0.2)] dark:shadow-[0_-20px_60px_rgba(0,0,0,0.6)] animate-[fadeIn_0.3s_ease-out]">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-yc-orange to-orange-600 p-6 text-center">
                     <h2 className="text-white text-xl font-black">Welcome to UnicornX</h2>
@@ -196,11 +196,10 @@ const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, address, 
                     <button
                         onClick={handleSubmit}
                         disabled={loading || username.trim().length < 3}
-                        className={`w-full py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-                            loading || username.trim().length < 3
+                        className={`w-full py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${loading || username.trim().length < 3
                                 ? 'bg-gray-200 dark:bg-[#1A1A1A] text-gray-400 cursor-not-allowed'
                                 : 'bg-yc-orange hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 active:scale-95'
-                        }`}
+                            }`}
                     >
                         {loading ? (
                             <>

@@ -465,222 +465,222 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     return (
         <div className="relative min-h-[80vh] overflow-x-hidden">
 
-                    {/* Header Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
-                        <div className="col-span-1 md:col-span-2 p-4 md:p-6 bg-gradient-to-r from-yc-orange to-red-600 rounded-2xl text-white shadow-xl relative overflow-hidden">
-                            <div className="relative z-10">
-                                <p className="text-white/80 text-sm font-bold uppercase tracking-widest mb-1">Total Cards</p>
-                                <h2 className="text-4xl font-black font-mono">{myCards.length}</h2>
-                                <div className="flex items-center mt-2 text-sm font-bold bg-white/20 w-fit px-2 py-1 rounded backdrop-blur-sm">
-                                    <TrendingUp className="w-4 h-4 mr-1" />
-                                    {uniqueStartups} / 19 Startups
-                                </div>
-                            </div>
-                            <Wallet className="absolute right-[-20px] bottom-[-40px] w-64 h-64 text-white/10 rotate-[-15deg]" />
-                        </div>
-
-                        {/* Buy Pack Card */}
-                        <div
-                            onClick={onBuyPack}
-                            className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-2xl p-6 flex flex-col justify-between cursor-pointer group hover:border-yc-orange transition-all relative overflow-hidden"
-                        >
-                            <div className="absolute inset-0 bg-yc-orange/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <div>
-                                <div className="flex justify-between items-start">
-                                    <div className="p-2 bg-yc-orange/10 rounded-lg text-yc-orange">
-                                        <ShoppingCart className="w-6 h-6" />
-                                    </div>
-                                    <span className="bg-black dark:bg-white text-white dark:text-black text-xs font-bold px-2 py-1 rounded">{packPriceLabel} {currencySymbol()}</span>
-                                </div>
-                                <h3 className="text-xl font-bold text-yc-text-primary dark:text-white mt-4 group-hover:text-yc-orange transition-colors">Buy Starter Pack</h3>
-                                <p className="text-sm text-gray-500 mt-1">Contains 5 random startup cards.</p>
-                            </div>
-                            <div className="flex items-center text-sm font-bold text-yc-text-primary dark:text-white mt-4">
-                                Mint Now <ArrowUpRight className="w-4 h-4 ml-1 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                            </div>
+            {/* Header Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+                <div className="col-span-1 md:col-span-2 p-4 md:p-6 bg-gradient-to-r from-yc-orange to-red-600 rounded-2xl text-white shadow-xl relative overflow-hidden">
+                    <div className="relative z-10">
+                        <p className="text-white/80 text-sm font-bold uppercase tracking-widest mb-1">Total Cards</p>
+                        <h2 className="text-4xl font-black font-mono">{myCards.length}</h2>
+                        <div className="flex items-center mt-2 text-sm font-bold bg-white/20 w-fit px-2 py-1 rounded backdrop-blur-sm">
+                            <TrendingUp className="w-4 h-4 mr-1" />
+                            {uniqueStartups} / 19 Startups
                         </div>
                     </div>
+                    <Wallet className="absolute right-[-20px] bottom-[-40px] w-64 h-64 text-white/10 rotate-[-15deg]" />
+                </div>
 
-                    {/* Tab Switcher */}
-                    <div className="mb-6">
-                        <div className="inline-flex bg-gray-100 dark:bg-[#0A0A0A] rounded-xl p-1">
-                            <button
-                                onClick={() => { setActiveTab('cards'); setIsMergeMode(false); setSelectedCardIds([]); }}
-                                className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
-                                    activeTab === 'cards'
-                                        ? 'bg-white dark:bg-[#1A1A1A] text-yc-text-primary dark:text-white shadow-sm'
-                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
-                            >
-                                My Cards
-                            </button>
-                            <button
-                                onClick={() => { setActiveTab('performance'); setIsMergeMode(false); setSelectedCardIds([]); }}
-                                className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${
-                                    activeTab === 'performance'
-                                        ? 'bg-white dark:bg-[#1A1A1A] text-yc-text-primary dark:text-white shadow-sm'
-                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
-                            >
-                                <TrendingUp className="w-4 h-4" />
-                                Performance
-                            </button>
+                {/* Buy Pack Card */}
+                <div
+                    onClick={onBuyPack}
+                    className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-2xl p-6 flex flex-col justify-between cursor-pointer group hover:border-yc-orange transition-all relative overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-yc-orange/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div>
+                        <div className="flex justify-between items-start">
+                            <div className="p-2 bg-yc-orange/10 rounded-lg text-yc-orange">
+                                <ShoppingCart className="w-6 h-6" />
+                            </div>
+                            <span className="bg-black dark:bg-white text-white dark:text-black text-xs font-bold px-2 py-1 rounded">{packPriceLabel} {currencySymbol()}</span>
                         </div>
+                        <h3 className="text-xl font-bold text-yc-text-primary dark:text-white mt-4 group-hover:text-yc-orange transition-colors">Buy Starter Pack</h3>
+                        <p className="text-sm text-gray-500 mt-1">Contains 5 random startup cards.</p>
                     </div>
+                    <div className="flex items-center text-sm font-bold text-yc-text-primary dark:text-white mt-4">
+                        Mint Now <ArrowUpRight className="w-4 h-4 ml-1 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                    </div>
+                </div>
+            </div>
 
-                    {/* Performance Tab: Analytics */}
-                    {activeTab === 'performance' && <Analytics />}
+            {/* Tab Switcher */}
+            <div className="mb-6">
+                <div className="inline-flex bg-gray-100 dark:bg-[#0A0A0A] rounded-xl p-1">
+                    <button
+                        onClick={() => { setActiveTab('cards'); setIsMergeMode(false); setSelectedCardIds([]); }}
+                        className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'cards'
+                            ? 'bg-white dark:bg-[#1A1A1A] text-yc-text-primary dark:text-white shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        My Cards
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('performance'); setIsMergeMode(false); setSelectedCardIds([]); }}
+                        className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${activeTab === 'performance'
+                            ? 'bg-white dark:bg-[#1A1A1A] text-yc-text-primary dark:text-white shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        <TrendingUp className="w-4 h-4" />
+                        Performance
+                    </button>
+                </div>
+            </div>
 
-                    {/* Cards Tab Content */}
-                    {activeTab === 'cards' && (<>
-                    {/* Assets Header & Controls */}
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-bold text-yc-text-primary dark:text-white flex items-center">
-                            <span className="w-2 h-6 bg-yc-green rounded-sm mr-3"></span>
-                            Your Assets ({myCards.length})
-                            <button
-                                onClick={() => loadCards(true)}
-                                disabled={isRefreshing}
-                                className="ml-3 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                            >
-                                <RefreshCw className={`w-4 h-4 text-gray-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            </button>
-                        </h3>
+            {/* Performance Tab: Analytics */}
+            {activeTab === 'performance' && <Analytics />}
 
+            {/* Cards Tab Content */}
+            {activeTab === 'cards' && (<>
+                {/* Assets Header & Controls */}
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-yc-text-primary dark:text-white flex items-center">
+                        <span className="w-2 h-6 bg-yc-green rounded-sm mr-3"></span>
+                        Your Assets ({myCards.length})
                         <button
-                            onClick={() => {
-                                setIsMergeMode(!isMergeMode);
-                                setSelectedCardIds([]);
-                                setViewingCard(null);
-                                setViewingCardData(null);
-                            }}
-                            className={`
+                            onClick={() => loadCards(true)}
+                            disabled={isRefreshing}
+                            className="ml-3 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            <RefreshCw className={`w-4 h-4 text-gray-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        </button>
+                    </h3>
+
+                    <button
+                        onClick={() => {
+                            setIsMergeMode(!isMergeMode);
+                            setSelectedCardIds([]);
+                            setViewingCard(null);
+                            setViewingCardData(null);
+                        }}
+                        className={`
                         flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all border
                         ${isMergeMode
-                                    ? 'bg-yc-orange text-white border-yc-orange shadow-[0_0_15px_rgba(242,101,34,0.4)]'
-                                    : 'bg-white dark:bg-[#121212] text-gray-500 hover:text-yc-text-primary dark:hover:text-white border-gray-200 dark:border-[#2A2A2A]'}
+                                ? 'bg-yc-orange text-white border-yc-orange shadow-[0_0_15px_rgba(242,101,34,0.4)]'
+                                : 'bg-white dark:bg-[#121212] text-gray-500 hover:text-yc-text-primary dark:hover:text-white border-gray-200 dark:border-[#2A2A2A]'}
                     `}
+                    >
+                        {isMergeMode ? <X className="w-4 h-4 mr-2" /> : <Layers className="w-4 h-4 mr-2" />}
+                        {isMergeMode ? 'Cancel Merge' : 'Merge Cards'}
+                    </button>
+                </div>
+
+                {/* Merge Instructions */}
+                {isMergeMode && (
+                    <div className="mb-6 p-4 bg-yc-orange/10 border border-yc-orange/30 rounded-xl flex items-center animate-[fadeIn_0.3s]">
+                        <div className="bg-yc-orange text-white p-2 rounded-lg mr-3">
+                            <Zap className="w-5 h-5 fill-current" />
+                        </div>
+                        <div>
+                            <h4 className="text-yc-text-primary dark:text-white font-bold text-sm">Fusion Reactor Online</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Select <span className="text-yc-orange font-bold">3 cards of same rarity</span> to burn and forge 1 higher rarity card.</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Loading State */}
+                {isLoading && myCards.length === 0 && (
+                    <div className="text-center py-20">
+                        <RefreshCw className="w-8 h-8 text-yc-orange animate-spin mx-auto mb-4" />
+                        <p className="text-gray-500">Loading your cards...</p>
+                    </div>
+                )}
+
+                {/* Empty State */}
+                {!isLoading && myCards.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
+                        <ShoppingCart className="w-16 h-16 text-gray-400 dark:text-gray-600 mb-4" />
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No Cards Yet</h3>
+                        <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md text-center">
+                            {isConnected ? 'Build your deck! Buy a pack to discover new cards and start playing.' : 'Connect your wallet and buy a pack to get started!'}
+                        </p>
+                        <button
+                            onClick={isConnected ? onBuyPack : connect}
+                            className="bg-yc-orange hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-orange-500/20"
                         >
-                            {isMergeMode ? <X className="w-4 h-4 mr-2" /> : <Layers className="w-4 h-4 mr-2" />}
-                            {isMergeMode ? 'Cancel Merge' : 'Merge Cards'}
+                            {isConnected ? 'Buy First Pack' : 'Connect Wallet'}
                         </button>
                     </div>
+                )}
 
-                    {/* Merge Instructions */}
-                    {isMergeMode && (
-                        <div className="mb-6 p-4 bg-yc-orange/10 border border-yc-orange/30 rounded-xl flex items-center animate-[fadeIn_0.3s]">
-                            <div className="bg-yc-orange text-white p-2 rounded-lg mr-3">
-                                <Zap className="w-5 h-5 fill-current" />
-                            </div>
-                            <div>
-                                <h4 className="text-yc-text-primary dark:text-white font-bold text-sm">Fusion Reactor Online</h4>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Select <span className="text-yc-orange font-bold">3 cards of same rarity</span> to burn and forge 1 higher rarity card.</p>
-                            </div>
-                        </div>
-                    )}
+                {/* Grid */}
+                {myCards.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 md:gap-4 pb-24">
+                        {myCards.map((card) => {
+                            const isSelected = selectedCardIds.includes(card.tokenId);
+                            const isDimmed = isMergeMode && !isSelected && (selectedCardIds.length >= 3 || !getAvailableForMerge(card));
 
-                    {/* Loading State */}
-                    {isLoading && myCards.length === 0 && (
-                        <div className="text-center py-20">
-                            <RefreshCw className="w-8 h-8 text-yc-orange animate-spin mx-auto mb-4" />
-                            <p className="text-gray-500">Loading your cards...</p>
-                        </div>
-                    )}
-
-                    {/* Empty State */}
-                    {!isLoading && myCards.length === 0 && (
-                        <div className="text-center py-20">
-                            <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-xl font-bold text-gray-400 mb-2">No Cards Yet</h3>
-                            <p className="text-gray-500 mb-6">{isConnected ? 'Buy a pack to get started!' : 'Connect your wallet and buy a pack to get started!'}</p>
-                            <button
-                                onClick={isConnected ? onBuyPack : connect}
-                                className="bg-yc-orange hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold"
-                            >
-                                {isConnected ? 'Buy First Pack' : 'Connect Wallet'}
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Grid */}
-                    {myCards.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 md:gap-4 pb-24">
-                            {myCards.map((card) => {
-                                const isSelected = selectedCardIds.includes(card.tokenId);
-                                const isDimmed = isMergeMode && !isSelected && (selectedCardIds.length >= 3 || !getAvailableForMerge(card));
-
-                                return (
-                                    <div
-                                        key={card.tokenId}
-                                        onClick={() => handleCardClick(card)}
-                                        className={`
+                            return (
+                                <div
+                                    key={card.tokenId}
+                                    onClick={() => handleCardClick(card)}
+                                    className={`
                                   bg-white dark:bg-[#121212] border rounded-xl overflow-hidden transition-all duration-300 relative cursor-pointer
                                   ${isSelected
-                                                ? 'border-yc-orange ring-2 ring-yc-orange/50 shadow-[0_0_20px_rgba(242,101,34,0.2)] scale-[1.02] z-10'
-                                                : 'border-yc-light-border dark:border-[#2A2A2A] hover:border-yc-orange hover:-translate-y-1 hover:shadow-xl'}
+                                            ? 'border-yc-orange ring-2 ring-yc-orange/50 shadow-[0_0_20px_rgba(242,101,34,0.2)] scale-[1.02] z-10'
+                                            : 'border-yc-light-border dark:border-[#2A2A2A] hover:border-yc-orange hover:-translate-y-1 hover:shadow-xl'}
                                   ${isDimmed ? 'opacity-40 grayscale' : 'opacity-100'}
                                   ${card.isLocked ? 'ring-1 ring-red-500/50' : ''}
                               `}
-                                    >
-                                        {/* Selection Checkbox Overlay */}
-                                        {isMergeMode && !card.isLocked && card.rarity !== Rarity.LEGENDARY && (
-                                            <div className={`absolute top-3 right-3 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-yc-orange border-yc-orange' : 'bg-black/50 border-white/50'}`}>
-                                                {isSelected && <Check className="w-4 h-4 text-white" />}
-                                            </div>
-                                        )}
-
-                                        {/* Locked Badge */}
-                                        {card.isLocked && (
-                                            <div className="absolute top-3 left-3 z-20 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded">
-                                                LOCKED
-                                            </div>
-                                        )}
-
-                                        <div className="relative" style={{ aspectRatio: '591/1004' }}>
-                                            <img src={card.image} alt={card.name} className="w-full h-full object-contain" />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                            {/* Add New Asset Placeholder */}
-                            {!isMergeMode && (
-                                <button
-                                    onClick={onBuyPack}
-                                    className="border-2 border-dashed border-gray-300 dark:border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center p-4 md:p-6 text-gray-400 hover:text-yc-orange hover:border-yc-orange transition-colors min-h-[120px] md:min-h-[280px]"
                                 >
-                                    <Plus className="w-8 h-8 mb-2" />
-                                    <span className="font-bold text-sm">Add Asset</span>
-                                </button>
-                            )}
-                        </div>
-                    )}
+                                    {/* Selection Checkbox Overlay */}
+                                    {isMergeMode && !card.isLocked && card.rarity !== Rarity.LEGENDARY && (
+                                        <div className={`absolute top-3 right-3 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-yc-orange border-yc-orange' : 'bg-black/50 border-white/50'}`}>
+                                            {isSelected && <Check className="w-4 h-4 text-white" />}
+                                        </div>
+                                    )}
 
-                    {/* Floating Action Bar for Merge */}
-                    {isMergeMode && (
-                        <div className="fixed bottom-24 md:bottom-8 left-1/2 transform -translate-x-1/2 z-40 animate-[slideUp_0.3s_cubic-bezier(0.2,0.8,0.2,1)]">
-                            <div className="bg-white dark:bg-[#1A1A1A] border border-gray-300 dark:border-[#333] p-2 pl-6 pr-2 rounded-2xl shadow-2xl flex items-center gap-6">
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Fusion Chamber</span>
-                                    <span className="text-gray-900 dark:text-white font-mono font-bold">{selectedCardIds.length} / 3 Selected</span>
+                                    {/* Locked Badge */}
+                                    {card.isLocked && (
+                                        <div className="absolute top-3 left-3 z-20 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded">
+                                            LOCKED
+                                        </div>
+                                    )}
+
+                                    <div className="relative" style={{ aspectRatio: '591/1004' }}>
+                                        <img src={card.image} alt={card.name} className="w-full h-full object-contain" />
+                                    </div>
                                 </div>
-                                <button
-                                    disabled={selectedCardIds.length !== 3}
-                                    onClick={handleForge}
-                                    className={`
+                            );
+                        })}
+
+                        {/* Add New Asset Placeholder */}
+                        {!isMergeMode && (
+                            <button
+                                onClick={onBuyPack}
+                                className="border-2 border-dashed border-gray-300 dark:border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center p-4 md:p-6 text-gray-400 hover:text-yc-orange hover:border-yc-orange transition-colors min-h-[120px] md:min-h-[280px]"
+                            >
+                                <Plus className="w-8 h-8 mb-2" />
+                                <span className="font-bold text-sm">Add Asset</span>
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* Floating Action Bar for Merge */}
+                {isMergeMode && (
+                    <div className="fixed bottom-24 md:bottom-8 left-1/2 transform -translate-x-1/2 z-40 animate-[slideUp_0.3s_cubic-bezier(0.2,0.8,0.2,1)]">
+                        <div className="bg-white dark:bg-[#1A1A1A] border border-gray-300 dark:border-[#333] p-2 pl-6 pr-2 rounded-2xl shadow-2xl flex items-center gap-6">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Fusion Chamber</span>
+                                <span className="text-gray-900 dark:text-white font-mono font-bold">{selectedCardIds.length} / 3 Selected</span>
+                            </div>
+                            <button
+                                disabled={selectedCardIds.length !== 3}
+                                onClick={handleForge}
+                                className={`
                                 px-8 py-3 rounded-xl font-bold uppercase tracking-wider flex items-center transition-all
                                 ${selectedCardIds.length === 3
-                                            ? 'bg-yc-orange hover:bg-orange-600 text-white shadow-[0_0_20px_rgba(242,101,34,0.5)] animate-pulse'
-                                            : 'bg-gray-800 text-gray-500 cursor-not-allowed'}
+                                        ? 'bg-yc-orange hover:bg-orange-600 text-white shadow-[0_0_20px_rgba(242,101,34,0.5)] animate-pulse'
+                                        : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'}
                             `}
-                                >
-                                    <Zap className="w-4 h-4 mr-2 fill-current" />
-                                    Forge
-                                </button>
-                            </div>
+                            >
+                                <Zap className="w-4 h-4 mr-2 fill-current" />
+                                Forge
+                            </button>
                         </div>
-                    )}
-                </>)}
+                    </div>
+                )}
+            </>)}
 
             {/* --- DETAILED CARD VIEW MODAL --- */}
             <CardDetailModal
@@ -951,7 +951,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         )}
 
                         {/* Actions */}
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3">
                             <button
                                 onClick={() => {
                                     setSellModalOpen(false);
@@ -1043,7 +1043,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex gap-2 mb-4">
+                        <div className="flex flex-col sm:flex-row gap-2 mb-4">
                             <button
                                 onClick={() => setStatsTab('bids')}
                                 className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${statsTab === 'bids'

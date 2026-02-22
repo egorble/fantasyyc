@@ -11,6 +11,7 @@ import { blockchainCache, CacheKeys } from '../lib/cache';
 import { CardData, Rarity, sortByRarity } from '../types';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
+import { useToast } from '../context/ToastContext';
 
 // Rarity colors
 const RARITY_COLORS: Record<string, string> = {
@@ -114,6 +115,7 @@ const Marketplace: React.FC = () => {
     const { address, isConnected } = useWalletContext();
     const { networkId } = useNetwork();
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('marketplace');
+    const { toast, success, error: toastError, info } = useToast();
 
     // State
     const [activeTab, setActiveTab] = useState<MarketTab>('listings');
@@ -298,11 +300,11 @@ const Marketplace: React.FC = () => {
     // Handle buy listing
     const handleBuy = async (listing: ListingWithMeta) => {
         if (!isConnected) {
-            alert('Please connect your wallet first');
+            toastError('Please connect your wallet first');
             return;
         }
         if (listing.seller.toLowerCase() === address?.toLowerCase()) {
-            alert("You can't buy your own listing");
+            toastError("You can't buy your own listing");
             return;
         }
 
@@ -315,9 +317,9 @@ const Marketplace: React.FC = () => {
                 clearCache();
                 getCards(address, true);
             }
-            alert('Purchase successful! The card is now in your portfolio.');
+            success('Purchase successful! The card is now in your portfolio.');
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toastError(`Error: ${e.message}`);
         }
         setBuyingId(null);
     };
@@ -332,9 +334,9 @@ const Marketplace: React.FC = () => {
             await refreshListings();
             setBidModal(null);
             setBidAmount('');
-            alert('Bid placed successfully!');
+            success('Bid placed successfully!');
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toastError(`Error: ${e.message}`);
         }
         setBiddingId(null);
     };
@@ -346,9 +348,9 @@ const Marketplace: React.FC = () => {
             await acceptBid(bidId);
             await refreshListings();
             setStatsModalOpen(false);
-            alert('Bid accepted successfully!');
+            success('Bid accepted successfully!');
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toastError(`Error: ${e.message}`);
         }
         setLoadingStats(false);
     };
@@ -360,9 +362,9 @@ const Marketplace: React.FC = () => {
             await cancelListing(listing.listingId);
             await refreshListings();
             if (activeTab === 'activity') fetchActivity(true);
-            alert('Listing cancelled successfully!');
+            success('Listing cancelled successfully!');
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toastError(`Error: ${e.message}`);
         }
         setCancellingId(null);
     };
@@ -377,17 +379,17 @@ const Marketplace: React.FC = () => {
             await refreshAuctions();
             setBidModal(null);
             setBidAmount('');
-            alert('Bid placed successfully!');
+            success('Bid placed successfully!');
         } catch (e: any) {
             const msg = e.message || '';
             if (msg.includes('0xa0d26eb6') || msg.includes('BidTooLow')) {
                 const hb = bidModal.auction.highestBid;
                 const min = hb === 0n ? bidModal.auction.startPrice : hb + hb / 20n;
-                alert(`Bid too low! Minimum: ${safeFormatXTZ(min)} ${currencySymbol()} (+5% above current bid)`);
+                toastError(`Bid too low! Minimum: ${safeFormatXTZ(min)} ${currencySymbol()} (+5% above current bid)`);
             } else if (msg.includes('user rejected') || msg.includes('denied')) {
                 // User cancelled — no alert needed
             } else {
-                alert(`Error: ${msg}`);
+                toastError(`Error: ${msg}`);
             }
         }
         setBiddingId(null);
@@ -399,9 +401,9 @@ const Marketplace: React.FC = () => {
         try {
             await finalizeAuction(auction.auctionId);
             await refreshAuctions();
-            alert('Auction finalized successfully!');
+            success('Auction finalized successfully!');
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toastError(`Error: ${e.message}`);
         }
         setBiddingId(null);
     };
@@ -414,13 +416,13 @@ const Marketplace: React.FC = () => {
             await cancelAuction(auction.auctionId);
             await refreshAuctions();
             if (activeTab === 'activity') fetchActivity(true);
-            alert('Auction cancelled!');
+            success('Auction cancelled!');
         } catch (e: any) {
             const msg = e.message || '';
             if (msg.includes('AuctionHasBids') || msg.includes('0x')) {
-                alert('Cannot cancel — auction already has bids.');
+                toastError('Cannot cancel — auction already has bids.');
             } else {
-                alert(`Error: ${msg}`);
+                toastError(`Error: ${msg}`);
             }
         }
         setCancellingId(null);
@@ -477,15 +479,15 @@ const Marketplace: React.FC = () => {
         try {
             if (sellMode === 'fixed') {
                 if (!sellPrice || parseFloat(sellPrice) <= 0) {
-                    alert('Please enter a valid price');
+                    toastError('Please enter a valid price');
                     setIsSelling(false);
                     return;
                 }
                 await listCard(BigInt(selectedNFT.tokenId), sellPrice);
-                alert('NFT listed successfully!');
+                success('NFT listed successfully!');
             } else {
                 if (!auctionStartPrice || parseFloat(auctionStartPrice) <= 0) {
-                    alert('Please enter a valid start price');
+                    toastError('Please enter a valid start price');
                     setIsSelling(false);
                     return;
                 }
@@ -496,14 +498,14 @@ const Marketplace: React.FC = () => {
                     auctionReservePrice || auctionStartPrice,
                     duration
                 );
-                alert('Auction created successfully!');
+                success('Auction created successfully!');
             }
             setListModalOpen(false);
             await refreshListings();
             await refreshAuctions();
             if (activeTab === 'activity') fetchActivity(true);
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toastError(`Error: ${e.message}`);
         }
         setIsSelling(false);
     };
@@ -578,9 +580,9 @@ const Marketplace: React.FC = () => {
         try {
             await cancelBid(bidId);
             await fetchActivity();
-            alert('Bid cancelled successfully!');
+            success('Bid cancelled successfully!');
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toastError(`Error: ${e.message}`);
         }
         setCancellingBidId(null);
     };
@@ -634,7 +636,7 @@ const Marketplace: React.FC = () => {
             <div className="flex flex-col space-y-4 md:space-y-6 mb-6 md:mb-8">
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                        <h2 className="text-xl md:text-3xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight">Marketplace</h2>
+                        <h2 className="text-lg md:text-2xl font-black text-yc-text-primary dark:text-white uppercase tracking-tight">Marketplace</h2>
                         <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm mt-1">
                             Buy, bid, and auction NFT cards.
                         </p>
@@ -779,14 +781,14 @@ const Marketplace: React.FC = () => {
                                                 onClick={() => handleCancelListing(listing)}
                                                 disabled={cancellingId === Number(listing.listingId)}
                                                 className={`
-                                                    w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all
+                                                    w-full mt-1.5 md:mt-3 px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all flex items-center justify-center
                                                     ${cancellingId === Number(listing.listingId)
                                                         ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                                         : 'bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white active:scale-95'}
                                                 `}
                                             >
                                                 {cancellingId === Number(listing.listingId) ? (
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                    <Loader2 className="w-3 h-3 animate-spin mx-auto" />
                                                 ) : (
                                                     'Cancel'
                                                 )}
@@ -796,7 +798,7 @@ const Marketplace: React.FC = () => {
                                                 onClick={() => handleBuy(listing)}
                                                 disabled={buyingId === Number(listing.listingId) || !isConnected}
                                                 className={`
-                                                    w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all
+                                                    w-full mt-1.5 md:mt-3 px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all flex items-center justify-center
                                                     ${buyingId === Number(listing.listingId)
                                                         ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                                         : 'bg-yc-orange text-white hover:bg-yc-orange/80 active:scale-95'}
@@ -866,7 +868,7 @@ const Marketplace: React.FC = () => {
                                             <button
                                                 onClick={() => handleFinalizeAuction(auction)}
                                                 disabled={biddingId === Number(auction.auctionId)}
-                                                className="w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm bg-green-600 text-white hover:bg-green-700 transition-all"
+                                                className="w-full mt-1.5 md:mt-3 px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm bg-green-600 text-white hover:bg-green-700 transition-all flex items-center justify-center"
                                             >
                                                 {biddingId === Number(auction.auctionId) ? (
                                                     <Loader2 className="w-3 h-3 animate-spin mx-auto" />
@@ -878,7 +880,7 @@ const Marketplace: React.FC = () => {
                                                 <button
                                                     onClick={() => handleCancelAuction(auction)}
                                                     disabled={cancellingId === Number(auction.auctionId)}
-                                                    className="w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                    className="w-full mt-1.5 md:mt-3 px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"
                                                 >
                                                     {cancellingId === Number(auction.auctionId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel'}
                                                 </button>
@@ -888,7 +890,7 @@ const Marketplace: React.FC = () => {
                                         ) : (
                                             <button
                                                 onClick={() => { setBidModal({ auction }); setBidAmount(''); }}
-                                                className="w-full mt-1.5 md:mt-3 px-2 py-1 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all bg-yc-orange text-white hover:bg-yc-orange/80"
+                                                className="w-full mt-1.5 md:mt-3 px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-sm transition-all bg-yc-orange text-white hover:bg-yc-orange/80 flex items-center justify-center"
                                             >
                                                 {'Bid'}
                                             </button>
@@ -904,173 +906,172 @@ const Marketplace: React.FC = () => {
             {/* ACTIVITY TAB */}
             {activeTab === 'activity' && (
                 <>
-                        <>
-                            {/* Activity sub-filters */}
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                                <div className="flex items-center gap-2 overflow-x-auto pb-1 w-full sm:w-auto">
-                                    {([
-                                        { key: 'all', label: 'All', count: myListings.length + myAuctions.length + myBids.length },
-                                        { key: 'listings', label: 'My Listings', count: myListings.length },
-                                        { key: 'auctions', label: 'My Auctions', count: myAuctions.length },
-                                        { key: 'bids', label: 'My Bids', count: myBids.length },
-                                    ] as { key: ActivityFilter; label: string; count: number }[]).map(f => (
-                                        <button
-                                            key={f.key}
-                                            onClick={() => setActivityFilter(f.key)}
-                                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${
-                                                activityFilter === f.key
-                                                    ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30'
-                                                    : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'
+                    <>
+                        {/* Activity sub-filters */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-2 overflow-x-auto pb-1 w-full sm:w-auto">
+                                {([
+                                    { key: 'all', label: 'All', count: myListings.length + myAuctions.length + myBids.length },
+                                    { key: 'listings', label: 'My Listings', count: myListings.length },
+                                    { key: 'auctions', label: 'My Auctions', count: myAuctions.length },
+                                    { key: 'bids', label: 'My Bids', count: myBids.length },
+                                ] as { key: ActivityFilter; label: string; count: number }[]).map(f => (
+                                    <button
+                                        key={f.key}
+                                        onClick={() => setActivityFilter(f.key)}
+                                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${activityFilter === f.key
+                                            ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30'
+                                            : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'
                                             }`}
-                                        >
-                                            {f.label}
-                                            {!loadingActivity && f.count > 0 && (
-                                                <span className="ml-1.5 bg-black/20 px-1.5 py-0.5 rounded text-[10px]">{f.count}</span>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Sort dropdown for activity */}
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value as any)}
-                                    className="px-4 py-2 bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full text-xs font-bold text-yc-text-primary dark:text-white hover:border-yc-orange focus:border-yc-orange focus:ring-1 focus:ring-yc-orange transition-all shadow-sm cursor-pointer shrink-0 w-full sm:w-auto"
-                                >
-                                    <option value="recent">Recent First</option>
-                                    <option value="price_asc">Price: Low to High</option>
-                                    <option value="price_desc">Price: High to Low</option>
-                                </select>
+                                    >
+                                        {f.label}
+                                        {!loadingActivity && f.count > 0 && (
+                                            <span className="ml-1.5 bg-black/20 px-1.5 py-0.5 rounded text-[10px]">{f.count}</span>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
 
-                            {loadingActivity ? (
-                                <div className="flex flex-col items-center justify-center py-20">
-                                    <Loader2 className="w-8 h-8 text-yc-orange animate-spin mb-4" />
-                                    <p className="text-gray-400">Loading your activity...</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    {/* My Listings */}
-                                    {(activityFilter === 'all' || activityFilter === 'listings') && sortedMyListings.length > 0 && (
-                                        <div>
-                                            {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> My Listings</h3>}
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
-                                                {sortedMyListings.map(listing => (
-                                                    <div key={`l-${listing.listingId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
-                                                        <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
-                                                            <img src={listing.cardImage || '/placeholder-card.png'} alt={listing.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
-                                                            <div className="absolute top-2 left-2 bg-yc-orange/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Listed</div>
+                            {/* Sort dropdown for activity */}
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as any)}
+                                className="px-4 py-2 bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-full text-xs font-bold text-yc-text-primary dark:text-white hover:border-yc-orange focus:border-yc-orange focus:ring-1 focus:ring-yc-orange transition-all shadow-sm cursor-pointer shrink-0 w-full sm:w-auto"
+                            >
+                                <option value="recent">Recent First</option>
+                                <option value="price_asc">Price: Low to High</option>
+                                <option value="price_desc">Price: High to Low</option>
+                            </select>
+                        </div>
+
+                        {loadingActivity ? (
+                            <div className="flex flex-col items-center justify-center py-20">
+                                <Loader2 className="w-8 h-8 text-yc-orange animate-spin mb-4" />
+                                <p className="text-gray-400">Loading your activity...</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* My Listings */}
+                                {(activityFilter === 'all' || activityFilter === 'listings') && sortedMyListings.length > 0 && (
+                                    <div>
+                                        {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> My Listings</h3>}
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
+                                            {sortedMyListings.map(listing => (
+                                                <div key={`l-${listing.listingId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
+                                                    <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
+                                                        <img src={listing.cardImage || '/placeholder-card.png'} alt={listing.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                        <div className="absolute top-2 left-2 bg-yc-orange/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Listed</div>
+                                                    </div>
+                                                    <div className="p-1.5 md:p-3">
+                                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{listing.priceFormatted} {currencySymbol()}</p>
+                                                        <button
+                                                            onClick={() => handleCancelListing(listing)}
+                                                            disabled={cancellingId === Number(listing.listingId)}
+                                                            className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                        >
+                                                            {cancellingId === Number(listing.listingId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Listing'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* My Auctions */}
+                                {(activityFilter === 'all' || activityFilter === 'auctions') && sortedMyAuctions.length > 0 && (
+                                    <div>
+                                        {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Gavel className="w-3.5 h-3.5" /> My Auctions</h3>}
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
+                                            {sortedMyAuctions.map(auction => (
+                                                <div key={`a-${auction.auctionId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
+                                                    <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
+                                                        <img src={auction.cardImage || '/placeholder-card.png'} alt={auction.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                        <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 text-yc-orange'}`}>
+                                                            <Clock className="w-2.5 h-2.5" />
+                                                            {auction.timeLeft}
                                                         </div>
-                                                        <div className="p-1.5 md:p-3">
-                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{listing.priceFormatted} {currencySymbol()}</p>
+                                                        <div className="absolute top-2 left-2 bg-purple-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Auction</div>
+                                                    </div>
+                                                    <div className="p-1.5 md:p-3">
+                                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(auction.highestBid > 0n ? auction.highestBid : auction.startPrice)} {currencySymbol()}</p>
+                                                        <p className="text-[9px] text-gray-400">{auction.highestBid > 0n ? 'Current bid' : 'Starting price'}</p>
+                                                        {auction.isEnded ? (
                                                             <button
-                                                                onClick={() => handleCancelListing(listing)}
-                                                                disabled={cancellingId === Number(listing.listingId)}
-                                                                className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                                onClick={() => handleFinalizeAuction(auction)}
+                                                                disabled={biddingId === Number(auction.auctionId)}
+                                                                className="w-full mt-1.5 md:mt-3 px-2 py-1.5 md:py-2 rounded-lg font-bold text-[10px] md:text-xs bg-green-600 text-white hover:bg-green-700 transition-all flex items-center justify-center"
                                                             >
-                                                                {cancellingId === Number(listing.listingId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Listing'}
+                                                                {biddingId === Number(auction.auctionId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Finalize'}
                                                             </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* My Auctions */}
-                                    {(activityFilter === 'all' || activityFilter === 'auctions') && sortedMyAuctions.length > 0 && (
-                                        <div>
-                                            {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Gavel className="w-3.5 h-3.5" /> My Auctions</h3>}
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
-                                                {sortedMyAuctions.map(auction => (
-                                                    <div key={`a-${auction.auctionId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
-                                                        <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
-                                                            <img src={auction.cardImage || '/placeholder-card.png'} alt={auction.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
-                                                            <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 text-yc-orange'}`}>
-                                                                <Clock className="w-2.5 h-2.5" />
-                                                                {auction.timeLeft}
-                                                            </div>
-                                                            <div className="absolute top-2 left-2 bg-purple-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Auction</div>
-                                                        </div>
-                                                        <div className="p-1.5 md:p-3">
-                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(auction.highestBid > 0n ? auction.highestBid : auction.startPrice)} {currencySymbol()}</p>
-                                                            <p className="text-[9px] text-gray-400">{auction.highestBid > 0n ? 'Current bid' : 'Starting price'}</p>
-                                                            {auction.isEnded ? (
-                                                                <button
-                                                                    onClick={() => handleFinalizeAuction(auction)}
-                                                                    disabled={biddingId === Number(auction.auctionId)}
-                                                                    className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-green-600 text-white hover:bg-green-700 transition-all"
-                                                                >
-                                                                    {biddingId === Number(auction.auctionId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Finalize'}
-                                                                </button>
-                                                            ) : auction.highestBidder === '0x0000000000000000000000000000000000000000' || !auction.highestBidder ? (
-                                                                <button
-                                                                    onClick={() => handleCancelAuction(auction)}
-                                                                    disabled={cancellingId === Number(auction.auctionId)}
-                                                                    className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
-                                                                >
-                                                                    {cancellingId === Number(auction.auctionId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Auction'}
-                                                                </button>
-                                                            ) : (
-                                                                <p className="mt-1.5 text-[10px] text-gray-400 text-center">Has bids</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* My Bids */}
-                                    {(activityFilter === 'all' || activityFilter === 'bids') && sortedMyBids.length > 0 && (
-                                        <div>
-                                            {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><DollarSign className="w-3.5 h-3.5" /> My Bids</h3>}
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
-                                                {sortedMyBids.map(bid => (
-                                                    <div key={`b-${bid.bidId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
-                                                        <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
-                                                            <img src={bid.cardImage || '/placeholder-card.png'} alt={bid.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
-                                                            <div className="absolute top-2 left-2 bg-blue-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Bid</div>
-                                                        </div>
-                                                        <div className="p-1.5 md:p-3">
-                                                            <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(bid.amount)} {currencySymbol()}</p>
-                                                            <p className="text-[9px] text-gray-400">Expires: {safeFormatDate(bid.expiration)}</p>
+                                                        ) : auction.highestBidder === '0x0000000000000000000000000000000000000000' || !auction.highestBidder ? (
                                                             <button
-                                                                onClick={() => handleCancelBid(bid.bidId)}
-                                                                disabled={cancellingBidId === Number(bid.bidId)}
-                                                                className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                                onClick={() => handleCancelAuction(auction)}
+                                                                disabled={cancellingId === Number(auction.auctionId)}
+                                                                className="w-full mt-1.5 md:mt-3 px-2 py-1.5 md:py-2 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"
                                                             >
-                                                                {cancellingBidId === Number(bid.bidId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Bid'}
+                                                                {cancellingId === Number(auction.auctionId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Auction'}
                                                             </button>
-                                                        </div>
+                                                        ) : (
+                                                            <p className="mt-1.5 text-[10px] text-gray-400 text-center">Has bids</p>
+                                                        )}
                                                     </div>
-                                                ))}
-                                            </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
-                                    {/* Empty state */}
-                                    {!loadingActivity && (
-                                        (activityFilter === 'all' && myListings.length === 0 && myAuctions.length === 0 && myBids.length === 0) ||
-                                        (activityFilter === 'listings' && myListings.length === 0) ||
-                                        (activityFilter === 'auctions' && myAuctions.length === 0) ||
-                                        (activityFilter === 'bids' && myBids.length === 0)
-                                    ) && (
+                                {/* My Bids */}
+                                {(activityFilter === 'all' || activityFilter === 'bids') && sortedMyBids.length > 0 && (
+                                    <div>
+                                        {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><DollarSign className="w-3.5 h-3.5" /> My Bids</h3>}
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
+                                            {sortedMyBids.map(bid => (
+                                                <div key={`b-${bid.bidId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
+                                                    <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
+                                                        <img src={bid.cardImage || '/placeholder-card.png'} alt={bid.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                        <div className="absolute top-2 left-2 bg-blue-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Bid</div>
+                                                    </div>
+                                                    <div className="p-1.5 md:p-3">
+                                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(bid.amount)} {currencySymbol()}</p>
+                                                        <p className="text-[9px] text-gray-400">Expires: {safeFormatDate(bid.expiration)}</p>
+                                                        <button
+                                                            onClick={() => handleCancelBid(bid.bidId)}
+                                                            disabled={cancellingBidId === Number(bid.bidId)}
+                                                            className="w-full mt-1.5 px-2 py-1 md:py-1.5 rounded-lg font-bold text-[10px] md:text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                        >
+                                                            {cancellingBidId === Number(bid.bidId) ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Cancel Bid'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Empty state */}
+                                {!loadingActivity && (
+                                    (activityFilter === 'all' && myListings.length === 0 && myAuctions.length === 0 && myBids.length === 0) ||
+                                    (activityFilter === 'listings' && myListings.length === 0) ||
+                                    (activityFilter === 'auctions' && myAuctions.length === 0) ||
+                                    (activityFilter === 'bids' && myBids.length === 0)
+                                ) && (
                                         <div className="flex flex-col items-center justify-center py-16 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
                                             <Activity className="w-12 h-12 text-gray-400 dark:text-gray-600 mb-3" />
                                             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No Activity</h3>
                                             <p className="text-gray-500 dark:text-gray-400 text-sm text-center max-w-sm">
                                                 {!isConnected ? 'Connect your wallet to see your marketplace activity.' :
                                                     activityFilter === 'listings' ? "You haven't listed any NFTs yet." :
-                                                    activityFilter === 'auctions' ? "You haven't created any auctions yet." :
-                                                    activityFilter === 'bids' ? "You haven't placed any bids yet." :
-                                                    "No marketplace activity yet. List an NFT or place a bid to get started!"}
+                                                        activityFilter === 'auctions' ? "You haven't created any auctions yet." :
+                                                            activityFilter === 'bids' ? "You haven't placed any bids yet." :
+                                                                "No marketplace activity yet. List an NFT or place a bid to get started!"}
                                             </p>
                                         </div>
                                     )}
-                                </div>
-                            )}
-                        </>
+                            </div>
+                        )}
+                    </>
                 </>
             )}
 

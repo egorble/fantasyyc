@@ -16,12 +16,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onReady }) => {
 
         preloadPromise.then(() => {
             setProgress(100);
-            setTimeout(() => setFadeOut(true), 200);
-            setTimeout(() => onReady(), 700);
+            setTimeout(() => setFadeOut(true), 100);
+            setTimeout(() => onReady(), 400);
         }).catch(() => {
             setProgress(100);
-            setTimeout(() => setFadeOut(true), 200);
-            setTimeout(() => onReady(), 700);
+            setTimeout(() => setFadeOut(true), 100);
+            setTimeout(() => onReady(), 400);
         });
 
         return () => {
@@ -33,9 +33,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onReady }) => {
 
     return (
         <div
-            className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#050505] transition-opacity duration-500 ${
-                fadeOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
-            }`}
+            className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#050505] transition-opacity duration-300 ${fadeOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                }`}
         >
             {/* Subtle grid background */}
             <div
