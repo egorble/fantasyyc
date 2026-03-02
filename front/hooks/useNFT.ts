@@ -159,13 +159,25 @@ export function useNFT() {
 
             for (const idx of uncachedIndices) {
                 const tid = tokenIds[idx];
-                const tokenMeta = allTokens[tid];
+                const tokenMeta = allTokens[String(tid)] ?? allTokens[tid];
                 if (tokenMeta) {
                     const card = parseMetadataResponse(tid, tokenMeta);
                     results[idx] = card;
                     blockchainCache.set(CacheKeys.cardMetadata(tid), card);
-                } else if (allErrors[tid]) {
                 }
+                // Errors stay as null — caller (fetchCardsFromBlockchain) handles retries via contract fallback
+            }
+
+            // Retry failed tokens individually via metadata server
+            const failedIndices = uncachedIndices.filter(idx => results[idx] === null);
+            if (failedIndices.length > 0) {
+                const retryCards = await fetchInBatches(
+                    failedIndices.map(i => tokenIds[i]),
+                    fetchMetadata, 5, 100
+                );
+                retryCards.forEach((card, fi) => {
+                    if (card) results[failedIndices[fi]] = card;
+                });
             }
 
             return results;
@@ -334,6 +346,7 @@ export function useNFT() {
 
         const cards = await fetchMetadataBatch(tokenIds);
 
+        // First fallback: fetch missing cards from contract
         const nullIndices = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
         if (nullIndices.length > 0) {
             const fallbacks = await fetchInBatches(
@@ -345,14 +358,32 @@ export function useNFT() {
             });
         }
 
+        // Second fallback: retry remaining nulls once more with delay (RPC may have recovered)
+        const stillNull = cards.map((c, i) => c === null ? i : -1).filter(i => i >= 0);
+        if (stillNull.length > 0 && stillNull.length <= tokenIds.length / 2) {
+            await new Promise(r => setTimeout(r, 1000));
+            const retries = await fetchInBatches(
+                stillNull.map(i => tokenIds[i]),
+                fetchCardFromContract, 3, 200
+            );
+            retries.forEach((card, fi) => {
+                if (card) cards[stillNull[fi]] = card;
+            });
+        }
+
         const validCards = cards.filter((c): c is CardData => c !== null);
 
+        // Only update cache if we got a reasonable result (don't overwrite good data with bad)
         const cardsKey = CacheKeys.userCards(address);
-        blockchainCache.set(cardsKey, validCards);
-        blockchainCache.persistKeys('nft:');
-
-        // Push to server DB cache in background
-        pushCardsToServer(address, validCards);
+        const previousCards = blockchainCache.get<CardData[]>(cardsKey);
+        if (!previousCards || validCards.length >= previousCards.length || validCards.length >= tokenIds.length * 0.8) {
+            blockchainCache.set(cardsKey, validCards);
+            blockchainCache.persistKeys('nft:');
+            pushCardsToServer(address, validCards);
+        } else if (validCards.length < previousCards.length) {
+            // RPC returned fewer cards — keep previous cached data, it's likely more complete
+            return previousCards;
+        }
 
         return validCards;
     }, [getOwnedTokens, fetchMetadataBatch, fetchCardFromContract, pushCardsToServer]);

@@ -162,26 +162,36 @@ async function fetchTokenData(tokenId) {
     }
 
     if (nftContract) {
-        try {
-            const cardInfo = await nftContract.getCardInfo(tokenId);
-            const startupId = Number(cardInfo.startupId);
-            if (startupId === 0) {
-                setCachedToken(tokenId, { startupId: 0, nonExistent: true });
-                return { error: "Token does not exist or has been burned" };
+        // Try up to 2 times to handle transient RPC errors
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                const cardInfo = await nftContract.getCardInfo(tokenId);
+                const startupId = Number(cardInfo.startupId);
+                if (startupId === 0) {
+                    // Token truly doesn't exist — cache this
+                    setCachedToken(tokenId, { startupId: 0, nonExistent: true });
+                    return { error: "Token does not exist or has been burned" };
+                }
+                const data = {
+                    startupId,
+                    edition: Number(cardInfo.edition),
+                    isLocked: cardInfo.isLocked,
+                    totalMinted: Number(cardInfo.edition),
+                    contractRarity: Number(cardInfo.rarity),
+                    contractMultiplier: Number(cardInfo.multiplier),
+                };
+                setCachedToken(tokenId, data);
+                return data;
+            } catch (err) {
+                // On first attempt, retry after a short delay
+                if (attempt === 0) {
+                    await new Promise(r => setTimeout(r, 500));
+                    continue;
+                }
+                // After retries exhausted: DON'T cache as nonExistent — it's a network error
+                console.warn(`⚠️  RPC error for token #${tokenId} after ${attempt + 1} attempts:`, err.message || err);
+                return { error: "RPC error", transient: true };
             }
-            const data = {
-                startupId,
-                edition: Number(cardInfo.edition),
-                isLocked: cardInfo.isLocked,
-                totalMinted: Number(cardInfo.edition),
-                contractRarity: Number(cardInfo.rarity),
-                contractMultiplier: Number(cardInfo.multiplier),
-            };
-            setCachedToken(tokenId, data);
-            return data;
-        } catch {
-            setCachedToken(tokenId, { startupId: 0, nonExistent: true });
-            return { error: "Token does not exist or has been burned" };
         }
     }
 
