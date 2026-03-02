@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { CardData, Rarity, sortByRarity } from '../types';
 import CardDetailModal, { CardDetailData } from './CardDetailModal';
 import Analytics from './Analytics';
-import { Wallet, ArrowUpRight, TrendingUp, Plus, ShoppingCart, Layers, Zap, X, Check, RefreshCw, Tag, Loader2, Gavel, Clock, Activity, DollarSign, History } from 'lucide-react';
+import { Wallet, ArrowUpRight, TrendingUp, Plus, ShoppingCart, Layers, Zap, X, Check, RefreshCw, Tag, Loader2, Gavel, Clock, Activity, DollarSign, History, Package } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
 import { useMarketplaceV2 } from '../hooks/useMarketplaceV2';
@@ -13,6 +13,7 @@ import { useNetwork } from '../context/NetworkContext';
 import gsap from 'gsap';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
+import { usePacks } from '../hooks/usePacks';
 
 const PORTFOLIO_GUIDE: OnboardingStep[] = [
     {
@@ -33,10 +34,11 @@ const PORTFOLIO_GUIDE: OnboardingStep[] = [
 ];
 
 interface PortfolioProps {
-    onBuyPack: () => void;
+    onBuyPack: (packId?: number) => void;
+    packRefreshSignal?: number;
 }
 
-const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
+const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) => {
     const { networkId } = useNetwork();
     const packPriceLabel = networkId === 'megaeth' ? '0.01' : '5';
     const [activeTab, setActiveTab] = useState<'cards' | 'performance'>('cards');
@@ -82,6 +84,8 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
     const { getCards, getCardInfo, getCardInfoWithRetry, mergeCards, isLoading, clearCache, updateServerCache } = useNFT();
     const { listCard, createAuction, getBidsForToken, getTokenStats, getTokenSaleHistory, loading: marketplaceLoading } = useMarketplaceV2();
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('portfolio');
+    const { getUserPacks } = usePacks();
+    const [myPacks, setMyPacks] = useState<number[]>([]);
 
     // Auto-refresh cards with polling (disabled when not connected)
     const {
@@ -123,6 +127,20 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
             setMyCards([]);
         }
     }, [isConnected, address, networkId]);
+
+    // Load unopened pack NFTs
+    const loadPacks = async () => {
+        if (!address) { setMyPacks([]); return; }
+        try {
+            const packs = await getUserPacks(address);
+            setMyPacks(packs);
+        } catch { setMyPacks([]); }
+    };
+
+    useEffect(() => {
+        if (isConnected && address) { loadPacks(); }
+        else { setMyPacks([]); }
+    }, [isConnected, address, networkId, packRefreshSignal]);
 
     const loadCards = async (forceBlockchain = false) => {
         if (!address) return;
@@ -481,7 +499,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
                 {/* Buy Pack Card */}
                 <div
-                    onClick={onBuyPack}
+                    onClick={() => onBuyPack()}
                     className="bg-white dark:bg-[#121212] border border-yc-light-border dark:border-[#2A2A2A] rounded-2xl p-6 flex flex-col justify-between cursor-pointer group hover:border-yc-orange transition-all relative overflow-hidden"
                 >
                     <div className="absolute inset-0 bg-yc-orange/5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -531,6 +549,39 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
 
             {/* Cards Tab Content */}
             {activeTab === 'cards' && (<>
+                {/* Unopened Packs */}
+                {!isMergeMode && myPacks.length > 0 && (
+                    <div className="mb-8">
+                        <h3 className="text-lg font-bold text-yc-text-primary dark:text-white flex items-center mb-4">
+                            <Package className="w-5 h-5 mr-2 text-gray-400" />
+                            Unopened Packs ({myPacks.length})
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 md:gap-4">
+                            {myPacks.map((packId) => (
+                                <div key={`pack-${packId}`} className="group">
+                                    <div
+                                        className="relative bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border border-[#2A2A2A] hover:border-yc-orange rounded-xl overflow-hidden cursor-pointer transition-all"
+                                        style={{ aspectRatio: '3/4' }}
+                                        onClick={() => onBuyPack(packId)}
+                                    >
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <div className="w-14 h-14 border-2 border-yc-orange rounded-full flex items-center justify-center mb-2 bg-black/50">
+                                                <span className="text-white font-black text-xl">YC</span>
+                                            </div>
+                                            <div className="px-2 py-0.5 bg-yc-orange text-white text-[8px] font-black uppercase tracking-[0.2em]">Season 4</div>
+                                            <p className="text-gray-500 text-[10px] mt-2 font-mono">#{packId}</p>
+                                        </div>
+                                        {/* Hover overlay */}
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/60 transition-opacity">
+                                            <span className="bg-yc-orange text-white px-4 py-2 rounded-lg font-bold text-sm">Open Pack</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Assets Header & Controls */}
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-bold text-yc-text-primary dark:text-white flex items-center">
@@ -594,7 +645,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                             {isConnected ? 'Build your deck! Buy a pack to discover new cards and start playing.' : 'Connect your wallet and buy a pack to get started!'}
                         </p>
                         <button
-                            onClick={isConnected ? onBuyPack : connect}
+                            onClick={isConnected ? () => onBuyPack() : connect}
                             className="bg-yc-orange hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-orange-500/20"
                         >
                             {isConnected ? 'Buy First Pack' : 'Connect Wallet'}
@@ -646,7 +697,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack }) => {
                         {/* Add New Asset Placeholder */}
                         {!isMergeMode && (
                             <button
-                                onClick={onBuyPack}
+                                onClick={() => onBuyPack()}
                                 className="border-2 border-dashed border-gray-300 dark:border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center p-4 md:p-6 text-gray-400 hover:text-yc-orange hover:border-yc-orange transition-colors min-h-[120px] md:min-h-[280px]"
                             >
                                 <Plus className="w-8 h-8 mb-2" />

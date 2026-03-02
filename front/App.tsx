@@ -38,6 +38,8 @@ import { useNFT } from './hooks/useNFT';
 const AppContent: React.FC = () => {
     const [activeSection, setActiveSection] = useState<NavSection>(NavSection.HOME);
     const [isPackModalOpen, setIsPackModalOpen] = useState(false);
+    const [openPackId, setOpenPackId] = useState<number | null>(null);
+    const [packRefreshSignal, setPackRefreshSignal] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
     const [dashboardSelectedStartup, setDashboardSelectedStartup] = useState<CardDetailData | null>(null);
     const [dashboardSelectedCard, setDashboardSelectedCard] = useState<CardData | null>(null);
@@ -212,7 +214,7 @@ const AppContent: React.FC = () => {
             case NavSection.MARKETPLACE:
                 return <Marketplace />;
             case NavSection.PORTFOLIO:
-                return <Portfolio onBuyPack={() => setIsPackModalOpen(true)} />;
+                return <Portfolio onBuyPack={(packId?: number) => { setOpenPackId(packId ?? null); setIsPackModalOpen(true); }} packRefreshSignal={packRefreshSignal} />;
             case NavSection.LEAGUES:
                 return <Leagues />;
             case NavSection.FEED:
@@ -587,8 +589,11 @@ const AppContent: React.FC = () => {
             {/* Pack Opening Modal */}
             <PackOpeningModal
                 isOpen={isPackModalOpen}
-                onClose={() => setIsPackModalOpen(false)}
+                initialPackId={openPackId}
+                onClose={() => { setIsPackModalOpen(false); setOpenPackId(null); }}
+                onPacksBought={() => setPackRefreshSignal(p => p + 1)}
                 onCardsAcquired={(cards) => {
+                    setPackRefreshSignal(p => p + 1);
                     if (address) {
                         updateServerCache(address, cards);
                     }

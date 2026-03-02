@@ -10,13 +10,15 @@
     "UnicornX_NFT": "0x172aC7aa7a6774559b1588E2F4426F7303a97cf1",
     "PackOpener": "0x78b602DE1721FF85C0c07F2Db5CF253c73590BaF",
     "TournamentManager": "0xc367886000da37447AC592fc3571ceb63184BF1b",
-    "MarketplaceV2": "0x5BCf9A613C117dacD5C74199b288CCDdc7f5aa82"
+    "MarketplaceV2": "0x5BCf9A613C117dacD5C74199b288CCDdc7f5aa82",
+    "PackNFT": "0xBc587d87D0c170aAbB2a92884ABafda8d4B7328B"
   },
   "implementations": {
     "UnicornX_NFT": "0x20Cc3F19F4fAB1427D56787c311f288F234C2Cc1",
-    "PackOpener": "0xFe6c5DCdB2F422D4FC3B762D97Df6538c705Fe8a",
-    "TournamentManager": "0x95F0dB7a7eC0d80B6DB3475A1c6c389Ea8F512db",
-    "MarketplaceV2": "0x2EC254320f1a76c747abBB12325023f2267B20eA"
+    "PackOpener": "0xE2b84a3eb0490ae8647664753134bec3156866BF",
+    "TournamentManager": "0xA69BE75da64aB70B24bCf9e305390967Dc7342e4",
+    "MarketplaceV2": "0xf8840C8B0681e10f76fb717dbC5380de968e5563",
+    "PackNFT": "0x237413a4a0Ba25385013330986932480B0dc3B6f"
   },
   "configuration": {
     "owner": "0x233c8C54F25734B744E522bdC1Eed9cbc8C97D0c",
@@ -57,6 +59,36 @@
       "newImplementation": "0x95F0dB7a7eC0d80B6DB3475A1c6c389Ea8F512db",
       "timestamp": "2026-02-19T13:16:48.354Z",
       "txHash": "0x6ebb3c5e79b36486b4fc6aa0b6a35d6fc93e4b45f5cc6d6179cfd358121e30b5"
+    },
+    {
+      "contract": "PackNFT",
+      "action": "deploy",
+      "proxy": "0xBc587d87D0c170aAbB2a92884ABafda8d4B7328B",
+      "implementation": "0x237413a4a0Ba25385013330986932480B0dc3B6f",
+      "timestamp": "2026-03-02T08:24:22.081Z"
+    },
+    {
+      "contract": "PackOpener",
+      "action": "upgrade",
+      "oldImplementation": "0xE2b84a3eb0490ae8647664753134bec3156866BF",
+      "newImplementation": "0xE2b84a3eb0490ae8647664753134bec3156866BF",
+      "txHash": "0x77c4a74404a782c5cb57072b2edaf254925a43c2decafa1abcb5a27e61b8e20f",
+      "timestamp": "2026-03-02T08:24:22.081Z"
+    },
+    {
+      "contract": "MarketplaceV2",
+      "action": "upgrade",
+      "oldImplementation": "0xf8840C8B0681e10f76fb717dbC5380de968e5563",
+      "newImplementation": "0xf8840C8B0681e10f76fb717dbC5380de968e5563",
+      "txHash": "0x0d3f8efc0b35df89ccca1f2261d289e9a90f2b0d6621d3e0355cb8c8f42b9967",
+      "timestamp": "2026-03-02T08:24:22.081Z"
+    },
+    {
+      "contract": "TournamentManager",
+      "oldImplementation": "0x95F0dB7a7eC0d80B6DB3475A1c6c389Ea8F512db",
+      "newImplementation": "0xA69BE75da64aB70B24bCf9e305390967Dc7342e4",
+      "timestamp": "2026-03-02T08:56:25.191Z",
+      "txHash": "0x969c445efd138a3c6e84c374ce146ef89e5b571382d10d9dbbf62bbeb8c4abca"
     }
   ]
 }

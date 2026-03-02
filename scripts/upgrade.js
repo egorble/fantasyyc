@@ -31,7 +31,7 @@ const NETWORKS = {
     }
 };
 
-const VALID_CONTRACTS = ["UnicornX_NFT", "PackOpener", "TournamentManager", "MarketplaceV2"];
+const VALID_CONTRACTS = ["UnicornX_NFT", "PackNFT", "PackOpener", "TournamentManager", "MarketplaceV2"];
 
 async function main() {
     const networkArg = process.argv[2];

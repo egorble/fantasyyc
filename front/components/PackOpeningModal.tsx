@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { CardData, sortByRarity } from '../types';
-import { Layers, Package, Minus, Plus, ChevronDown, Zap } from 'lucide-react';
+import { Layers, Package, Minus, Plus, ChevronDown, Zap, BoxSelect } from 'lucide-react';
 import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
 import { formatXTZ } from '../lib/contracts';
@@ -13,9 +13,11 @@ interface PackOpeningModalProps {
     isOpen: boolean;
     onClose: () => void;
     onCardsAcquired?: (cards: CardData[]) => void;
+    onPacksBought?: () => void;
+    initialPackId?: number | null;
 }
 
-const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, onCardsAcquired }) => {
+const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, onCardsAcquired, onPacksBought, initialPackId }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const packRef = useRef<HTMLDivElement>(null);
     const flashRef = useRef<HTMLDivElement>(null);
@@ -23,8 +25,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
     const ctx = useRef<gsap.Context | null>(null);
 
-    // Stages: select → buying → tearing → exploding → dealing → finished
-    const [stage, setStage] = useState<'select' | 'buying' | 'tearing' | 'exploding' | 'dealing' | 'finished'>('select');
+    // Stages: select → buying → bought → opening → tearing → exploding → dealing → finished
+    const [stage, setStage] = useState<'select' | 'buying' | 'bought' | 'opening' | 'tearing' | 'exploding' | 'dealing' | 'finished'>('select');
     const [packCount, setPackCount] = useState(1);
     const [cardsDealtCount, setCardsDealtCount] = useState(0);
     const [mintedCards, setMintedCards] = useState<CardData[]>([]);
@@ -33,14 +35,20 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const [pendingCards, setPendingCards] = useState<CardData[] | null>(null);
     const [cuts, setCuts] = useState<string[]>([]);
     const maxTaps = 5;
+    // Pack NFT token IDs from buy step or existing owned packs
+    const [ownedPackIds, setOwnedPackIds] = useState<number[]>([]);
+    const [openedPackCount, setOpenedPackCount] = useState(0);
+    const [selectedPackId, setSelectedPackId] = useState<number | null>(null);
+    // Existing unopened packs loaded from chain
+    const [existingPacks, setExistingPacks] = useState<number[]>([]);
 
-    const isMultiPack = packCount > 1;
+    const isMultiPack = ownedPackIds.length > 1;
     const { networkId } = useNetwork();
     const isMegaETH = networkId === 'megaeth';
 
     // Hooks
     const { isConnected, getSigner, connect, isCorrectChain, switchChain, refreshBalance } = useWalletContext();
-    const { buyAndOpenPack, buyAndOpenMultiplePacks, isLoading } = usePacks();
+    const { buyPack, openPack, getUserPacks, isLoading } = usePacks();
 
     // Helper: Generate jagged tear path
     const generateTearPath = (seed: number) => {
@@ -87,8 +95,34 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             setCuts([]);
             cardRefs.current = [];
             setTxError(null);
+            setOwnedPackIds([]);
+            setOpenedPackCount(0);
+            setSelectedPackId(null);
+            setExistingPacks([]);
         }
     }, [isOpen]);
+
+    // Load existing owned packs when modal opens
+    useEffect(() => {
+        if (!isOpen || !isConnected) return;
+        (async () => {
+            try {
+                const signer = await getSigner();
+                if (!signer) return;
+                const addr = await signer.getAddress();
+                const packs = await getUserPacks(addr);
+                setExistingPacks(packs);
+            } catch {}
+        })();
+    }, [isOpen, isConnected]);
+
+    // If opened with initialPackId (from Portfolio), auto-start opening
+    useEffect(() => {
+        if (!isOpen || !initialPackId) return;
+        setOwnedPackIds([initialPackId]);
+        setSelectedPackId(initialPackId);
+        setStage('bought');
+    }, [isOpen, initialPackId]);
 
     // Handle "Dealing" Logic (single pack only)
     useLayoutEffect(() => {
@@ -117,17 +151,16 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
         }
     }, [stage]);
 
-    // When pendingCards is set, transition
+    // When pendingCards is set (after openPack), transition to reveal
     useLayoutEffect(() => {
-        if (pendingCards && stage === 'buying') {
-            if (isMegaETH) {
-                setMintedCards(sortByRarity(pendingCards));
+        if (pendingCards && stage === 'opening') {
+            if (isMultiPack) {
+                setMintedCards(prev => sortByRarity([...prev, ...pendingCards]));
                 setPendingCards(null);
-                setStage('exploding');
-            } else if (isMultiPack) {
-                setMintedCards(sortByRarity(pendingCards));
-                setPendingCards(null);
-                setStage('finished');
+                // Check if all packs are opened
+                if (openedPackCount >= ownedPackIds.length) {
+                    setStage('finished');
+                }
             } else {
                 setStage('tearing');
             }
@@ -199,8 +232,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
         if (newCount >= maxTaps) setStage('exploding');
     };
 
-    // Buy and open packs
-    const handleBuyAndOpen = async () => {
+    // Step 1: Buy pack NFT(s)
+    const handleBuy = async () => {
         if (stage !== 'select') return;
 
         if (!isConnected) { await connect(); return; }
@@ -213,16 +246,57 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             const signer = await getSigner();
             if (!signer) { setTxError('Failed to get signer'); setStage('select'); return; }
 
-            const result = packCount > 1
-                ? await buyAndOpenMultiplePacks(signer, packCount)
-                : await buyAndOpenPack(signer);
+            const result = await buyPack(signer, packCount);
 
-            if (result.success && result.cards) {
-                setPendingCards(result.cards);
-                onCardsAcquired?.(result.cards);
+            if (result.success && result.packTokenIds && result.packTokenIds.length > 0) {
+                setOwnedPackIds(result.packTokenIds);
                 refreshBalance();
+                onPacksBought?.();
+                setStage('bought');
             } else {
                 setTxError(result.error || 'Failed to buy pack');
+                setStage('select');
+            }
+        } catch (e: any) {
+            setTxError(e.message);
+            setStage('select');
+        }
+    };
+
+    // Step 2: Open all pack NFTs sequentially
+    const handleOpenPacks = async () => {
+        setStage('opening');
+        setTxError(null);
+
+        try {
+            const signer = await getSigner();
+            if (!signer) { setTxError('Failed to get signer'); setStage('select'); return; }
+
+            const allCards: CardData[] = [];
+
+            for (let i = 0; i < ownedPackIds.length; i++) {
+                const result = await openPack(signer, ownedPackIds[i]);
+                if (result.success && result.cards) {
+                    allCards.push(...result.cards);
+                    setOpenedPackCount(i + 1);
+                } else {
+                    setTxError(result.error || 'Failed to open pack');
+                    break;
+                }
+            }
+
+            if (allCards.length > 0) {
+                onCardsAcquired?.(allCards);
+                refreshBalance();
+
+                if (isMultiPack) {
+                    setMintedCards(sortByRarity(allCards));
+                    setStage('finished');
+                } else {
+                    setPendingCards(allCards);
+                }
+            } else if (!txError) {
+                setTxError('No cards received');
                 setStage('select');
             }
         } catch (e: any) {
@@ -330,11 +404,11 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
                         {/* Buy button */}
                         <button
-                            onClick={handleBuyAndOpen}
+                            onClick={handleBuy}
                             className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
                         >
                             <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
-                            {packCount === 1 ? 'Buy & Open Pack' : `Buy & Open ${packCount} Packs`}
+                            {packCount === 1 ? 'Buy Pack' : `Buy ${packCount} Packs`}
                         </button>
 
                         <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
@@ -405,6 +479,22 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                             )}
                         </div>
 
+                        {/* Existing unopened packs shortcut */}
+                        {existingPacks.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    setOwnedPackIds(existingPacks);
+                                    setSelectedPackId(existingPacks[0]);
+                                    setStage('bought');
+                                }}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-yc-orange/50 transition-all mb-4 shrink-0"
+                            >
+                                <BoxSelect className="w-4 h-4 text-yc-orange" />
+                                <span className="text-white font-medium text-sm">You have {existingPacks.length} unopened pack{existingPacks.length > 1 ? 's' : ''}</span>
+                                <span className="text-yc-orange font-bold text-sm ml-1">Open &rarr;</span>
+                            </button>
+                        )}
+
                         {/* Error */}
                         {txError && (
                             <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-3 shrink-0">
@@ -414,11 +504,11 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
                         {/* Buy button */}
                         <button
-                            onClick={handleBuyAndOpen}
+                            onClick={handleBuy}
                             className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
                         >
                             <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
-                            {packCount === 1 ? 'Buy & Open Pack' : `Buy & Open ${packCount} Packs`}
+                            {packCount === 1 ? 'Buy Pack' : `Buy ${packCount} Packs`}
                         </button>
 
                         <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
@@ -435,12 +525,87 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     <h2 className="text-2xl font-bold text-white mb-2">Confirm in Wallet</h2>
                     <p className="text-gray-400 text-sm mb-4">
                         {packCount === 1
-                            ? 'Buying & opening 1 pack (5 cards)'
-                            : `Buying & opening ${packCount} packs (${packCount * 5} cards)`
+                            ? 'Buying 1 pack...'
+                            : `Buying ${packCount} packs...`
                         }
                     </p>
                     <div className="text-yc-orange font-mono font-bold text-lg mb-6">{formatXTZ(totalPrice)} {currencySymbol()}</div>
                     <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors">Cancel</button>
+                </div>
+            )}
+
+            {/* --- STAGE: BOUGHT (show pack acquired, Open Now / Open Later) --- */}
+            {stage === 'bought' && (
+                <div key="stage-bought" className="flex flex-col items-center justify-center w-full h-full relative px-4">
+                    {/* Pack visual */}
+                    <div className="relative w-36 h-48 sm:w-44 sm:h-60 mb-6 shrink-0">
+                        <div className="absolute inset-0 rounded-xl overflow-hidden border bg-[#151515] border-green-500/40 shadow-2xl shadow-green-500/20">
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <div className="w-14 h-14 sm:w-16 sm:h-16 border-2 border-yc-orange rounded-full flex items-center justify-center mb-2 bg-black/50">
+                                    <span className="text-white font-black text-xl">YC</span>
+                                </div>
+                                <div className="px-2 py-1 bg-yc-orange text-white text-[9px] font-black uppercase tracking-[0.2em]">Season 4</div>
+                            </div>
+                        </div>
+                        {ownedPackIds.length > 1 && (
+                            <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-sm shadow-lg z-10">
+                                {ownedPackIds.length}x
+                            </div>
+                        )}
+                    </div>
+
+                    <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">
+                        {ownedPackIds.length === 1 ? 'Pack Acquired!' : `${ownedPackIds.length} Packs Acquired!`}
+                    </h2>
+                    <p className="text-gray-400 text-sm mb-8">
+                        {ownedPackIds.length === 1
+                            ? 'Your pack is ready. Open it now or save it for later.'
+                            : `Your packs are ready. Open them now or save for later.`
+                        }
+                    </p>
+
+                    <button
+                        onClick={handleOpenPacks}
+                        className="bg-yc-orange hover:bg-orange-600 text-white px-10 py-3.5 rounded-xl font-black text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3"
+                    >
+                        <Package className="w-5 h-5 inline-block mr-2 -mt-0.5" />
+                        {ownedPackIds.length === 1 ? 'Open Pack Now' : `Open ${ownedPackIds.length} Packs Now`}
+                    </button>
+
+                    <button
+                        onClick={() => { onPacksBought?.(); onClose(); }}
+                        className="text-gray-400 hover:text-white text-sm font-bold transition-colors px-6 py-2"
+                    >
+                        Open Later
+                    </button>
+                </div>
+            )}
+
+            {/* --- STAGE: OPENING (opening packs sequentially) --- */}
+            {stage === 'opening' && (
+                <div key="stage-opening" className="flex flex-col items-center justify-center w-full h-full relative">
+                    <div className="w-24 h-24 mb-8 border-4 border-yc-orange/30 border-t-yc-orange rounded-full animate-spin" />
+                    <h2 className="text-2xl font-bold text-white mb-2">Opening Packs</h2>
+                    <p className="text-gray-400 text-sm mb-4">
+                        {ownedPackIds.length === 1
+                            ? 'Opening your pack...'
+                            : `Opening pack ${openedPackCount + 1} of ${ownedPackIds.length}...`
+                        }
+                    </p>
+                    {ownedPackIds.length > 1 && (
+                        <div className="w-48 h-2 bg-gray-800 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-yc-orange transition-all duration-300 rounded-full"
+                                style={{ width: `${(openedPackCount / ownedPackIds.length) * 100}%` }}
+                            />
+                        </div>
+                    )}
+                    {txError && (
+                        <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mt-4">
+                            {txError}
+                        </div>
+                    )}
                 </div>
             )}
 

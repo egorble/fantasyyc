@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Trophy, Users, Clock, Info, GripVertical, X, CheckCircle, ArrowRight, Shield, Zap, Wallet, RefreshCw, Gift, ChevronDown, Loader2 } from 'lucide-react';
+import TournamentHistory from './TournamentHistory';
 import { CardData, sortByRarity } from '../types';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFT } from '../hooks/useNFT';
@@ -933,6 +934,11 @@ const Leagues: React.FC = () => {
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* Tournament History */}
+            {activeTournamentId > 0 && (
+                <TournamentHistory activeTournamentId={activeTournamentId} />
             )}
 
             {/* Onboarding Guide */}

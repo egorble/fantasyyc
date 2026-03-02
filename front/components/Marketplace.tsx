@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, ShoppingCart, Loader2, Gavel, Clock, Tag, X, User, Activity, DollarSign, History, Plus } from 'lucide-react';
-import { useMarketplaceV2, Listing, Auction, Bid } from '../hooks/useMarketplaceV2';
+import { Search, ShoppingCart, Loader2, Gavel, Clock, Tag, X, User, Activity, DollarSign, History, Plus, CheckCircle } from 'lucide-react';
+import { useMarketplaceV2, Listing, Auction, Bid, Sale } from '../hooks/useMarketplaceV2';
 import { useNFT } from '../hooks/useNFT';
 import { useWalletContext } from '../context/WalletContext';
 import { usePollingData } from '../hooks/usePollingData';
@@ -108,6 +108,7 @@ const Marketplace: React.FC = () => {
         cancelAuction,
         getTokenStats,
         getTokenSaleHistory,
+        getUserSoldItems,
         loading: isLoading,
         error
     } = useMarketplaceV2();
@@ -156,11 +157,12 @@ const Marketplace: React.FC = () => {
     const [loadingNFTs, setLoadingNFTs] = useState(false);
 
     // Activity tab state
-    type ActivityFilter = 'all' | 'listings' | 'auctions' | 'bids';
+    type ActivityFilter = 'all' | 'listings' | 'auctions' | 'bids' | 'sold';
     const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
     const [myListings, setMyListings] = useState<ListingWithMeta[]>([]);
     const [myAuctions, setMyAuctions] = useState<AuctionWithMeta[]>([]);
     const [myBids, setMyBids] = useState<(Bid & { cardName?: string; cardImage?: string; rarity?: string })[]>([]);
+    const [mySales, setMySales] = useState<(Sale & { cardName?: string; cardImage?: string; rarity?: string })[]>([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
     const [cancellingBidId, setCancellingBidId] = useState<number | null>(null);
 
@@ -521,10 +523,11 @@ const Marketplace: React.FC = () => {
                 blockchainCache.invalidate(CacheKeys.userBids(address));
                 blockchainCache.invalidate(CacheKeys.activeAuctions());
             }
-            const [userListings, userBids, allAuctions] = await Promise.all([
+            const [userListings, userBids, allAuctions, soldItems] = await Promise.all([
                 getUserListings(address),
                 getMyBids(),
-                getActiveAuctions()
+                getActiveAuctions(),
+                getUserSoldItems(address),
             ]);
 
             // Enrich listings with card metadata
@@ -562,13 +565,24 @@ const Marketplace: React.FC = () => {
                 })
             );
 
+            // Enrich sold items with card metadata
+            const enrichedSales = await Promise.all(
+                soldItems.map(async (s) => {
+                    try {
+                        const info = await getCardInfo(Number(s.tokenId));
+                        return { ...s, cardName: info?.name || `Card #${s.tokenId}`, cardImage: info?.image, rarity: info?.rarity };
+                    } catch { return { ...s, cardName: `Card #${s.tokenId}` }; }
+                })
+            );
+
             setMyListings(enrichedListings);
             setMyAuctions(enrichedAuctions);
             setMyBids(enrichedBids);
+            setMySales(enrichedSales);
         } catch (e) {
         }
         setLoadingActivity(false);
-    }, [isConnected, address, getUserListings, getMyBids, getActiveAuctions, getCardInfo]);
+    }, [isConnected, address, getUserListings, getMyBids, getActiveAuctions, getUserSoldItems, getCardInfo]);
 
     useEffect(() => {
         if (activeTab === 'activity') fetchActivity(true);
@@ -627,6 +641,12 @@ const Marketplace: React.FC = () => {
         if (sortBy === 'price_asc') return Number(a.amount - b.amount);
         if (sortBy === 'price_desc') return Number(b.amount - a.amount);
         return Number(b.expiration - a.expiration);
+    });
+
+    const sortedMySales = [...mySales].sort((a, b) => {
+        if (sortBy === 'price_asc') return Number(a.price - b.price);
+        if (sortBy === 'price_desc') return Number(b.price - a.price);
+        return Number(b.timestamp - a.timestamp);
     });
 
     return (
@@ -911,10 +931,11 @@ const Marketplace: React.FC = () => {
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                             <div className="flex items-center gap-2 overflow-x-auto pb-1 w-full sm:w-auto">
                                 {([
-                                    { key: 'all', label: 'All', count: myListings.length + myAuctions.length + myBids.length },
+                                    { key: 'all', label: 'All', count: myListings.length + myAuctions.length + myBids.length + mySales.length },
                                     { key: 'listings', label: 'My Listings', count: myListings.length },
                                     { key: 'auctions', label: 'My Auctions', count: myAuctions.length },
                                     { key: 'bids', label: 'My Bids', count: myBids.length },
+                                    { key: 'sold', label: 'Sold', count: mySales.length },
                                 ] as { key: ActivityFilter; label: string; count: number }[]).map(f => (
                                     <button
                                         key={f.key}
@@ -1050,12 +1071,38 @@ const Marketplace: React.FC = () => {
                                     </div>
                                 )}
 
+                                {/* Sold Items */}
+                                {(activityFilter === 'all' || activityFilter === 'sold') && sortedMySales.length > 0 && (
+                                    <div>
+                                        {activityFilter === 'all' && <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5 text-green-500" /> Sold</h3>}
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 md:gap-4">
+                                            {sortedMySales.map((sale, idx) => (
+                                                <div key={`sold-${idx}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-green-500/50 transition-all group">
+                                                    <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
+                                                        <img src={(sale as any).cardImage || '/placeholder-card.png'} alt={(sale as any).cardName || `Card #${sale.tokenId}`} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                        <div className="absolute top-2 left-2 bg-green-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Sold</div>
+                                                        <div className="absolute top-2 right-2 bg-black/60 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
+                                                            {sale.saleType === 0 ? 'Listing' : sale.saleType === 1 ? 'Bid' : 'Auction'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-1.5 md:p-3">
+                                                        <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-sm">{safeFormatXTZ(sale.price)} {currencySymbol()}</p>
+                                                        <p className="text-[9px] text-gray-400 truncate">To: {sale.buyer.slice(0, 6)}...{sale.buyer.slice(-4)}</p>
+                                                        <p className="text-[9px] text-gray-500">{new Date(Number(sale.timestamp) * 1000).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Empty state */}
                                 {!loadingActivity && (
-                                    (activityFilter === 'all' && myListings.length === 0 && myAuctions.length === 0 && myBids.length === 0) ||
+                                    (activityFilter === 'all' && myListings.length === 0 && myAuctions.length === 0 && myBids.length === 0 && mySales.length === 0) ||
                                     (activityFilter === 'listings' && myListings.length === 0) ||
                                     (activityFilter === 'auctions' && myAuctions.length === 0) ||
-                                    (activityFilter === 'bids' && myBids.length === 0)
+                                    (activityFilter === 'bids' && myBids.length === 0) ||
+                                    (activityFilter === 'sold' && mySales.length === 0)
                                 ) && (
                                         <div className="flex flex-col items-center justify-center py-16 bg-gray-50 dark:bg-[#121212] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
                                             <Activity className="w-12 h-12 text-gray-400 dark:text-gray-600 mb-3" />
@@ -1065,7 +1112,8 @@ const Marketplace: React.FC = () => {
                                                     activityFilter === 'listings' ? "You haven't listed any NFTs yet." :
                                                         activityFilter === 'auctions' ? "You haven't created any auctions yet." :
                                                             activityFilter === 'bids' ? "You haven't placed any bids yet." :
-                                                                "No marketplace activity yet. List an NFT or place a bid to get started!"}
+                                                                activityFilter === 'sold' ? "You haven't sold any NFTs yet." :
+                                                                    "No marketplace activity yet. List an NFT or place a bid to get started!"}
                                             </p>
                                         </div>
                                     )}

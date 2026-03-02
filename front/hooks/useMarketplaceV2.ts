@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { BrowserProvider, ethers } from 'ethers';
 import { getMarketplaceV2Contract, getNFTContract, CONTRACTS, formatXTZ } from '@/lib/contracts';
 import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
+import { getActiveNetworkId } from '../lib/networks';
 import { useWalletContext } from '../context/WalletContext';
 
 // ============ Constants ============
@@ -514,6 +515,37 @@ export function useMarketplaceV2() {
         }, CacheTTL.DEFAULT);
     }, []);
 
+    // ============ User Sold Items ============
+    // Reads _userSales from MarketplaceV2 (covers listings, bids, and auctions)
+    const getUserSoldItems = useCallback(async (sellerAddress: string): Promise<Sale[]> => {
+        try {
+            const cacheKey = `${getActiveNetworkId()}:marketplace:sold:${sellerAddress.toLowerCase()}`;
+            const cached = blockchainCache.get<Sale[]>(cacheKey);
+            if (cached && !blockchainCache.isStale(cacheKey, CacheTTL.LONG)) return cached;
+
+            const contract = getMarketplaceV2Contract();
+            const history = await contract.getUserSaleHistory(sellerAddress);
+
+            const result: Sale[] = history
+                .map((s: any) => ({
+                    tokenId: s.tokenId,
+                    seller: s.seller,
+                    buyer: s.buyer,
+                    price: s.price,
+                    timestamp: s.timestamp,
+                    saleType: Number(s.saleType),
+                }))
+                // Show only where this address was the seller
+                .filter((s: Sale) => s.seller.toLowerCase() === sellerAddress.toLowerCase())
+                .sort((a: Sale, b: Sale) => Number(b.timestamp - a.timestamp));
+
+            blockchainCache.set(cacheKey, result);
+            return result;
+        } catch {
+            return [];
+        }
+    }, []);
+
     // ============ History & Stats ============
     const getTokenSaleHistory = useCallback(async (tokenId: bigint): Promise<Sale[]> => {
         try {
@@ -595,6 +627,7 @@ export function useMarketplaceV2() {
         getActiveAuctions,
 
         // History & Stats
+        getUserSoldItems,
         getTokenSaleHistory,
         getTokenStats,
         getMarketplaceStats,

@@ -98,21 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
           <Settings className="w-5 h-5 text-gray-300 group-hover:text-yc-orange transition-colors shrink-0" />
         </div>
 
-        {/* Network Toggle */}
-        <div className="flex bg-gray-200 dark:bg-[#1A1A1A] rounded-xl p-1 gap-0.5">
-          {allNetworks.map((net) => (
-            <button
-              key={net.id}
-              onClick={() => handleNetworkSwitch(net.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ease-in-out ${networkId === net.id
-                ? 'bg-yc-orange text-white shadow'
-                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
-                }`}
-            >
-              <span>{net.shortName}</span>
-            </button>
-          ))}
-        </div>
+        {/* Network Toggle - hidden: single network mode (Etherlink only) */}
 
         {/* Theme Toggle - Minimal */}
         <div className="flex items-center justify-between px-2">

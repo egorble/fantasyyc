@@ -30,6 +30,7 @@ export const METADATA_API = '';
 
 export const CONTRACTS = {
     UnicornX_NFT: '0x172aC7aa7a6774559b1588E2F4426F7303a97cf1',
+    PackNFT: '',  // TODO: deploy PackNFT and set address here
     PackOpener: '0x78b602DE1721FF85C0c07F2Db5CF253c73590BaF',
     TournamentManager: '0xc367886000da37447AC592fc3571ceb63184BF1b',
     MarketplaceV2: '0x5BCf9A613C117dacD5C74199b288CCDdc7f5aa82',
@@ -58,39 +59,55 @@ export const NFT_ABI = [
     'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
 ];
 
+export const PACK_NFT_ABI = [
+    // Read functions
+    'function balanceOf(address owner) view returns (uint256)',
+    'function ownerOf(uint256 tokenId) view returns (address)',
+    'function totalSupply() view returns (uint256)',
+    'function maxSupply() view returns (uint256)',
+    'function getOwnedTokens(address owner) view returns (uint256[])',
+    'function tokenURI(uint256 tokenId) view returns (string)',
+    // Write functions
+    'function approve(address to, uint256 tokenId)',
+    'function setApprovalForAll(address operator, bool approved)',
+    // Events
+    'event PackMinted(address indexed to, uint256 indexed tokenId)',
+    'event PackBurned(address indexed from, uint256 indexed tokenId)',
+    'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
+];
+
 export const PACK_OPENER_ABI = [
     // Read functions
     'function currentPackPrice() view returns (uint256)',
     'function packsSold() view returns (uint256)',
     'function MAX_PACKS() view returns (uint256)',
-    'function getUserPacks(address user) view returns (uint256[])',
-    'function getPackInfo(uint256 packId) view returns (tuple(address buyer, uint256 purchaseTime, bool opened, uint256[5] cardIds))',
-    'function getUnopenedPackCount(address user) view returns (uint256)',
     'function activeTournamentId() view returns (uint256)',
     'function pendingPrizePool() view returns (uint256)',
     'function getReferrer(address user) view returns (address)',
     'function getReferralStats(address referrer) view returns (uint256 count, uint256 totalEarned)',
     'function referralEarnings(address referrer) view returns (uint256)',
     'function referralCount(address referrer) view returns (uint256)',
-    // Write functions - referrer is passed directly in buy functions
+    'function uniqueBuyerCount() view returns (uint256)',
+    'function getPacksRemaining() view returns (uint256)',
+    // Write functions — two-step: buy Pack NFT, then open it
     'function buyPack(address referrer) payable returns (uint256)',
-    'function buyAndOpenPack(address referrer) payable returns (uint256[5], uint256[5])',
-    'function buyAndOpenMultiplePacks(address referrer, uint256 count) payable returns (uint256[], uint256[])',
+    'function buyMultiplePacks(address referrer, uint256 count) payable returns (uint256[])',
+    'function openPack(uint256 packTokenId) returns (uint256[5], uint256[5])',
     'function MAX_MULTI_PACKS() view returns (uint256)',
-    'function openPack(uint256 packId) returns (uint256[5], uint256[5])',
     // Admin functions
     'function withdraw()',
     'function setPackPrice(uint256 newPrice)',
     'function setActiveTournament(uint256 tournamentId)',
     'function forwardPendingFunds()',
+    'function setPackNftContract(address _packNftContract)',
     'function pause()',
     'function unpause()',
     // Events
-    'event PackPurchased(address indexed buyer, uint256 indexed packId, uint256 price, uint256 timestamp)',
-    'event PackOpened(address indexed opener, uint256 indexed packId, uint256[5] cardIds, uint256[5] startupIds)',
+    'event PackPurchased(address indexed buyer, uint256 indexed packTokenId, uint256 price, uint256 timestamp)',
+    'event PackOpened(address indexed owner, uint256 indexed packTokenId, uint256[5] cardIds, uint256[5] startupIds)',
     'event ReferralRegistered(address indexed user, address indexed referrer)',
     'event ReferralRewardPaid(address indexed referrer, address indexed buyer, uint256 amount)',
-    'event MultiplePacksOpened(address indexed buyer, uint256 count, uint256[] cardIds, uint256[] startupIds)',
+    'event MultiplePacksPurchased(address indexed buyer, uint256 packCount, uint256[] packTokenIds)',
     'event FundsDistributed(uint256 prizePoolAmount, uint256 platformAmount, uint256 referralAmount)',
 ];
 
@@ -109,6 +126,9 @@ export const TOURNAMENT_ABI = [
     'function getTournamentPoints(uint256 tournamentId) view returns (uint256[19])',
     'function totalTournamentScore(uint256 tournamentId) view returns (uint256)',
     'function userScores(uint256 tournamentId, address user) view returns (uint256)',
+    // Batch view functions (v2)
+    'function getUserTournamentHistory(address user) view returns (tuple(uint256 tournamentId, uint256 startTime, uint256 endTime, uint256 prizePool, uint256 entryCount, uint8 status, uint256 userScore, uint256 userPrize, bool claimed)[])',
+    'function getAllTournamentsSummary() view returns (tuple(uint256 id, uint256 registrationStart, uint256 startTime, uint256 endTime, uint256 prizePool, uint256 entryCount, uint8 status)[])',
     // Write functions
     'function enterTournament(uint256 tournamentId, uint256[5] cardIds)',
     'function cancelEntry(uint256 tournamentId)',
@@ -131,35 +151,47 @@ export const TOURNAMENT_ABI = [
 // Old MARKETPLACE_ABI removed - using MarketplaceV2 exclusively
 
 export const MARKETPLACE_V2_ABI = [
-    // ===== Listings =====
+    // ===== Card Listings =====
     'function listCard(uint256 tokenId, uint256 price) returns (uint256)',
     'function buyCard(uint256 listingId) payable',
     'function cancelListing(uint256 listingId)',
-    'function getActiveListings() view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active)[])',
-    'function getListing(uint256 listingId) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active))',
-    'function getListingsBySeller(address seller) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active)[])',
+    'function getActiveListings() view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active, address nftAddr)[])',
+    'function getListing(uint256 listingId) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active, address nftAddr))',
+    'function getListingsBySeller(address seller) view returns (tuple(uint256 listingId, address seller, uint256 tokenId, uint256 price, uint256 listedAt, bool active, address nftAddr)[])',
     'function getActiveListingCount() view returns (uint256)',
     'function isTokenListed(uint256 tokenId) view returns (bool)',
 
-    // ===== Bids =====
+    // ===== Pack Listings =====
+    'function listPack(uint256 tokenId, uint256 price) returns (uint256)',
+    'function isPackListed(uint256 tokenId) view returns (bool)',
+
+    // ===== Card Bids =====
     'function placeBid(uint256 tokenId, uint256 expiration) payable returns (uint256)',
     'function cancelBid(uint256 bidId)',
     'function acceptBid(uint256 bidId)',
-    'function getActiveBidsForToken(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
-    'function getBidsOnToken(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
-    'function getUserBids(address user) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active)[])',
+    'function getActiveBidsForToken(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active, address nftAddr)[])',
+    'function getBidsOnToken(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active, address nftAddr)[])',
+    'function getUserBids(address user) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active, address nftAddr)[])',
 
-    // ===== Auctions =====
+    // ===== Pack Bids =====
+    'function placeBidOnPack(uint256 tokenId, uint256 expiration) payable returns (uint256)',
+    'function getBidsOnPack(uint256 tokenId) view returns (tuple(uint256 bidId, address bidder, uint256 tokenId, uint256 amount, uint256 expiration, bool active, address nftAddr)[])',
+
+    // ===== Card Auctions =====
     'function createAuction(uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 duration) returns (uint256)',
     'function bidOnAuction(uint256 auctionId) payable',
     'function finalizeAuction(uint256 auctionId)',
     'function cancelAuction(uint256 auctionId)',
-    'function getActiveAuctions() view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status)[])',
-    'function getAuction(uint256 auctionId) view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status))',
+    'function getActiveAuctions() view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status, address nftAddr)[])',
+    'function getAuction(uint256 auctionId) view returns (tuple(uint256 auctionId, address seller, uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 highestBid, address highestBidder, uint256 startTime, uint256 endTime, uint8 status, address nftAddr))',
     'function getActiveAuctionCount() view returns (uint256)',
+
+    // ===== Pack Auctions =====
+    'function createPackAuction(uint256 tokenId, uint256 startPrice, uint256 reservePrice, uint256 duration) returns (uint256)',
 
     // ===== History & Stats =====
     'function getTokenSaleHistory(uint256 tokenId) view returns (tuple(uint256 saleId, uint256 tokenId, address seller, address buyer, uint256 price, uint256 timestamp, uint8 saleType)[])',
+    'function getUserSaleHistory(address user) view returns (tuple(uint256 saleId, uint256 tokenId, address seller, address buyer, uint256 price, uint256 timestamp, uint8 saleType)[])',
     'function getTokenStats(uint256 tokenId) view returns (tuple(uint256 lastSalePrice, uint256 totalVolume, uint256 salesCount, uint256 highestSale, uint256 lowestSale))',
     'function getGlobalStats() view returns (uint256 _totalVolume, uint256 _totalSales, uint256 _activeListings, uint256 _activeAuctions)',
 
@@ -233,6 +265,11 @@ export function getReadProvider() {
 export function getNFTContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
     const provider = signerOrProvider || getReadProvider();
     return new ethers.Contract(getActiveContracts().UnicornX_NFT, NFT_ABI, provider);
+}
+
+export function getPackNFTContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
+    const provider = signerOrProvider || getReadProvider();
+    return new ethers.Contract(getActiveContracts().PackNFT, PACK_NFT_ABI, provider);
 }
 
 export function getPackOpenerContract(signerOrProvider?: ethers.Signer | ethers.Provider) {
