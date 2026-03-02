@@ -14,8 +14,7 @@ interface MobileWidgetsProps {
 const MobileWidgets: React.FC<MobileWidgetsProps> = ({ onOpenPack }) => {
     const { isConnected } = useWalletContext();
     const { networkId } = useNetwork();
-    const isMegaETH = networkId === 'megaeth';
-    const packPrice = isMegaETH ? '0.01' : '5';
+    const packPrice = '5';
     const { getReferralLink, referralStats } = useReferral();
     const [copied, setCopied] = useState(false);
 
@@ -35,45 +34,23 @@ const MobileWidgets: React.FC<MobileWidgetsProps> = ({ onOpenPack }) => {
         <div className="my-6 xl:hidden">
             {/* Buy Pack CTA */}
             {onOpenPack && (
-                isMegaETH ? (
-                    <div className="mb-3 rounded-xl overflow-hidden shadow-lg bg-[#0a0a0a] border border-[#1a1a1a]">
-                        <div className="relative h-36 bg-gradient-to-b from-[#111] to-[#0a0a0a]">
-                            <ModelViewer3D mode="gentle" cameraZ={2.8} modelScale={0.8} />
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="w-20 h-20 bg-yc-orange/10 rounded-full blur-2xl" />
-                            </div>
-                        </div>
-                        <div className="p-3 border-t border-[#1a1a1a] flex items-center justify-between">
-                            <div>
-                                <span className="text-gray-500 text-[10px] font-medium">5 cards per pack</span>
-                                <p className="text-white font-mono font-black text-lg">{packPrice} <span className="text-gray-400 text-sm font-bold">{currencySymbol()}</span></p>
-                            </div>
-                            <button
-                                onClick={onOpenPack}
-                                className="bg-yc-orange hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-black text-sm uppercase tracking-wider active:scale-95 transition-all shadow-md shadow-orange-500/20"
-                            >
-                                Buy Pack
-                            </button>
-                        </div>
+                <div className="mb-3 rounded-xl overflow-hidden shadow-lg bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#1a1a1a]">
+                    <div className="relative h-36 bg-gradient-to-b from-gray-100 dark:from-[#111] to-gray-50 dark:to-[#0a0a0a]">
+                        <ModelViewer3D mode="gentle" cameraZ={2.8} modelScale={0.8} />
                     </div>
-                ) : (
-                    <div className="mb-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl p-4 flex items-center justify-between shadow-lg">
+                    <div className="p-3 border-t border-gray-200 dark:border-[#1a1a1a] flex items-center justify-between">
                         <div>
-                            <p className="text-white font-black text-sm">Card Packs</p>
-                            <p className="text-white/70 text-[11px]">5 cards per pack</p>
+                            <span className="text-gray-500 text-[10px] font-medium">5 cards per pack</span>
+                            <p className="text-gray-900 dark:text-white font-mono font-black text-lg">{packPrice} <span className="text-gray-400 text-sm font-bold">{currencySymbol()}</span></p>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-white font-mono font-black text-lg">{packPrice} {currencySymbol()}</span>
-                            <button
-                                onClick={onOpenPack}
-                                className="bg-white text-orange-600 px-4 py-2 rounded-lg font-black text-sm uppercase tracking-wider active:scale-95 transition-transform shadow-md"
-                            >
-                                <Package className="w-4 h-4 inline-block mr-1 -mt-0.5" />
-                                Buy
-                            </button>
-                        </div>
+                        <button
+                            onClick={onOpenPack}
+                            className="bg-yc-orange hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-black text-sm uppercase tracking-wider active:scale-95 transition-all shadow-md shadow-orange-500/20"
+                        >
+                            Buy Pack
+                        </button>
                     </div>
-                )
+                </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

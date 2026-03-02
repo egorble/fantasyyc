@@ -1,9 +1,9 @@
 import React, { Suspense, useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Environment, useEnvironment } from '@react-three/drei';
+import { OrbitControls, useGLTF, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
-const GLB_PATH = '/megaeth-pack.glb';
+const GLB_PATH = '/3detherlink.glb';
 
 interface PackModelProps {
     mode: 'gentle' | 'auto' | 'static';
@@ -53,17 +53,11 @@ function ContextGuard({ onLost }: { onLost: () => void }) {
 
 const ENV_HDR = '/env-city.hdr';
 
-// Preload environment HDR so modal doesn't wait for it
-let _envPreloaded = false;
-function EnvPreloader() {
-    useEnvironment({ files: ENV_HDR });
-    _envPreloaded = true;
-    return null;
-}
+// Environment HDR is now always active — preloader not needed
 
 interface ModelViewer3DProps {
-    /** 'interactive' = orbit controls, 'gentle' = subtle oscillation, 'auto' = full spin */
-    mode?: 'interactive' | 'gentle' | 'auto';
+    /** 'interactive' = orbit controls, 'gentle' = subtle oscillation, 'auto' = full spin, 'static' = no rotation */
+    mode?: 'interactive' | 'gentle' | 'auto' | 'static';
     /** Model scale override (default 1) */
     modelScale?: number;
     /** Camera distance (default 2.5) */
@@ -91,7 +85,8 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     paused = false,
 }) => {
     const isInteractive = mode === 'interactive';
-    const packMode = isInteractive ? 'static' : mode as 'gentle' | 'auto';
+    const isStatic = mode === 'static';
+    const packMode = (isInteractive || isStatic) ? 'static' : mode as 'gentle' | 'auto';
     const [canvasKey, setCanvasKey] = useState(0);
 
     const handleContextLost = useCallback(() => {
@@ -109,17 +104,21 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                     powerPreference: mode === 'gentle' ? 'low-power' : 'default',
                     ...(mode === 'gentle' ? { pixelRatio: 1 } : {}),
                 }}
-                frameloop={paused ? 'never' : (mode === 'gentle' ? 'demand' : 'always')}
-                style={{ background: 'transparent' }}
+                frameloop={paused ? 'never' : (mode === 'gentle' || mode === 'static' ? 'demand' : 'always')}
+                style={{ background: 'transparent', pointerEvents: isInteractive ? 'auto' : 'none' }}
             >
                 <ContextGuard onLost={handleContextLost} />
-                <ambientLight intensity={0.6} />
-                <directionalLight position={[5, 5, 5]} intensity={1} />
-                <directionalLight position={[-3, 2, -3]} intensity={0.3} />
+                <ambientLight intensity={5} />
+                <directionalLight position={[5, 5, 5]} intensity={4} />
+                <directionalLight position={[-5, 3, -3]} intensity={3} />
+                <directionalLight position={[0, -3, 4]} intensity={2} />
+                <directionalLight position={[0, 5, 0]} intensity={2} />
+                <pointLight position={[0, 0, 5]} intensity={5} color="#ffffff" />
+                <pointLight position={[3, 0, 3]} intensity={3} color="#ffffff" />
+                <pointLight position={[-3, 0, 3]} intensity={3} color="#ffffff" />
                 <Suspense fallback={null}>
                     <PackModel mode={packMode} scale={modelScale} />
-                    {isInteractive && <Environment files={ENV_HDR} />}
-                    {!isInteractive && !_envPreloaded && <EnvPreloader />}
+                    <Environment files={ENV_HDR} environmentIntensity={2} />
                 </Suspense>
                 {mode === 'gentle' && <GentleInvalidator />}
                 {isInteractive && (

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { BrowserProvider, ethers } from 'ethers';
-import { getMarketplaceV2Contract, getNFTContract, CONTRACTS, formatXTZ } from '@/lib/contracts';
+import { getMarketplaceV2Contract, getNFTContract, getPackNFTContract, getActiveContracts, CONTRACTS, formatXTZ } from '@/lib/contracts';
 import { blockchainCache, CacheKeys, CacheTTL } from '../lib/cache';
 import { getActiveNetworkId } from '../lib/networks';
 import { useWalletContext } from '../context/WalletContext';
@@ -29,6 +29,8 @@ export interface Auction {
     startTime: bigint;
     endTime: bigint;
     status: number; // 0=Active, 1=Ended, 2=Cancelled
+    nftAddr?: string;
+    isPack?: boolean;
 }
 
 export interface Sale {
@@ -64,6 +66,8 @@ export interface Listing {
     price: bigint;
     listedAt: bigint;
     active: boolean;
+    nftAddr?: string;
+    isPack?: boolean;
 }
 
 // ============ Hook ============
@@ -81,7 +85,6 @@ export function useMarketplaceV2() {
     }, [walletProvider]);
 
     // ============ Listings ============
-    // ============ Listings ============
     // Cache-first polling for active listings
     const getActiveListings = useCallback(async (): Promise<Listing[]> => {
         const key = CacheKeys.activeListings();
@@ -89,12 +92,11 @@ export function useMarketplaceV2() {
         // Check cache first
         const cached = blockchainCache.get<Listing[]>(key);
         if (cached !== undefined) {
-            // Background refresh if stale - hook consumer should use usePollingData for persistent updates
-            // But we'll trigger a background fetch if it's stale to ensure freshness
             if (blockchainCache.isStale(key, CacheTTL.DEFAULT)) {
                 blockchainCache.fetchInBackground(key, async () => {
                     const contract = getMarketplaceV2Contract();
                     const listings = await contract.getActiveListings();
+                    const packNftAddr = getActiveContracts().PackNFT?.toLowerCase();
                     return listings.map((l: any) => ({
                         listingId: l.listingId,
                         seller: l.seller,
@@ -102,6 +104,8 @@ export function useMarketplaceV2() {
                         price: l.price,
                         listedAt: l.listedAt,
                         active: l.active,
+                        nftAddr: l.nftAddr,
+                        isPack: l.nftAddr?.toLowerCase() === packNftAddr,
                     }));
                 });
             }
@@ -111,6 +115,7 @@ export function useMarketplaceV2() {
         return blockchainCache.getOrFetch(key, async () => {
             const contract = getMarketplaceV2Contract();
             const listings = await contract.getActiveListings();
+            const packNftAddr = getActiveContracts().PackNFT?.toLowerCase();
             return listings.map((l: any) => ({
                 listingId: l.listingId,
                 seller: l.seller,
@@ -118,6 +123,8 @@ export function useMarketplaceV2() {
                 price: l.price,
                 listedAt: l.listedAt,
                 active: l.active,
+                nftAddr: l.nftAddr,
+                isPack: l.nftAddr?.toLowerCase() === packNftAddr,
             }));
         }, CacheTTL.DEFAULT);
     }, []);
@@ -131,6 +138,7 @@ export function useMarketplaceV2() {
                 blockchainCache.fetchInBackground(key, async () => {
                     const contract = getMarketplaceV2Contract();
                     const listings = await contract.getListingsBySeller(userAddress);
+                    const packNftAddr = getActiveContracts().PackNFT?.toLowerCase();
                     return listings.map((l: any) => ({
                         listingId: l.listingId,
                         seller: l.seller,
@@ -138,6 +146,8 @@ export function useMarketplaceV2() {
                         price: l.price,
                         listedAt: l.listedAt,
                         active: l.active,
+                        nftAddr: l.nftAddr,
+                        isPack: l.nftAddr?.toLowerCase() === packNftAddr,
                     }));
                 });
             }
@@ -147,6 +157,7 @@ export function useMarketplaceV2() {
         return blockchainCache.getOrFetch(key, async () => {
             const contract = getMarketplaceV2Contract();
             const listings = await contract.getListingsBySeller(userAddress);
+            const packNftAddr = getActiveContracts().PackNFT?.toLowerCase();
             return listings.map((l: any) => ({
                 listingId: l.listingId,
                 seller: l.seller,
@@ -154,6 +165,8 @@ export function useMarketplaceV2() {
                 price: l.price,
                 listedAt: l.listedAt,
                 active: l.active,
+                nftAddr: l.nftAddr,
+                isPack: l.nftAddr?.toLowerCase() === packNftAddr,
             }));
         }, CacheTTL.DEFAULT);
     }, []);
@@ -178,6 +191,32 @@ export function useMarketplaceV2() {
             return true;
         } catch (err: any) {
             setError(err.message || 'Failed to list card');
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [getSigner]);
+
+    const listPack = useCallback(async (tokenId: bigint, priceInXTZ: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const signer = await getSigner();
+            const packNftContract = getPackNFTContract(signer);
+            const marketplaceContract = getMarketplaceV2Contract(signer);
+
+            // Approve marketplace to transfer pack NFT
+            const approveTx = await packNftContract.approve(CONTRACTS.MarketplaceV2, tokenId);
+            await approveTx.wait();
+
+            // List pack
+            const priceWei = ethers.parseEther(priceInXTZ);
+            const listTx = await marketplaceContract.listPack(tokenId, priceWei);
+            await listTx.wait();
+
+            return true;
+        } catch (err: any) {
+            setError(err.message || 'Failed to list pack');
             throw err;
         } finally {
             setLoading(false);
@@ -480,6 +519,7 @@ export function useMarketplaceV2() {
                 blockchainCache.fetchInBackground(key, async () => {
                     const contract = getMarketplaceV2Contract();
                     const auctions = await contract.getActiveAuctions();
+                    const packNftAddr = getActiveContracts().PackNFT?.toLowerCase();
                     return auctions.map((a: any) => ({
                         auctionId: a.auctionId,
                         seller: a.seller,
@@ -491,6 +531,8 @@ export function useMarketplaceV2() {
                         startTime: a.startTime,
                         endTime: a.endTime,
                         status: a.status,
+                        nftAddr: a.nftAddr,
+                        isPack: a.nftAddr?.toLowerCase() === packNftAddr,
                     }));
                 });
             }
@@ -500,6 +542,7 @@ export function useMarketplaceV2() {
         return blockchainCache.getOrFetch(key, async () => {
             const contract = getMarketplaceV2Contract();
             const auctions = await contract.getActiveAuctions();
+            const packNftAddr = getActiveContracts().PackNFT?.toLowerCase();
             return auctions.map((a: any) => ({
                 auctionId: a.auctionId,
                 seller: a.seller,
@@ -511,6 +554,8 @@ export function useMarketplaceV2() {
                 startTime: a.startTime,
                 endTime: a.endTime,
                 status: a.status,
+                nftAddr: a.nftAddr,
+                isPack: a.nftAddr?.toLowerCase() === packNftAddr,
             }));
         }, CacheTTL.DEFAULT);
     }, []);
@@ -608,6 +653,7 @@ export function useMarketplaceV2() {
         getActiveListings,
         getUserListings,
         listCard,
+        listPack,
         buyCard,
         cancelListing,
 

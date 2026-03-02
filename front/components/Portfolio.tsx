@@ -14,6 +14,7 @@ import gsap from 'gsap';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
 import { usePacks } from '../hooks/usePacks';
+import ModelViewer3D from './ModelViewer3D';
 
 const PORTFOLIO_GUIDE: OnboardingStep[] = [
     {
@@ -560,16 +561,13 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) =
                             {myPacks.map((packId) => (
                                 <div key={`pack-${packId}`} className="group">
                                     <div
-                                        className="relative bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border border-[#2A2A2A] hover:border-yc-orange rounded-xl overflow-hidden cursor-pointer transition-all"
-                                        style={{ aspectRatio: '3/4' }}
+                                        className="relative bg-gradient-to-b from-yc-purple/5 to-gray-50 dark:from-yc-purple/[0.06] dark:to-[#0a0a0a] border border-[#2A2A2A] hover:border-yc-orange rounded-xl overflow-hidden cursor-pointer transition-all"
+                                        style={{ aspectRatio: '591/1004' }}
                                         onClick={() => onBuyPack(packId)}
                                     >
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <div className="w-14 h-14 border-2 border-yc-orange rounded-full flex items-center justify-center mb-2 bg-black/50">
-                                                <span className="text-white font-black text-xl">YC</span>
-                                            </div>
-                                            <div className="px-2 py-0.5 bg-yc-orange text-white text-[8px] font-black uppercase tracking-[0.2em]">Season 4</div>
-                                            <p className="text-gray-500 text-[10px] mt-2 font-mono">#{packId}</p>
+                                        <ModelViewer3D mode="static" cameraZ={3} modelScale={0.8} />
+                                        <div className="absolute bottom-2 left-0 right-0 flex flex-col items-center pointer-events-none">
+                                            <span className="text-gray-700 dark:text-white/50 text-[10px] font-mono">#{packId}</span>
                                         </div>
                                         {/* Hover overlay */}
                                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/60 transition-opacity">

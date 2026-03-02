@@ -12,6 +12,8 @@ import { CardData, Rarity, sortByRarity } from '../types';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
 import { useToast } from '../context/ToastContext';
+import { usePacks } from '../hooks/usePacks';
+import ModelViewer3D from './ModelViewer3D';
 
 // Rarity colors
 const RARITY_COLORS: Record<string, string> = {
@@ -48,6 +50,7 @@ interface ListingWithMeta extends Listing {
     rarity?: string;
     multiplier?: number;
     priceFormatted?: string;
+    isPack?: boolean;
 }
 
 interface AuctionWithMeta extends Auction {
@@ -57,7 +60,18 @@ interface AuctionWithMeta extends Auction {
     multiplier?: number;
     timeLeft?: string;
     isEnded?: boolean;
+    isPack?: boolean;
 }
+
+// Pack visual component — renders the 3D pack model
+const PackVisual: React.FC<{ tokenId: number | bigint; className?: string; style?: React.CSSProperties }> = ({ tokenId, className = '', style }) => (
+    <div className={`relative bg-gradient-to-b from-yc-orange/5 to-gray-50 dark:from-yc-orange/[0.06] dark:to-[#0a0a0a] overflow-hidden ${className}`} style={style}>
+        <ModelViewer3D mode="static" cameraZ={3} modelScale={0.8} />
+        <div className="absolute bottom-2 left-0 right-0 flex flex-col items-center pointer-events-none">
+            <span className="text-gray-700 dark:text-white/50 text-[10px] font-mono bg-white/60 dark:bg-black/40 px-2 py-0.5 rounded">#{String(tokenId)}</span>
+        </div>
+    </div>
+);
 
 // Helper to format time remaining
 function formatTimeLeft(endTime: bigint): { text: string; isEnded: boolean } {
@@ -103,6 +117,7 @@ const Marketplace: React.FC = () => {
         getMyBids,
         cancelBid,
         listCard,
+        listPack,
         createAuction,
         cancelListing,
         cancelAuction,
@@ -113,6 +128,7 @@ const Marketplace: React.FC = () => {
         error
     } = useMarketplaceV2();
     const { getCardInfo, getCards, clearCache } = useNFT();
+    const { getUserPacks } = usePacks();
     const { address, isConnected } = useWalletContext();
     const { networkId } = useNetwork();
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('marketplace');
@@ -155,6 +171,8 @@ const Marketplace: React.FC = () => {
     const [auctionDuration, setAuctionDuration] = useState('1');
     const [isSelling, setIsSelling] = useState(false);
     const [loadingNFTs, setLoadingNFTs] = useState(false);
+    const [myPacks, setMyPacks] = useState<number[]>([]);
+    const [selectedPackId, setSelectedPackId] = useState<number | null>(null);
 
     // Activity tab state
     type ActivityFilter = 'all' | 'listings' | 'auctions' | 'bids' | 'sold';
@@ -174,6 +192,18 @@ const Marketplace: React.FC = () => {
             const rawListings = await getActiveListings();
             const listingsWithMetadata = await Promise.all(
                 rawListings.map(async (listing) => {
+                    // Pack listings: use fixed metadata (no card metadata server)
+                    if (listing.isPack) {
+                        return {
+                            ...listing,
+                            cardName: `Pack #${listing.tokenId}`,
+                            cardImage: undefined,
+                            rarity: undefined,
+                            multiplier: undefined,
+                            priceFormatted: formatXTZ(listing.price),
+                            isPack: true,
+                        };
+                    }
                     try {
                         const cardInfo = await getCardInfo(Number(listing.tokenId));
                         return {
@@ -207,6 +237,20 @@ const Marketplace: React.FC = () => {
             const rawAuctions = await getActiveAuctions();
             const auctionsWithMetadata = await Promise.all(
                 rawAuctions.map(async (auction) => {
+                    // Pack auctions: use fixed metadata
+                    if (auction.isPack) {
+                        const { text, isEnded } = formatTimeLeft(auction.endTime);
+                        return {
+                            ...auction,
+                            cardName: `Pack #${auction.tokenId}`,
+                            cardImage: undefined,
+                            rarity: undefined,
+                            multiplier: undefined,
+                            timeLeft: text,
+                            isEnded,
+                            isPack: true,
+                        };
+                    }
                     try {
                         const cardInfo = await getCardInfo(Number(auction.tokenId));
                         const { text, isEnded } = formatTimeLeft(auction.endTime);
@@ -313,6 +357,7 @@ const Marketplace: React.FC = () => {
         setBuyingId(Number(listing.listingId));
         try {
             await buyCard(listing.listingId, listing.price);
+            blockchainCache.invalidate(CacheKeys.activeListings());
             await refreshListings();
             // Force refresh NFT cache so Portfolio shows new card
             if (address) {
@@ -348,6 +393,7 @@ const Marketplace: React.FC = () => {
         setLoadingStats(true);
         try {
             await acceptBid(bidId);
+            blockchainCache.invalidate(CacheKeys.activeListings());
             await refreshListings();
             setStatsModalOpen(false);
             success('Bid accepted successfully!');
@@ -362,6 +408,8 @@ const Marketplace: React.FC = () => {
         setCancellingId(Number(listing.listingId));
         try {
             await cancelListing(listing.listingId);
+            blockchainCache.invalidate(CacheKeys.activeListings());
+            if (address) blockchainCache.invalidate(CacheKeys.userListings(address));
             await refreshListings();
             if (activeTab === 'activity') fetchActivity(true);
             success('Listing cancelled successfully!');
@@ -460,14 +508,18 @@ const Marketplace: React.FC = () => {
         setListModalOpen(true);
         setLoadingNFTs(true);
         setSelectedNFT(null);
+        setSelectedPackId(null);
         setSellPrice('');
         setAuctionStartPrice('');
         setAuctionReservePrice('');
 
         try {
-            const cards = await getCards(address || '');
-            // Filter out cards that are already listed
+            const [cards, packs] = await Promise.all([
+                getCards(address || ''),
+                getUserPacks(address || ''),
+            ]);
             setMyNFTs(sortByRarity(cards.filter(c => !c.isLocked)));
+            setMyPacks(packs);
         } catch (e) {
         }
         setLoadingNFTs(false);
@@ -475,7 +527,8 @@ const Marketplace: React.FC = () => {
 
     // Handle listing NFT
     const handleListNFT = async () => {
-        if (!selectedNFT) return;
+        const isPack = selectedPackId !== null;
+        if (!isPack && !selectedNFT) return;
         setIsSelling(true);
 
         try {
@@ -485,8 +538,12 @@ const Marketplace: React.FC = () => {
                     setIsSelling(false);
                     return;
                 }
-                await listCard(BigInt(selectedNFT.tokenId), sellPrice);
-                success('NFT listed successfully!');
+                if (isPack) {
+                    await listPack(BigInt(selectedPackId!), sellPrice);
+                } else {
+                    await listCard(BigInt(selectedNFT!.tokenId), sellPrice);
+                }
+                success(isPack ? 'Pack listed successfully!' : 'NFT listed successfully!');
             } else {
                 if (!auctionStartPrice || parseFloat(auctionStartPrice) <= 0) {
                     toastError('Please enter a valid start price');
@@ -494,8 +551,14 @@ const Marketplace: React.FC = () => {
                     return;
                 }
                 const duration = parseInt(auctionDuration) || 1;
+                if (isPack) {
+                    // Packs only support fixed price listing for now
+                    toastError('Auctions are not supported for packs yet');
+                    setIsSelling(false);
+                    return;
+                }
                 await createAuction(
-                    BigInt(selectedNFT.tokenId),
+                    BigInt(selectedNFT!.tokenId),
                     auctionStartPrice,
                     auctionReservePrice || auctionStartPrice,
                     duration
@@ -503,6 +566,10 @@ const Marketplace: React.FC = () => {
                 success('Auction created successfully!');
             }
             setListModalOpen(false);
+            // Invalidate cache so refresh fetches fresh data from blockchain
+            blockchainCache.invalidate(CacheKeys.activeListings());
+            blockchainCache.invalidate(CacheKeys.activeAuctions());
+            if (address) blockchainCache.invalidate(CacheKeys.userListings(address));
             await refreshListings();
             await refreshAuctions();
             if (activeTab === 'activity') fetchActivity(true);
@@ -533,6 +600,9 @@ const Marketplace: React.FC = () => {
             // Enrich listings with card metadata
             const enrichedListings = await Promise.all(
                 userListings.map(async (l) => {
+                    if (l.isPack) {
+                        return { ...l, cardName: `Pack #${l.tokenId}`, cardImage: undefined, rarity: undefined, priceFormatted: formatXTZ(l.price), isPack: true };
+                    }
                     try {
                         const info = await getCardInfo(Number(l.tokenId));
                         return { ...l, cardName: info?.name || `Card #${l.tokenId}`, cardImage: info?.image, rarity: info?.rarity, priceFormatted: formatXTZ(l.price) };
@@ -544,6 +614,10 @@ const Marketplace: React.FC = () => {
             const userAuctions = allAuctions.filter(a => a.seller.toLowerCase() === address.toLowerCase());
             const enrichedAuctions = await Promise.all(
                 userAuctions.map(async (a) => {
+                    if (a.isPack) {
+                        const { text, isEnded } = formatTimeLeft(a.endTime);
+                        return { ...a, cardName: `Pack #${a.tokenId}`, cardImage: undefined, rarity: undefined, timeLeft: text, isEnded, isPack: true };
+                    }
                     try {
                         const info = await getCardInfo(Number(a.tokenId));
                         const { text, isEnded } = formatTimeLeft(a.endTime);
@@ -786,13 +860,17 @@ const Marketplace: React.FC = () => {
                                     <div
                                         className="relative overflow-hidden cursor-pointer"
                                         style={{ aspectRatio: '591/1004' }}
-                                        onClick={() => openStatsModal(listing)}
+                                        onClick={() => !listing.isPack && openStatsModal(listing)}
                                     >
-                                        <img
-                                            src={listing.cardImage}
-                                            alt={listing.cardName}
-                                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-                                        />
+                                        {listing.isPack ? (
+                                            <PackVisual tokenId={listing.tokenId} className="w-full h-full rounded-none" />
+                                        ) : (
+                                            <img
+                                                src={listing.cardImage}
+                                                alt={listing.cardName}
+                                                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                        )}
                                     </div>
                                     <div className="p-1.5 md:p-4">
                                         <p className="text-gray-900 dark:text-white font-bold text-[11px] md:text-lg leading-tight">{listing.priceFormatted} {currencySymbol()}</p>
@@ -869,13 +947,17 @@ const Marketplace: React.FC = () => {
                                     <div
                                         className="relative overflow-hidden cursor-pointer"
                                         style={{ aspectRatio: '591/1004' }}
-                                        onClick={() => openStatsModal(auction)}
+                                        onClick={() => !auction.isPack && openStatsModal(auction)}
                                     >
-                                        <img
-                                            src={auction.cardImage}
-                                            alt={auction.cardName}
-                                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-                                        />
+                                        {auction.isPack ? (
+                                            <PackVisual tokenId={auction.tokenId} className="w-full h-full rounded-none" />
+                                        ) : (
+                                            <img
+                                                src={auction.cardImage}
+                                                alt={auction.cardName}
+                                                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                        )}
                                         {/* Timer */}
                                         <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 dark:bg-black/80 text-yc-orange'}`}>
                                             <Clock className="w-3 h-3" />
@@ -980,7 +1062,11 @@ const Marketplace: React.FC = () => {
                                             {sortedMyListings.map(listing => (
                                                 <div key={`l-${listing.listingId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
                                                     <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
-                                                        <img src={listing.cardImage || '/placeholder-card.png'} alt={listing.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                        {listing.isPack ? (
+                                                            <PackVisual tokenId={listing.tokenId} className="w-full h-full rounded-none" />
+                                                        ) : (
+                                                            <img src={listing.cardImage || '/placeholder-card.png'} alt={listing.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                        )}
                                                         <div className="absolute top-2 left-2 bg-yc-orange/90 text-white text-[9px] font-bold px-2 py-0.5 rounded">Listed</div>
                                                     </div>
                                                     <div className="p-1.5 md:p-3">
@@ -1007,7 +1093,11 @@ const Marketplace: React.FC = () => {
                                             {sortedMyAuctions.map(auction => (
                                                 <div key={`a-${auction.auctionId}`} className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl overflow-hidden hover:border-yc-orange/50 transition-all group">
                                                     <div className="relative overflow-hidden" style={{ aspectRatio: '591/1004' }}>
-                                                        <img src={auction.cardImage || '/placeholder-card.png'} alt={auction.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                        {auction.isPack ? (
+                                                            <PackVisual tokenId={auction.tokenId} className="w-full h-full rounded-none" />
+                                                        ) : (
+                                                            <img src={auction.cardImage || '/placeholder-card.png'} alt={auction.cardName} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                                                        )}
                                                         <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded ${auction.isEnded ? 'bg-red-600 text-white' : 'bg-black/80 text-yc-orange'}`}>
                                                             <Clock className="w-2.5 h-2.5" />
                                                             {auction.timeLeft}
@@ -1348,15 +1438,30 @@ const Marketplace: React.FC = () => {
                         <div className="p-4 max-h-[calc(85vh-120px)] overflow-y-auto">
                             {loadingNFTs ? (
                                 <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-yc-orange animate-spin" /></div>
-                            ) : !selectedNFT ? (
+                            ) : !selectedNFT && selectedPackId === null ? (
                                 <>
                                     <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Select an NFT to list:</p>
-                                    {myNFTs.length === 0 ? <p className="text-gray-500 dark:text-gray-500 text-center py-4">No NFTs available to list</p> : (
+                                    {myNFTs.length === 0 && myPacks.length === 0 ? <p className="text-gray-500 dark:text-gray-500 text-center py-4">No NFTs available to list</p> : (
                                         <div className="grid grid-cols-2 gap-3">
+                                            {/* Packs first */}
+                                            {myPacks.map(packId => (
+                                                <div
+                                                    key={`pack-${packId}`}
+                                                    onClick={() => { setSelectedPackId(packId); setSelectedNFT(null); }}
+                                                    className="cursor-pointer rounded-xl border border-gray-200 dark:border-[#2A2A2A] overflow-hidden hover:border-yc-orange transition-colors bg-white dark:bg-[#0a0a0a] relative"
+                                                    style={{ aspectRatio: '591/1004' }}
+                                                >
+                                                    <ModelViewer3D mode="static" cameraZ={3} modelScale={0.8} />
+                                                    <div className="absolute bottom-2 left-0 right-0 flex flex-col items-center pointer-events-none">
+                                                        <span className="bg-yc-orange/90 text-white text-[10px] font-bold px-2 py-0.5 rounded">Pack #{packId}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {/* Cards */}
                                             {myNFTs.map(nft => (
                                                 <div
                                                     key={nft.tokenId}
-                                                    onClick={() => setSelectedNFT(nft)}
+                                                    onClick={() => { setSelectedNFT(nft); setSelectedPackId(null); }}
                                                     className="cursor-pointer rounded-xl border border-gray-200 dark:border-[#2A2A2A] overflow-hidden hover:border-yc-orange transition-colors bg-white dark:bg-[#121212]"
                                                 >
                                                     <img src={nft.image} alt={nft.name} className="w-full object-contain" style={{ aspectRatio: '591/1004' }} />
@@ -1367,12 +1472,19 @@ const Marketplace: React.FC = () => {
                                 </>
                             ) : (
                                 <>
+                                    {/* Selected item preview */}
                                     <div className="flex gap-4 mb-4">
-                                        <img src={selectedNFT.image} alt={selectedNFT.name} className="w-20 h-20 rounded-lg object-contain" />
+                                        {selectedPackId !== null ? (
+                                            <div className="w-20 h-20 rounded-lg overflow-hidden bg-[#0a0a0a]">
+                                                <ModelViewer3D mode="static" cameraZ={3} modelScale={0.8} />
+                                            </div>
+                                        ) : selectedNFT ? (
+                                            <img src={selectedNFT.image} alt={selectedNFT.name} className="w-20 h-20 rounded-lg object-contain" />
+                                        ) : null}
                                         <div>
-                                            <h4 className="text-gray-900 dark:text-white font-bold">{selectedNFT.name}</h4>
-                                            <p className="text-gray-500 dark:text-gray-400 text-sm">#{selectedNFT.tokenId}</p>
-                                            <button onClick={() => setSelectedNFT(null)} className="text-yc-orange text-xs hover:underline">Change</button>
+                                            <h4 className="text-gray-900 dark:text-white font-bold">{selectedPackId !== null ? 'Unopened Pack' : selectedNFT?.name}</h4>
+                                            <p className="text-gray-500 dark:text-gray-400 text-sm">#{selectedPackId !== null ? selectedPackId : selectedNFT?.tokenId}</p>
+                                            <button onClick={() => { setSelectedNFT(null); setSelectedPackId(null); }} className="text-yc-orange text-xs hover:underline">Change</button>
                                         </div>
                                     </div>
 
@@ -1415,11 +1527,14 @@ const Marketplace: React.FC = () => {
 
                                     <button
                                         onClick={handleListNFT}
-                                        disabled={isSelling || (sellMode === 'fixed' ? !sellPrice : !auctionStartPrice)}
+                                        disabled={isSelling || (sellMode === 'fixed' ? !sellPrice : !auctionStartPrice) || (selectedPackId !== null && sellMode === 'auction')}
                                         className="w-full mt-4 bg-yc-orange text-white font-bold py-3 rounded-lg hover:bg-yc-orange/80 disabled:bg-gray-700 disabled:text-gray-400 transition-all"
                                     >
                                         {isSelling ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : sellMode === 'fixed' ? 'List for Sale' : 'Create Auction'}
                                     </button>
+                                    {selectedPackId !== null && sellMode === 'auction' && (
+                                        <p className="text-yellow-500 text-xs text-center mt-2">Auctions are not supported for packs. Use fixed price.</p>
+                                    )}
                                 </>
                             )}
                         </div>

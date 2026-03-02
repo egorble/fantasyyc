@@ -354,168 +354,97 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
 
             {/* --- STAGE: PACK SELECTION --- */}
             {stage === 'select' && (
-                isMegaETH ? (
-                    /* MegaETH: 3D pack on top, controls below */
-                    <div className="flex flex-col items-center w-full h-full px-4 py-8 overflow-y-auto sm:py-0 sm:justify-center">
-                        {/* 3D pack — takes upper space */}
-                        <div className="relative w-full flex-1 min-h-[40vh] sm:min-h-0 max-h-[50vh] sm:max-h-[65%] shrink-0 sm:shrink mb-6 sm:mb-2">
-                            <ModelViewer3D mode="interactive" cameraZ={4.5} modelScale={1} paused={!isOpen} />
-                            {packCount > 1 && (
-                                <div className="absolute top-2 right-2 w-9 h-9 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-base shadow-lg shadow-orange-500/30 z-10">
-                                    {packCount}x
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Pack count selector */}
-                        <div className="flex items-center gap-3 sm:gap-4 mb-3 shrink-0">
-                            <button
-                                onClick={() => setPackCount(Math.max(1, packCount - 1))}
-                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
-                            >
-                                <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
-                            </button>
-                            <div className="text-center min-w-[80px] sm:min-w-[100px]">
-                                <p className="text-2xl sm:text-3xl font-black text-white">{packCount}</p>
-                                <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">{packCount === 1 ? 'Pack' : 'Packs'} ({packCount * 5} cards)</p>
-                            </div>
-                            <button
-                                onClick={() => setPackCount(Math.min(10, packCount + 1))}
-                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
-                            >
-                                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                            </button>
-                        </div>
-
-                        {/* Price */}
-                        <div className="text-center mb-3 shrink-0">
-                            <p className="text-yc-orange font-mono font-bold text-xl sm:text-2xl">{formatXTZ(totalPrice)} {currencySymbol()}</p>
-                            {packCount > 1 && (
-                                <p className="text-gray-500 text-xs mt-1">{formatXTZ(packPrice)} per pack</p>
-                            )}
-                        </div>
-
-                        {/* Error */}
-                        {txError && (
-                            <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-3 shrink-0">
-                                {txError}
+                <div className="flex flex-col items-center w-full h-full px-4 py-8 overflow-y-auto sm:py-0 sm:justify-center">
+                    {/* 3D pack */}
+                    <div className="relative w-full flex-1 min-h-[40vh] sm:min-h-0 max-h-[50vh] sm:max-h-[55%] shrink-0 sm:shrink mb-4 sm:mb-2">
+                        <ModelViewer3D mode="interactive" cameraZ={4.5} modelScale={1} paused={!isOpen} />
+                        {packCount > 1 && (
+                            <div className="absolute top-2 right-2 w-9 h-9 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-base shadow-lg shadow-orange-500/30 z-10">
+                                {packCount}x
                             </div>
                         )}
+                    </div>
 
-                        {/* Buy button */}
+                    {/* Pack count selector */}
+                    <div className="flex items-center gap-3 sm:gap-4 mb-3 shrink-0">
                         <button
-                            onClick={handleBuy}
-                            className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
+                            onClick={() => setPackCount(Math.max(1, packCount - 1))}
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
                         >
-                            <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
-                            {packCount === 1 ? 'Buy Pack' : `Buy ${packCount} Packs`}
+                            <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
-
-                        <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
-                            Cancel
+                        <div className="text-center min-w-[80px] sm:min-w-[100px]">
+                            <p className="text-2xl sm:text-3xl font-black text-white">{packCount}</p>
+                            <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">{packCount === 1 ? 'Pack' : 'Packs'} ({packCount * 5} cards)</p>
+                        </div>
+                        <button
+                            onClick={() => setPackCount(Math.min(10, packCount + 1))}
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
+                        >
+                            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                     </div>
-                ) : (
-                    /* Etherlink: original layout */
-                    <div className="flex flex-col items-center w-full h-full relative px-4 overflow-y-auto py-8 sm:py-0 sm:justify-center">
-                        <div className="relative w-36 h-48 sm:w-52 sm:h-72 mt-4 sm:mt-0 mb-4 sm:mb-8 group shrink-0">
-                            <div className="absolute inset-0 rounded-xl overflow-hidden border bg-[#151515] border-white/20 shadow-2xl shadow-orange-500/10">
-                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <div className="w-14 h-14 sm:w-20 sm:h-20 border-2 border-yc-orange rounded-full flex items-center justify-center mb-2 sm:mb-3 bg-black/50">
-                                        <span className="text-white font-black text-xl sm:text-2xl">YC</span>
-                                    </div>
-                                    <div className="px-2 sm:px-3 py-1 bg-yc-orange text-white text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em]">Season 4</div>
-                                </div>
-                            </div>
-                            {packCount > 1 && (
-                                <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-8 h-8 sm:w-10 sm:h-10 bg-yc-orange rounded-full flex items-center justify-center text-white font-black text-sm sm:text-lg shadow-lg shadow-orange-500/30 z-10">
-                                    {packCount}x
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Pack count selector */}
-                        <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 shrink-0">
+                    {/* Quick select presets */}
+                    <div className="flex gap-2 mb-3 shrink-0">
+                        {[1, 3, 5, 10].map(n => (
                             <button
-                                onClick={() => setPackCount(Math.max(1, packCount - 1))}
-                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
+                                key={n}
+                                onClick={() => setPackCount(n)}
+                                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${packCount === n
+                                    ? 'bg-yc-orange text-white shadow-lg shadow-orange-500/30'
+                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+                                    }`}
                             >
-                                <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
+                                {n}x
                             </button>
-                            <div className="text-center min-w-[80px] sm:min-w-[100px]">
-                                <p className="text-2xl sm:text-3xl font-black text-white">{packCount}</p>
-                                <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">{packCount === 1 ? 'Pack' : 'Packs'} ({packCount * 5} cards)</p>
-                            </div>
-                            <button
-                                onClick={() => setPackCount(Math.min(10, packCount + 1))}
-                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors active:scale-90"
-                            >
-                                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                            </button>
-                        </div>
-
-                        {/* Quick select presets */}
-                        <div className="flex gap-2 mb-4 sm:mb-6 shrink-0">
-                            {[1, 3, 5, 10].map(n => (
-                                <button
-                                    key={n}
-                                    onClick={() => setPackCount(n)}
-                                    className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${packCount === n
-                                        ? 'bg-yc-orange text-white shadow-lg shadow-orange-500/30'
-                                        : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-                                        }`}
-                                >
-                                    {n}x
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Price */}
-                        <div className="text-center mb-4 sm:mb-6 shrink-0">
-                            <p className="text-yc-orange font-mono font-bold text-xl sm:text-2xl">{formatXTZ(totalPrice)} {currencySymbol()}</p>
-                            {packCount > 1 && (
-                                <p className="text-gray-500 text-xs mt-1">{formatXTZ(packPrice)} per pack</p>
-                            )}
-                        </div>
-
-                        {/* Existing unopened packs shortcut */}
-                        {existingPacks.length > 0 && (
-                            <button
-                                onClick={() => {
-                                    setOwnedPackIds(existingPacks);
-                                    setSelectedPackId(existingPacks[0]);
-                                    setStage('bought');
-                                }}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-yc-orange/50 transition-all mb-4 shrink-0"
-                            >
-                                <BoxSelect className="w-4 h-4 text-yc-orange" />
-                                <span className="text-white font-medium text-sm">You have {existingPacks.length} unopened pack{existingPacks.length > 1 ? 's' : ''}</span>
-                                <span className="text-yc-orange font-bold text-sm ml-1">Open &rarr;</span>
-                            </button>
-                        )}
-
-                        {/* Error */}
-                        {txError && (
-                            <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-3 shrink-0">
-                                {txError}
-                            </div>
-                        )}
-
-                        {/* Buy button */}
-                        <button
-                            onClick={handleBuy}
-                            className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
-                        >
-                            <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
-                            {packCount === 1 ? 'Buy Pack' : `Buy ${packCount} Packs`}
-                        </button>
-
-                        <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
-                            Cancel
-                        </button>
+                        ))}
                     </div>
-                )
+
+                    {/* Price */}
+                    <div className="text-center mb-3 shrink-0">
+                        <p className="text-yc-orange font-mono font-bold text-xl sm:text-2xl">{formatXTZ(totalPrice)} {currencySymbol()}</p>
+                        {packCount > 1 && (
+                            <p className="text-gray-500 text-xs mt-1">{formatXTZ(packPrice)} per pack</p>
+                        )}
+                    </div>
+
+                    {/* Existing unopened packs shortcut */}
+                    {existingPacks.length > 0 && (
+                        <button
+                            onClick={() => {
+                                setOwnedPackIds(existingPacks);
+                                setSelectedPackId(existingPacks[0]);
+                                setStage('bought');
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-yc-orange/50 transition-all mb-3 shrink-0"
+                        >
+                            <BoxSelect className="w-4 h-4 text-yc-orange" />
+                            <span className="text-white font-medium text-sm">You have {existingPacks.length} unopened pack{existingPacks.length > 1 ? 's' : ''}</span>
+                            <span className="text-yc-orange font-bold text-sm ml-1">Open &rarr;</span>
+                        </button>
+                    )}
+
+                    {/* Error */}
+                    {txError && (
+                        <div className="bg-red-500/20 border border-red-500 rounded-lg px-4 py-2 text-red-400 text-sm max-w-xs text-center mb-3 shrink-0">
+                            {txError}
+                        </div>
+                    )}
+
+                    {/* Buy button */}
+                    <button
+                        onClick={handleBuy}
+                        className="bg-yc-orange hover:bg-orange-600 text-white px-8 sm:px-10 py-3 sm:py-3.5 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 mb-3 shrink-0"
+                    >
+                        <Package className="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-2 -mt-0.5" />
+                        {packCount === 1 ? 'Buy Pack' : `Buy ${packCount} Packs`}
+                    </button>
+
+                    <button onClick={onClose} className="text-gray-500 hover:text-white text-sm font-medium transition-colors shrink-0">
+                        Cancel
+                    </button>
+                </div>
             )}
 
             {/* --- STAGE: BUYING (waiting for tx) --- */}
@@ -537,19 +466,11 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             {/* --- STAGE: BOUGHT (show pack acquired, Open Now / Open Later) --- */}
             {stage === 'bought' && (
                 <div key="stage-bought" className="flex flex-col items-center justify-center w-full h-full relative px-4">
-                    {/* Pack visual */}
-                    <div className="relative w-36 h-48 sm:w-44 sm:h-60 mb-6 shrink-0">
-                        <div className="absolute inset-0 rounded-xl overflow-hidden border bg-[#151515] border-green-500/40 shadow-2xl shadow-green-500/20">
-                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <div className="w-14 h-14 sm:w-16 sm:h-16 border-2 border-yc-orange rounded-full flex items-center justify-center mb-2 bg-black/50">
-                                    <span className="text-white font-black text-xl">YC</span>
-                                </div>
-                                <div className="px-2 py-1 bg-yc-orange text-white text-[9px] font-black uppercase tracking-[0.2em]">Season 4</div>
-                            </div>
-                        </div>
+                    {/* 3D Pack visual */}
+                    <div className="relative w-full max-w-[280px] h-[50vh] max-h-[50%] mb-4 shrink-0">
+                        <ModelViewer3D mode="interactive" cameraZ={4.5} modelScale={1} paused={!isOpen} />
                         {ownedPackIds.length > 1 && (
-                            <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-sm shadow-lg z-10">
+                            <div className="absolute top-2 right-2 w-9 h-9 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-base shadow-lg z-10">
                                 {ownedPackIds.length}x
                             </div>
                         )}
@@ -585,7 +506,9 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
             {/* --- STAGE: OPENING (opening packs sequentially) --- */}
             {stage === 'opening' && (
                 <div key="stage-opening" className="flex flex-col items-center justify-center w-full h-full relative">
-                    <div className="w-24 h-24 mb-8 border-4 border-yc-orange/30 border-t-yc-orange rounded-full animate-spin" />
+                    <div className="relative w-full max-w-[250px] h-[50vh] max-h-[50%] mb-6 shrink-0">
+                        <ModelViewer3D mode="gentle" cameraZ={4.5} modelScale={1} paused={!isOpen} />
+                    </div>
                     <h2 className="text-2xl font-bold text-white mb-2">Opening Packs</h2>
                     <p className="text-gray-400 text-sm mb-4">
                         {ownedPackIds.length === 1
