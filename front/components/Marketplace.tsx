@@ -185,6 +185,8 @@ const Marketplace: React.FC = () => {
     const [cancellingBidId, setCancellingBidId] = useState<number | null>(null);
 
     const rarityTabs = ['All', 'Common', 'Rare', 'Epic', 'Legendary'];
+    type TypeFilter = 'all' | 'cards' | 'packs';
+    const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
 
     // Fetcher functions for polling
     const fetchListings = useCallback(async (): Promise<ListingWithMeta[]> => {
@@ -678,7 +680,9 @@ const Marketplace: React.FC = () => {
     // Filter and sort listings
     const filteredListings = listings
         .filter(l => {
-            if (rarityFilter !== 'All' && l.rarity !== rarityFilter) return false;
+            if (typeFilter === 'cards' && l.isPack) return false;
+            if (typeFilter === 'packs' && !l.isPack) return false;
+            if (typeFilter !== 'packs' && rarityFilter !== 'All' && l.rarity !== rarityFilter) return false;
             if (searchQuery && !l.cardName?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
             return true;
         })
@@ -691,7 +695,9 @@ const Marketplace: React.FC = () => {
     // Filter auctions
     const filteredAuctions = auctions
         .filter(a => {
-            if (rarityFilter !== 'All' && a.rarity !== rarityFilter) return false;
+            if (typeFilter === 'cards' && a.isPack) return false;
+            if (typeFilter === 'packs' && !a.isPack) return false;
+            if (typeFilter !== 'packs' && rarityFilter !== 'All' && a.rarity !== rarityFilter) return false;
             if (searchQuery && !a.cardName?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
             return true;
         });
@@ -785,9 +791,26 @@ const Marketplace: React.FC = () => {
 
                 {/* Filters */}
                 <div className="flex flex-col gap-3">
-                    {/* Rarity tabs */}
+                    {/* Type filter + Rarity tabs */}
                     <div className="flex items-center flex-wrap gap-2">
-                        {rarityTabs.map((tab) => (
+                        {(['all', 'cards', 'packs'] as TypeFilter[]).map((t) => (
+                            <button
+                                key={t}
+                                onClick={() => setTypeFilter(t)}
+                                className={`
+                                    whitespace-nowrap px-4 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold transition-all duration-300 transform active:scale-95
+                                    ${typeFilter === t
+                                        ? 'bg-yc-orange text-white shadow-lg shadow-yc-orange/30 scale-105'
+                                        : 'bg-gray-100 dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'}
+                                `}
+                            >
+                                {t === 'all' ? 'All' : t === 'cards' ? 'Cards' : 'Packs'}
+                            </button>
+                        ))}
+                        {typeFilter !== 'packs' && (
+                            <span className="w-px h-5 bg-gray-300 dark:bg-gray-700 mx-1" />
+                        )}
+                        {typeFilter !== 'packs' && rarityTabs.map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setRarityFilter(tab)}
