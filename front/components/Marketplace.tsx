@@ -132,7 +132,7 @@ const Marketplace: React.FC = () => {
     const { address, isConnected } = useWalletContext();
     const { networkId } = useNetwork();
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('marketplace');
-    const { toast, success, error: toastError, info } = useToast();
+    const { toast, success, error: toastError, info, txError } = useToast();
 
     // State
     const [activeTab, setActiveTab] = useState<MarketTab>('listings');
@@ -368,7 +368,7 @@ const Marketplace: React.FC = () => {
             }
             success('Purchase successful! The card is now in your portfolio.');
         } catch (e: any) {
-            toastError(`Error: ${e.message}`);
+            txError(e);
         }
         setBuyingId(null);
     };
@@ -385,7 +385,7 @@ const Marketplace: React.FC = () => {
             setBidAmount('');
             success('Bid placed successfully!');
         } catch (e: any) {
-            toastError(`Error: ${e.message}`);
+            txError(e);
         }
         setBiddingId(null);
     };
@@ -400,7 +400,7 @@ const Marketplace: React.FC = () => {
             setStatsModalOpen(false);
             success('Bid accepted successfully!');
         } catch (e: any) {
-            toastError(`Error: ${e.message}`);
+            txError(e);
         }
         setLoadingStats(false);
     };
@@ -416,7 +416,7 @@ const Marketplace: React.FC = () => {
             if (activeTab === 'activity') fetchActivity(true);
             success('Listing cancelled successfully!');
         } catch (e: any) {
-            toastError(`Error: ${e.message}`);
+            txError(e);
         }
         setCancellingId(null);
     };
@@ -433,16 +433,7 @@ const Marketplace: React.FC = () => {
             setBidAmount('');
             success('Bid placed successfully!');
         } catch (e: any) {
-            const msg = e.message || '';
-            if (msg.includes('0xa0d26eb6') || msg.includes('BidTooLow')) {
-                const hb = bidModal.auction.highestBid;
-                const min = hb === 0n ? bidModal.auction.startPrice : hb + hb / 20n;
-                toastError(`Bid too low! Minimum: ${safeFormatXTZ(min)} ${currencySymbol()} (+5% above current bid)`);
-            } else if (msg.includes('user rejected') || msg.includes('denied')) {
-                // User cancelled — no alert needed
-            } else {
-                toastError(`Error: ${msg}`);
-            }
+            txError(e);
         }
         setBiddingId(null);
     };
@@ -455,7 +446,7 @@ const Marketplace: React.FC = () => {
             await refreshAuctions();
             success('Auction finalized successfully!');
         } catch (e: any) {
-            toastError(`Error: ${e.message}`);
+            txError(e);
         }
         setBiddingId(null);
     };
@@ -470,12 +461,7 @@ const Marketplace: React.FC = () => {
             if (activeTab === 'activity') fetchActivity(true);
             success('Auction cancelled!');
         } catch (e: any) {
-            const msg = e.message || '';
-            if (msg.includes('AuctionHasBids') || msg.includes('0x')) {
-                toastError('Cannot cancel — auction already has bids.');
-            } else {
-                toastError(`Error: ${msg}`);
-            }
+            txError(e);
         }
         setCancellingId(null);
     };

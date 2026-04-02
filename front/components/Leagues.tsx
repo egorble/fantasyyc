@@ -12,6 +12,7 @@ import { generatePixelAvatar } from '../lib/pixelAvatar';
 import { blockchainCache, CacheKeys } from '../lib/cache';
 import { apiUrl } from '../lib/api';
 import { useNetwork } from '../context/NetworkContext';
+import { useToast } from '../context/ToastContext';
 import gsap from 'gsap';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
@@ -105,6 +106,7 @@ const Leagues: React.FC = () => {
     // Hooks
     const { isConnected, address, getSigner, connect } = useWalletContext();
     const { networkId } = useNetwork();
+    const { success: toastSuccess, txError } = useToast();
     const { getCards, clearCache, isLoading: nftLoading } = useNFT();
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('leagues');
     const {
@@ -293,6 +295,7 @@ const Leagues: React.FC = () => {
 
             }, containerRef);
         } else {
+            txError(result.error || 'Failed to enter tournament');
             setSubmissionState('idle');
         }
     };
@@ -309,12 +312,15 @@ const Leagues: React.FC = () => {
         if (result.success) {
             setHasClaimed(true);
             setUserPrize(0n);
+            toastSuccess('Prize claimed!');
             // Invalidate lineup cache so re-mount reads claimed=true
             if (address) {
                 blockchainCache.invalidate(CacheKeys.userLineup(activeTournamentId, address));
                 clearCache();
                 getCards(address, true);
             }
+        } else {
+            txError(result.error || 'Failed to claim prize');
         }
         setIsClaiming(false);
     };

@@ -16,7 +16,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ onOpenPack }) => {
   const { getReferralLink, referralStats } = useReferral();
   const { networkId } = useNetwork();
   const [copied, setCopied] = useState(false);
-  const packPrice = '5';
+  const packPrice = '0.01';
 
   const { data: tournament } = useActiveTournament();
   const { data: topStartups } = useSharedTopStartups(tournament?.id ?? null);

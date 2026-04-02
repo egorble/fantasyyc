@@ -5,6 +5,7 @@ import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
 import { formatXTZ } from '../lib/contracts';
 import { currencySymbol, getActiveNetwork } from '../lib/networks';
+import { parseTransactionError } from '../lib/errorParser';
 import ModelViewer3D from './ModelViewer3D';
 import gsap from 'gsap';
 
@@ -225,11 +226,13 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 onPacksBought?.();
                 setStage('bought');
             } else {
-                setTxError(result.error || 'Failed to buy pack');
+                const parsed = parseTransactionError(result.error || 'Failed to buy pack');
+                setTxError(parsed.message);
                 setStage('select');
             }
         } catch (e: any) {
-            setTxError(e.message);
+            const parsed = parseTransactionError(e);
+            setTxError(parsed.message);
             setStage('select');
         }
     };
@@ -251,7 +254,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     allCards.push(...result.cards);
                     setOpenedPackCount(i + 1);
                 } else {
-                    setTxError(result.error || 'Failed to open pack');
+                    const parsed = parseTransactionError(result.error || 'Failed to open pack');
+                    setTxError(parsed.message);
                     break;
                 }
             }
@@ -271,7 +275,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 setStage('select');
             }
         } catch (e: any) {
-            setTxError(e.message);
+            const parsed = parseTransactionError(e);
+            setTxError(parsed.message);
             setStage('select');
         }
     };

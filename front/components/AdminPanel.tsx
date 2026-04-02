@@ -38,7 +38,7 @@ const AdminPanel: React.FC = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Form states
-    const [newPackPrice, setNewPackPrice] = useState('5');
+    const [newPackPrice, setNewPackPrice] = useState('0.01');
     const [newActiveTournament, setNewActiveTournament] = useState('0');
     const [showCreateTournament, setShowCreateTournament] = useState(false);
     const [tournamentForm, setTournamentForm] = useState({
@@ -423,7 +423,7 @@ const AdminPanel: React.FC = () => {
                     </div>
                     <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-4">
                         <p className="text-gray-500 text-xs uppercase mb-1">Pack Price</p>
-                        <p className="text-2xl font-bold text-yc-orange font-mono">{stats ? formatXTZ(stats.packPrice) : '5'} {currencySymbol()}</p>
+                        <p className="text-2xl font-bold text-yc-orange font-mono">{stats ? formatXTZ(stats.packPrice) : '0.01'} {currencySymbol()}</p>
                     </div>
                     <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-[#2A2A2A] rounded-xl p-4">
                         <p className="text-gray-500 text-xs uppercase mb-1">Total NFTs</p>

@@ -93,7 +93,7 @@ export function useAdmin() {
                 nextTournamentId: Number(nextTournamentId),
             };
         } catch (e) {
-            return { packsSold: 0, packPrice: BigInt(5e18), totalNFTs: 0, activeTournamentId: 0, nextTournamentId: 0 };
+            return { packsSold: 0, packPrice: BigInt(1e16), totalNFTs: 0, activeTournamentId: 0, nextTournamentId: 0 };
         }
     }, []);
 

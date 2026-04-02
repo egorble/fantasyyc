@@ -87,7 +87,7 @@ const AppContent: React.FC = () => {
     const { getCardInfo, getCards, updateServerCache, clearCache } = useNFT();
 
     // Toast hook
-    const { toast, success, error, info } = useToast();
+    const { toast, success, error, info, txError } = useToast();
 
     // Dynamic user from wallet + profile
     const user: UserProfile = {
@@ -331,7 +331,7 @@ const AppContent: React.FC = () => {
                                                             setBuyingId(Number(listing.listingId));
                                                             buyCard(listing.listingId, listing.price)
                                                                 .then(() => { success('Purchase successful!'); setTimeout(() => window.location.reload(), 1500); })
-                                                                .catch((err: any) => error(`Error: ${err.message}`))
+                                                                .catch((err: any) => txError(err))
                                                                 .finally(() => setBuyingId(null));
                                                         }}
                                                         disabled={buyingId === Number(listing.listingId)}

@@ -14,6 +14,7 @@ import gsap from 'gsap';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingGuide, { OnboardingStep } from './OnboardingGuide';
 import { usePacks } from '../hooks/usePacks';
+import { useToast } from '../context/ToastContext';
 import ModelViewer3D from './ModelViewer3D';
 
 const PORTFOLIO_GUIDE: OnboardingStep[] = [
@@ -86,6 +87,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) =
     const { listCard, createAuction, getBidsForToken, getTokenStats, getTokenSaleHistory, loading: marketplaceLoading } = useMarketplaceV2();
     const { isVisible: showGuide, currentStep: guideStep, nextStep: guideNext, dismiss: guideDismiss } = useOnboarding('portfolio');
     const { getUserPacks } = usePacks();
+    const { success: toastSuccess, error: toastError, txError } = useToast();
     const [myPacks, setMyPacks] = useState<number[]>([]);
 
     // Auto-refresh cards with polling (disabled when not connected)
@@ -378,7 +380,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) =
     // Open sell modal for a card
     const openSellModal = (card: CardData) => {
         if (card.isLocked) {
-            alert('This card is locked and cannot be sold.');
+            toastError('This card is locked and cannot be sold.');
             return;
         }
         setCardToSell(card);
@@ -393,7 +395,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) =
     // Handle listing a card for sale (fixed price)
     const handleSellCard = async () => {
         if (!cardToSell || !sellPrice || parseFloat(sellPrice) <= 0) {
-            alert('Please enter a valid price');
+            toastError('Please enter a valid price');
             return;
         }
 
@@ -401,20 +403,20 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) =
         try {
             const signer = await getSigner();
             if (!signer) {
-                alert('Please connect your wallet');
+                toastError('Please connect your wallet');
                 setIsSelling(false);
                 return;
             }
 
             await listCard(BigInt(cardToSell.tokenId), sellPrice);
 
-            alert(`Card listed for ${sellPrice} ${currencySymbol()}!`);
+            toastSuccess(`Card listed for ${sellPrice} ${currencySymbol()}!`);
             setSellModalOpen(false);
             setCardToSell(null);
             setSellPrice('');
             await loadCards(true);
         } catch (e: any) {
-            alert(`Failed to list: ${e.message}`);
+            txError(e);
         }
         setIsSelling(false);
     };
@@ -423,7 +425,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) =
     const handleCreateAuction = async () => {
         if (!cardToSell) return;
         if (!auctionStartPrice || parseFloat(auctionStartPrice) <= 0) {
-            alert('Please enter a valid start price');
+            toastError('Please enter a valid start price');
             return;
         }
 
@@ -435,7 +437,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) =
         try {
             const signer = await getSigner();
             if (!signer) {
-                alert('Please connect your wallet');
+                toastError('Please connect your wallet');
                 setIsSelling(false);
                 return;
             }
@@ -447,12 +449,12 @@ const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) =
                 durationDays
             );
 
-            alert(`Auction created! Starting at ${auctionStartPrice} ${currencySymbol()} for ${auctionDuration} hours.`);
+            toastSuccess(`Auction created! Starting at ${auctionStartPrice} ${currencySymbol()} for ${auctionDuration} hours.`);
             setSellModalOpen(false);
             setCardToSell(null);
             await loadCards(true);
         } catch (e: any) {
-            alert(`Failed to create auction: ${e.message}`);
+            txError(e);
         }
         setIsSelling(false);
     };

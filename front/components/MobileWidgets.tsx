@@ -14,7 +14,7 @@ interface MobileWidgetsProps {
 const MobileWidgets: React.FC<MobileWidgetsProps> = ({ onOpenPack }) => {
     const { isConnected } = useWalletContext();
     const { networkId } = useNetwork();
-    const packPrice = '5';
+    const packPrice = '0.01';
     const { getReferralLink, referralStats } = useReferral();
     const [copied, setCopied] = useState(false);
 
