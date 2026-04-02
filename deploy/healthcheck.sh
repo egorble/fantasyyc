@@ -43,13 +43,9 @@ check_service() {
     fi
 }
 
-# Check Etherlink services
+# Check MegaETH services
 check_service "API" "http://127.0.0.1:3003/health" "fantasyyc-api"
 check_service "Metadata" "http://127.0.0.1:3001/metadata/1" "fantasyyc-metadata"
-
-# Check MegaETH services
-check_service "MegaETH-API" "http://127.0.0.1:3004/health" "fantasyyc-megaeth-api"
-check_service "MegaETH-Metadata" "http://127.0.0.1:3002/" "fantasyyc-megaeth-metadata"
 
 # Check nginx
 if ! systemctl is-active --quiet nginx; then

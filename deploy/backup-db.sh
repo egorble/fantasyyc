@@ -43,11 +43,8 @@ backup_db() {
     log "OK: ${PREFIX} backup created ${BACKUP_FILE}.gz (original: ${ORIG_SIZE}B, compressed: ${COMPRESSED_SIZE}B)"
 }
 
-# Backup Etherlink DB
+# Backup DB
 backup_db "/opt/fantasyyc/server/db/fantasyyc.db" "fantasyyc"
-
-# Backup MegaETH DB (if it exists)
-backup_db "/opt/fantasyyc/server/db/fantasyyc-megaeth.db" "fantasyyc-megaeth"
 
 # Delete old backups (older than KEEP_DAYS)
 DELETED=$(find "$BACKUP_DIR" -name "fantasyyc*.db.gz" -mtime +${KEEP_DAYS} -delete -print | wc -l)

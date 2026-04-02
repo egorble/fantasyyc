@@ -1,5 +1,4 @@
-// Chain toggle bar for switching between networks
-// To revert to Etherlink only: delete this file, remove <ChainToggle /> from App.tsx
+// Chain toggle bar (single network — MegaETH)
 
 import React from 'react';
 import { useNetwork } from '../context/NetworkContext';

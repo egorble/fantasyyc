@@ -1,5 +1,4 @@
-// Multi-chain network context
-// To revert to Etherlink only: delete this file, remove NetworkProvider from App.tsx
+// Network context — MegaETH
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import {
