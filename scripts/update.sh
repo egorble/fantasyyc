@@ -103,11 +103,22 @@ npm run build
 log "Frontend built"
 
 # ─── Contract addresses ───
-# No .env sync needed — metadata server reads directly from deployment-*.json
-log "Contract addresses from deployment files (no .env sync needed):"
+# Metadata server reads from deployment-megaeth.json directly
+log "Contract addresses:"
 if [ -f "${APP_DIR}/deployment-megaeth.json" ]; then
-    ADDR=$(node -e "console.log(JSON.parse(require('fs').readFileSync('${APP_DIR}/deployment-megaeth.json','utf8')).proxies.UnicornX_NFT || 'N/A')" 2>/dev/null || echo "N/A")
-    log "  deployment-megaeth.json: ${ADDR}"
+    MEGA_ADDR=$(node -e "console.log(JSON.parse(require('fs').readFileSync('${APP_DIR}/deployment-megaeth.json','utf8')).proxies.UnicornX_NFT || 'N/A')" 2>/dev/null || echo "N/A")
+    log "  MegaETH NFT: ${MEGA_ADDR}"
+fi
+
+# Clean up old Etherlink contract address in .env (if present)
+if [ -f "${APP_DIR}/.env" ] && grep -q "0x172aC7aa7a6774559b1588E2F4426F7303a97cf1" "${APP_DIR}/.env" 2>/dev/null; then
+    log "Removing old Etherlink contract address from .env..."
+    sed -i '/NFT_CONTRACT_ADDRESS=0x172aC7aa/d' "${APP_DIR}/.env"
+fi
+# Remove old Etherlink RPC from .env
+if [ -f "${APP_DIR}/.env" ] && grep -q "node.shadownet.etherlink" "${APP_DIR}/.env" 2>/dev/null; then
+    log "Removing old Etherlink RPC from .env..."
+    sed -i '/node.shadownet.etherlink/d' "${APP_DIR}/.env"
 fi
 
 # ─── Fix ownership ───
@@ -117,11 +128,24 @@ chown -R fantasyyc:fantasyyc "${APP_DIR}"
 log "Stopping services..."
 systemctl stop fantasyyc-api 2>/dev/null || true
 systemctl stop fantasyyc-metadata 2>/dev/null || true
+
+# Stop and disable old multi-chain services (no longer needed)
+if systemctl is-enabled fantasyyc-megaeth-api 2>/dev/null; then
+    log "Removing old MegaETH-specific services (merged into main services)..."
+    systemctl stop fantasyyc-megaeth-api 2>/dev/null || true
+    systemctl stop fantasyyc-megaeth-metadata 2>/dev/null || true
+    systemctl disable fantasyyc-megaeth-api 2>/dev/null || true
+    systemctl disable fantasyyc-megaeth-metadata 2>/dev/null || true
+    rm -f /etc/systemd/system/fantasyyc-megaeth-api.service
+    rm -f /etc/systemd/system/fantasyyc-megaeth-metadata.service
+fi
 sleep 2
 
 # Kill any leftover node processes on our ports
 fuser -k 3003/tcp 2>/dev/null || true
 fuser -k 3001/tcp 2>/dev/null || true
+fuser -k 3004/tcp 2>/dev/null || true
+fuser -k 3002/tcp 2>/dev/null || true
 sleep 1
 
 # Install service files

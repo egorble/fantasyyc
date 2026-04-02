@@ -177,8 +177,7 @@ Required variables:
   ADMIN_API_KEY=<your_admin_api_key>
   SCORE_HMAC_SECRET=<your_hmac_secret>
   SERVER_URL=https://${DOMAIN}/metadata
-  NFT_CONTRACT_ADDRESS=0x45E817D93915D484bac01d27E26d19F30715B6Bc
-  RPC_URL=https://mainnet.megaeth.com/rpc"
+  SERVER_URL=https://${DOMAIN}/metadata"
 fi
 
 chmod 600 "$ENV_FILE"
