@@ -1,9 +1,7 @@
 // UnicornX Metadata API Server
 // Serves dynamic NFT metadata for OpenSea and other marketplaces
 //
-// Usage:
-//   node server.js                    → Etherlink (port 3001)
-//   node server.js --network megaeth  → MegaETH   (port 3002)
+// Usage: node server.js (port 3001)
 
 const express = require("express");
 const cors = require("cors");
@@ -11,28 +9,15 @@ const path = require("path");
 const fs = require("fs");
 const { ethers } = require("ethers");
 
-// ============ Network Configuration (hardcoded, no .env needed) ============
+// ============ Network Configuration — MegaETH ============
 
-const NETWORKS = {
-    etherlink: {
-        name: "Etherlink Shadownet",
-        rpc: "https://node.shadownet.etherlink.com",
-        port: 3001,
-        deploymentFile: "deployment-shadownet.json",
-        imageBase: "https://app.unicornx.fun/metadata/images",
-    },
-    megaeth: {
-        name: "MegaETH Mainnet",
-        rpc: "https://mainnet.megaeth.com/rpc",
-        port: 3002,
-        deploymentFile: "deployment-megaeth.json",
-        imageBase: "https://app.unicornx.fun/metadata-mega/images",
-    },
+const network = {
+    name: "MegaETH",
+    rpc: "https://mainnet.megaeth.com/rpc",
+    port: 3001,
+    deploymentFile: "deployment-megaeth.json",
+    imageBase: "https://app.unicornx.fun/metadata/images",
 };
-
-// Parse --network flag
-const networkArg = process.argv.find((_, i) => i > 0 && process.argv[i - 1] === "--network") || "etherlink";
-const network = NETWORKS[networkArg] || NETWORKS.etherlink;
 
 // Read contract address from deployment JSON (single source of truth)
 const deploymentPath = path.join(__dirname, "..", network.deploymentFile);

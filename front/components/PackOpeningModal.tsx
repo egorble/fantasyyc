@@ -5,7 +5,6 @@ import { usePacks } from '../hooks/usePacks';
 import { useWalletContext } from '../context/WalletContext';
 import { formatXTZ } from '../lib/contracts';
 import { currencySymbol, getActiveNetwork } from '../lib/networks';
-import { useNetwork } from '../context/NetworkContext';
 import ModelViewer3D from './ModelViewer3D';
 import gsap from 'gsap';
 
@@ -43,8 +42,6 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
     const [existingPacks, setExistingPacks] = useState<number[]>([]);
 
     const isMultiPack = ownedPackIds.length > 1;
-    const { networkId } = useNetwork();
-    const isMegaETH = networkId === 'megaeth';
 
     // Hooks
     const { isConnected, getSigner, connect, isCorrectChain, switchChain, refreshBalance } = useWalletContext();
@@ -167,48 +164,22 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
         }
     }, [pendingCards, stage]);
 
-    // Exploding stage animation — handles both MegaETH and Etherlink
+    // Exploding stage animation
     useLayoutEffect(() => {
         if (stage !== 'exploding' || !ctx.current) return;
 
-        if (isMegaETH) {
-            ctx.current.add(() => {
-                const tl = gsap.timeline({
-                    onComplete: () => setStage(isMultiPack ? 'finished' : 'dealing'),
-                });
-                if (flashRef.current) {
-                    tl.to(flashRef.current, { opacity: 0.8, duration: 0.15, ease: 'power4.in' })
-                        .to(flashRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out' });
-                } else {
-                    setStage(isMultiPack ? 'finished' : 'dealing');
-                }
+        ctx.current.add(() => {
+            const tl = gsap.timeline({
+                onComplete: () => setStage(isMultiPack ? 'finished' : 'dealing'),
             });
-        } else {
-            ctx.current.add(() => {
-                const tl = gsap.timeline({
-                    onComplete: () => {
-                        if (pendingCards) {
-                            setMintedCards(pendingCards);
-                            setPendingCards(null);
-                        }
-                        setStage('dealing');
-                    }
-                });
-                if (packRef.current && flashRef.current) {
-                    tl.to(packRef.current, { scale: 1.1, duration: 0.1, ease: "back.in(2)" })
-                        .to(flashRef.current, { opacity: 1, duration: 0.05, ease: "power4.in" })
-                        .set(packRef.current, { opacity: 0 })
-                        .to(flashRef.current, { opacity: 0, duration: 0.3, ease: "power2.out" });
-                } else {
-                    if (pendingCards) {
-                        setMintedCards(pendingCards);
-                        setPendingCards(null);
-                    }
-                    setStage('dealing');
-                }
-            });
-        }
-    }, [stage, isMegaETH]);
+            if (flashRef.current) {
+                tl.to(flashRef.current, { opacity: 0.8, duration: 0.15, ease: 'power4.in' })
+                    .to(flashRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out' });
+            } else {
+                setStage(isMultiPack ? 'finished' : 'dealing');
+            }
+        });
+    }, [stage]);
 
     // Handle Pack Taps (Tearing) — single pack only
     const handleTapPack = () => {
@@ -532,8 +503,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 </div>
             )}
 
-            {/* --- STAGE: MEGA BURST (MegaETH only) --- */}
-            {stage === 'exploding' && isMegaETH && (
+            {/* --- STAGE: BURST --- */}
+            {stage === 'exploding' && (
                 <div key="stage-exploding-mega" className="flex flex-col items-center justify-center w-full h-full relative">
                     <div className="relative w-40 h-40">
                         <div className="absolute inset-0 rounded-full border-2 border-yc-orange/60 animate-ping" />
@@ -549,8 +520,8 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                 </div>
             )}
 
-            {/* --- STAGE: TEARING & EXPLODING (Etherlink single pack only) --- */}
-            {(stage === 'tearing' || (stage === 'exploding' && !isMegaETH)) && (
+            {/* --- STAGE: TEARING (single pack only) --- */}
+            {stage === 'tearing' && (
                 <div key="stage-tearing" className="flex flex-col items-center justify-center w-full h-full relative cursor-pointer" onClick={handleTapPack}>
                     <h2 className="absolute top-[15%] sm:top-1/4 text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tighter drop-shadow-glow pointer-events-none select-none animate-pulse">
                         {cuts.length === 0 ? "TAP TO BREACH" :
@@ -629,7 +600,7 @@ const PackOpeningModal: React.FC<PackOpeningModalProps> = ({ isOpen, onClose, on
                     {/* Header */}
                     <div className="flex-shrink-0 pt-4 sm:pt-8 pb-2 sm:pb-4 text-center">
                         <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white uppercase tracking-tighter animate-[fadeInUp_0.5s_ease-out]">
-                            {isMultiPack ? `${packCount} Packs Opened!` : isMegaETH ? 'Pack Opened!' : 'Acquisition Complete'}
+                            {isMultiPack ? `${packCount} Packs Opened!` : 'Pack Opened!'}
                         </h2>
                         <p className="text-gray-400 text-xs sm:text-sm mt-1">{mintedCards.length} cards acquired</p>
                         {/* Scroll hint for multi-pack */}

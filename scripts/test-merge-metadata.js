@@ -9,13 +9,9 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const NETWORKS = {
-    shadownet: {
-        rpc: "https://node.shadownet.etherlink.com",
-        metadataUrl: "https://app.unicornx.fun/metadata",
-    },
     megaeth: {
-        rpc: "https://carrot.megaeth.com/rpc",
-        metadataUrl: "https://app.unicornx.fun/metadata-mega",
+        rpc: "https://mainnet.megaeth.com/rpc",
+        metadataUrl: "https://app.unicornx.fun/metadata",
     },
 };
 

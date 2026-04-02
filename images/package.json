@@ -1,19 +1,18 @@
 {
   "name": "unicornx-contracts",
   "version": "1.0.0",
-  "description": "UnicornX NFT Smart Contracts for Etherlink blockchain",
+  "description": "UnicornX NFT Smart Contracts for MegaETH blockchain",
   "main": "scripts/deploy.js",
   "scripts": {
     "install:solc": "npm install -g solc",
     "compile": "node scripts/compile.js",
-    "deploy:testnet": "node scripts/deploy.js shadownet",
-    "deploy:mainnet": "node scripts/deploy.js mainnet",
+    "deploy": "node scripts/deploy.js megaeth",
     "clean": "rimraf build"
   },
   "keywords": [
     "nft",
     "solidity",
-    "etherlink",
+    "megaeth",
     "unicornx",
     "yc"
   ],

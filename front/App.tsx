@@ -25,7 +25,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { WalletProvider, useWalletContext } from './context/WalletContext';
 import { NetworkProvider, useNetwork } from './context/NetworkContext';
 import { ToastProvider, useToast } from './context/ToastContext';
-import { formatXTZ, CHAIN_NAME } from './lib/contracts';
+import { formatXTZ } from './lib/contracts';
 import { currencySymbol } from './lib/networks';
 import { isAdmin } from './hooks/useAdmin';
 import { useUser } from './hooks/useUser';
@@ -52,8 +52,7 @@ const AppContent: React.FC = () => {
     const [dashboardListings, setDashboardListings] = useState<Array<{ listing: Listing; card: CardData }>>([]);
     const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
 
-    // Network hook (multi-chain)
-    const { activeNetwork, networkId, allNetworks, switchNetwork } = useNetwork();
+    const { activeNetwork, networkId } = useNetwork();
 
     // Wallet hook
     const {
@@ -69,12 +68,6 @@ const AppContent: React.FC = () => {
         formatAddress,
         isConnecting
     } = useWalletContext();
-
-    const handleNetworkSwitch = (id: string) => {
-        if (id === networkId) return;
-        switchNetwork(id);
-        if (isConnected) { switchChain().catch(() => { }); refreshBalance(); }
-    };
 
     // User profile hook
     const { profile, needsRegistration, isNewUser, registerUser, updateProfile } = useUser();
@@ -522,25 +515,6 @@ const AppContent: React.FC = () => {
                                                 </button>
                                             ) : null}
 
-                                            {/* Network toggle */}
-                                            <div className="flex items-center justify-between p-2">
-                                                <span className="text-xs font-bold text-gray-400 uppercase">Network</span>
-                                                <div className="flex bg-gray-200 dark:bg-[#121212] rounded-full p-0.5 gap-0.5">
-                                                    {allNetworks.map((net) => (
-                                                        <button
-                                                            key={net.id}
-                                                            onClick={() => { setIsMobileMenuOpen(false); handleNetworkSwitch(net.id); }}
-                                                            className={`flex items-center gap-1 px-2 py-1.5 rounded-full text-xs font-bold transition-all ${networkId === net.id
-                                                                ? 'bg-yc-orange text-white shadow'
-                                                                : 'text-gray-400'
-                                                                }`}
-                                                        >
-                                                            <span>{net.shortName}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
                                             {/* Theme toggle */}
                                             <div className="flex items-center justify-between p-2">
                                                 <span className="text-xs font-bold text-gray-400 uppercase">Theme</span>
@@ -633,9 +607,6 @@ const AppContent: React.FC = () => {
         </div>
     );
 };
-
-// No key={networkId} — data is shared across networks, components stay alive
-// Network-specific UI (pack visual, price, currency) re-renders via useNetwork context
 
 // Main App with providers + splash screen
 const App: React.FC = () => {

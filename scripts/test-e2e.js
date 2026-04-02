@@ -14,7 +14,7 @@
 import { ethers } from 'ethers';
 import 'dotenv/config';
 
-const RPC_URL = 'https://node.shadownet.etherlink.com';
+const RPC_URL = 'https://mainnet.megaeth.com/rpc';
 const API_URL = 'http://localhost:3003/api';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 

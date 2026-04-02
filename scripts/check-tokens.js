@@ -1,7 +1,7 @@
 // scripts/check-tokens.js
 // Diagnostic: check what the contract really says about each token
 // Usage: node scripts/check-tokens.js [network] [tokenIds...]
-// Example: node scripts/check-tokens.js shadownet 29 37 45
+// Example: node scripts/check-tokens.js megaeth 29 37 45
 // Or without token IDs to check ALL tokens
 
 const { ethers } = require("ethers");
@@ -10,8 +10,6 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const NETWORKS = {
-    shadownet: { rpc: "https://node.shadownet.etherlink.com" },
-    mainnet: { rpc: "https://node.mainnet.etherlink.com" },
     megaeth: { rpc: "https://mainnet.megaeth.com/rpc" },
 };
 
@@ -32,7 +30,7 @@ const NFT_ABI = [
 ];
 
 async function main() {
-    const networkArg = process.argv[2] || "shadownet";
+    const networkArg = process.argv[2] || "megaeth";
     const network = NETWORKS[networkArg];
     if (!network) { console.error(`Unknown network: ${networkArg}`); process.exit(1); }
 

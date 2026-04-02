@@ -1,23 +1,20 @@
-// Dynamic API base URL helper for multi-chain support
-// To revert to Etherlink only: delete this file, replace apiUrl('/path') with '/api/path'
+// API base URL helper
 
 import { getActiveNetwork } from './networks';
 
 /**
- * Returns the full API URL for a given path based on the active network.
+ * Returns the full API URL for a given path.
  * Usage: fetch(apiUrl('/tournaments/active'))
- * Etherlink: /api/tournaments/active
- * MegaETH:   /api-mega/tournaments/active
+ * → /api/tournaments/active
  */
 export function apiUrl(path: string): string {
     return `${getActiveNetwork().apiBase}${path}`;
 }
 
 /**
- * Returns the full metadata URL for a token based on the active network.
+ * Returns the full metadata URL for a token.
  * Usage: fetch(metadataUrl(`/${tokenId}`))
- * Etherlink: /metadata/1
- * MegaETH:   /metadata-mega/1
+ * → /metadata/1
  */
 export function metadataUrl(path: string): string {
     return `${getActiveNetwork().metadataBase}${path}`;

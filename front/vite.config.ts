@@ -10,21 +10,9 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
         hmr: false,
         proxy: {
-          // MegaETH backend (port 3004) — must be before /api to match first
-          '/api-mega': {
-            target: 'http://localhost:3004',
-            changeOrigin: true,
-            rewrite: (path: string) => path.replace(/^\/api-mega/, '/api'),
-          },
           '/api': {
             target: 'http://localhost:3003',
             changeOrigin: true,
-          },
-          // MegaETH metadata server (port 3002) — must be before /metadata
-          '/metadata-mega': {
-            target: 'http://localhost:3002',
-            changeOrigin: true,
-            rewrite: (path: string) => path.replace(/^\/metadata-mega/, '/metadata'),
           },
           '/metadata': {
             target: 'http://localhost:3001',

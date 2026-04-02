@@ -21,19 +21,19 @@ export function getActiveContracts() {
     return getActiveNetwork().contracts;
 }
 
-// ============ Static defaults (Etherlink) — kept for backward compat ============
-export const CHAIN_ID = 127823;
-export const CHAIN_NAME = 'Etherlink Shadownet Testnet';
-export const RPC_URL = 'https://node.shadownet.etherlink.com';
-export const EXPLORER_URL = 'https://shadownet.explorer.etherlink.com';
+// ============ Static defaults (MegaETH) — kept for backward compat ============
+export const CHAIN_ID = 4326;
+export const CHAIN_NAME = 'MegaETH';
+export const RPC_URL = 'https://mainnet.megaeth.com/rpc';
+export const EXPLORER_URL = 'https://megaeth.blockscout.com';
 export const METADATA_API = '';
 
 export const CONTRACTS = {
-    UnicornX_NFT: '0x172aC7aa7a6774559b1588E2F4426F7303a97cf1',
+    UnicornX_NFT: '0x45E817D93915D484bac01d27E26d19F30715B6Bc',
     PackNFT: '',  // TODO: deploy PackNFT and set address here
-    PackOpener: '0x78b602DE1721FF85C0c07F2Db5CF253c73590BaF',
-    TournamentManager: '0xc367886000da37447AC592fc3571ceb63184BF1b',
-    MarketplaceV2: '0x5BCf9A613C117dacD5C74199b288CCDdc7f5aa82',
+    PackOpener: '0x8146c0f42824566373f146A200DE85c40d561b9e',
+    TournamentManager: '0xbccAFD09B909bb2Ca87F10067cBCF10212C562B3',
+    MarketplaceV2: '0x04Cd3Ce1639b9b2Ca63dbd9bE6ec3a4B5f4Dd161',
 } as const;
 
 // ============ ABIs (minimal for frontend) ============

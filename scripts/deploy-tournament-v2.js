@@ -9,8 +9,8 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-const RPC = "https://node.shadownet.etherlink.com";
-const EXPLORER = "https://shadownet.explorer.etherlink.com";
+const RPC = "https://mainnet.megaeth.com/rpc";
+const EXPLORER = "https://megaeth.blockscout.com";
 
 // Existing contracts (keep these)
 const NFT_ADDRESS = "0xD3C4633257733dA9597b193cDaAA06bCBCbA0BF0";

@@ -1187,12 +1187,8 @@ async function startServer() {
         // Periodic sync every 60 seconds
         setInterval(syncTournamentFromBlockchain, 60000);
 
-        // Schedule daily scorer at 00:00 UTC (primary server only — scorer handles all networks)
-        if (NETWORK_NAME === 'etherlink') {
-            scheduleDailyScorer();
-        } else {
-            console.log(`⏭️  Scorer scheduler skipped (runs on primary server only)`);
-        }
+        // Schedule daily scorer at 00:00 UTC
+        scheduleDailyScorer();
 
         // AI summarizer runs automatically after daily scorer (no separate schedule)
 

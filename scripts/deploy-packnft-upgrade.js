@@ -2,7 +2,7 @@
 // Deploy PackNFT (new contract) + Upgrade PackOpener & MarketplaceV2 + Configure cross-references
 //
 // Usage: node scripts/deploy-packnft-upgrade.js <network>
-// Example: node scripts/deploy-packnft-upgrade.js shadownet
+// Example: node scripts/deploy-packnft-upgrade.js megaeth
 
 const { ethers } = require("ethers");
 const fs = require("fs");
@@ -10,20 +10,8 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const NETWORKS = {
-    shadownet: {
-        name: "Etherlink Shadownet Testnet",
-        chainId: 127823,
-        rpc: "https://node.shadownet.etherlink.com",
-        explorer: "https://shadownet.explorer.etherlink.com"
-    },
-    mainnet: {
-        name: "Etherlink Mainnet",
-        chainId: 42793,
-        rpc: "https://node.mainnet.etherlink.com",
-        explorer: "https://explorer.etherlink.com"
-    },
     megaeth: {
-        name: "MegaETH Mainnet",
+        name: "MegaETH",
         chainId: 4326,
         rpc: "https://mainnet.megaeth.com/rpc",
         explorer: "https://megaeth.blockscout.com"
@@ -31,7 +19,7 @@ const NETWORKS = {
 };
 
 async function main() {
-    const networkArg = process.argv[2] || "shadownet";
+    const networkArg = process.argv[2] || "megaeth";
     const network = NETWORKS[networkArg];
 
     if (!network) {

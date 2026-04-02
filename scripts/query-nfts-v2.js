@@ -1,6 +1,6 @@
 const { ethers } = require("ethers");
 
-const RPC_URL = "https://node.shadownet.etherlink.com";
+const RPC_URL = "https://mainnet.megaeth.com/rpc";
 const CONTRACT_ADDRESS = "0x612ca7a970547087d2a4871eb313BEfd674073D8";
 
 const RARITY_NAMES = {

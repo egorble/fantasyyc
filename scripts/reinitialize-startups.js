@@ -2,7 +2,7 @@
 // Verify and fix the UnicornX_NFT startups mapping after UUPS upgrades
 //
 // Usage: node scripts/reinitialize-startups.js [network]
-// Example: node scripts/reinitialize-startups.js shadownet
+// Example: node scripts/reinitialize-startups.js megaeth
 
 const { ethers } = require("ethers");
 const fs = require("fs");
@@ -10,12 +10,6 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const NETWORKS = {
-    shadownet: {
-        rpc: "https://node.shadownet.etherlink.com",
-    },
-    mainnet: {
-        rpc: "https://node.mainnet.etherlink.com",
-    },
     megaeth: {
         rpc: "https://mainnet.megaeth.com/rpc",
     }
@@ -53,7 +47,7 @@ const NFT_ABI = [
 ];
 
 async function main() {
-    const networkArg = process.argv[2] || "shadownet";
+    const networkArg = process.argv[2] || "megaeth";
     const network = NETWORKS[networkArg];
     if (!network) {
         console.error(`Unknown network: ${networkArg}`);

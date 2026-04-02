@@ -2,7 +2,7 @@
 // Upgrade a single UUPS proxy contract's implementation
 //
 // Usage: node scripts/upgrade.js <network> <ContractName>
-// Example: node scripts/upgrade.js shadownet MarketplaceV2
+// Example: node scripts/upgrade.js megaeth MarketplaceV2
 
 const { ethers } = require("ethers");
 const fs = require("fs");
@@ -11,20 +11,8 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 // Network configurations
 const NETWORKS = {
-    shadownet: {
-        name: "Etherlink Shadownet Testnet",
-        chainId: 127823,
-        rpc: "https://node.shadownet.etherlink.com",
-        explorer: "https://shadownet.explorer.etherlink.com"
-    },
-    mainnet: {
-        name: "Etherlink Mainnet",
-        chainId: 42793,
-        rpc: "https://node.mainnet.etherlink.com",
-        explorer: "https://explorer.etherlink.com"
-    },
     megaeth: {
-        name: "MegaETH Mainnet",
+        name: "MegaETH",
         chainId: 4326,
         rpc: "https://mainnet.megaeth.com/rpc",
         explorer: "https://megaeth.blockscout.com"

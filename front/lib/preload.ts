@@ -15,7 +15,7 @@ import { seedSharedCache } from '../hooks/useSharedData';
 // These start downloading immediately on import but DON'T block splash.
 // GLB: drei's GLTFLoader parses + caches (useGLTF() is instant later)
 // HDR: browser-cached so useEnvironment() gets a cache hit later
-const GLB_PATH = '/3detherlink.glb';
+const GLB_PATH = '/megaeth-pack.glb';
 const ENV_HDR = '/env-city.hdr';
 useGLTF.preload(GLB_PATH, false, true);
 fetch(ENV_HDR).catch(() => {}); // warm browser cache, don't await

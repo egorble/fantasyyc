@@ -3,9 +3,9 @@ const { ethers } = require("ethers");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-const NFT_ADDRESS = "0x172aC7aa7a6774559b1588E2F4426F7303a97cf1";
-const PACK_ADDRESS = "0x78b602DE1721FF85C0c07F2Db5CF253c73590BaF";
-const RPC = "https://node.shadownet.etherlink.com";
+const NFT_ADDRESS = "0x45E817D93915D484bac01d27E26d19F30715B6Bc";
+const PACK_ADDRESS = "0x8146c0f42824566373f146A200DE85c40d561b9e";
+const RPC = "https://mainnet.megaeth.com/rpc";
 
 const NFT_ABI = [
     "function getOwnedTokens(address owner) view returns (uint256[])",

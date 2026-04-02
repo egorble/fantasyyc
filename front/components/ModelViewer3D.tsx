@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
-const GLB_PATH = '/3detherlink.glb';
+const GLB_PATH = '/megaeth-pack.glb';
 
 interface PackModelProps {
     mode: 'gentle' | 'auto' | 'static';

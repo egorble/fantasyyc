@@ -19,7 +19,7 @@ import 'dotenv/config';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const RPC_URL = 'https://node.shadownet.etherlink.com';
+const RPC_URL = 'https://mainnet.megaeth.com/rpc';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 if (!PRIVATE_KEY) {
     console.error('Set PRIVATE_KEY in scripts/.env');

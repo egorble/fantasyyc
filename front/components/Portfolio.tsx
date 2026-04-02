@@ -41,7 +41,7 @@ interface PortfolioProps {
 
 const Portfolio: React.FC<PortfolioProps> = ({ onBuyPack, packRefreshSignal }) => {
     const { networkId } = useNetwork();
-    const packPriceLabel = networkId === 'megaeth' ? '0.01' : '5';
+    const packPriceLabel = '0.01';
     const [activeTab, setActiveTab] = useState<'cards' | 'performance'>('cards');
     const [myCards, setMyCards] = useState<CardData[]>([]);
     const [isMergeMode, setIsMergeMode] = useState(false);

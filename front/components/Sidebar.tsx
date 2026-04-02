@@ -4,7 +4,6 @@ import { Flame, Store, Wallet, Swords, Newspaper, Settings, Sun, Moon, ShieldChe
 import { useTheme } from '../context/ThemeContext';
 import { isAdmin } from '../hooks/useAdmin';
 import { useWalletContext } from '../context/WalletContext';
-import { useNetwork } from '../context/NetworkContext';
 
 interface SidebarProps {
   activeSection: NavSection;
@@ -17,15 +16,8 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user, isOpen = false, onClose, onSettingsClick }) => {
   const { theme, toggleTheme } = useTheme();
-  const { disconnect, isConnected, switchChain, refreshBalance } = useWalletContext();
-  const { networkId, allNetworks, switchNetwork } = useNetwork();
+  const { disconnect, isConnected } = useWalletContext();
   const userIsAdmin = isAdmin(user.address || null);
-
-  const handleNetworkSwitch = (id: string) => {
-    if (id === networkId) return;
-    switchNetwork(id);
-    if (isConnected) { switchChain().catch(() => { }); refreshBalance(); }
-  };
 
   const navItems = [
     { id: NavSection.HOME, icon: Flame, label: 'Dashboard' },
@@ -97,8 +89,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, user
           </div>
           <Settings className="w-5 h-5 text-gray-300 group-hover:text-yc-orange transition-colors shrink-0" />
         </div>
-
-        {/* Network Toggle - hidden: single network mode (Etherlink only) */}
 
         {/* Theme Toggle - Minimal */}
         <div className="flex items-center justify-between px-2">
